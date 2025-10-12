@@ -416,3 +416,12 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# 用户自定义 JimTsui & shinexus
+sourceRaw.txt
+*.cs
+*.config
+*.csproj
+*.resx
+*.sln
+[Pp]roperties/
