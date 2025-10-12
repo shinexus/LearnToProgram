@@ -416,3 +416,24 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# 用户自定义 JimTsui & shinexus
+sourceRaw.txt
+*.cs
+*.config
+*.csproj
+*.resx
+*.sln
+[Pp]roperties/
+/HiddifyConfigs/HiddifyConfigsProgram.cs
+/HiddifyConfigs/HiddifyConfigsForm.cs
+/HiddifyConfigs/HiddifyConfigsForm.Designer.cs
+/HiddifyConfigs/HiddifyConfigsForm.resx
+/HiddifyConfigs/GitHelper.cs
+/HiddifyConfigs/DoParse.cs
+/HiddifyConfigs/App.config
+/HiddifyConfigs/Properties/AssemblyInfo.cs
+/HiddifyConfigs/Properties/Resources.Designer.cs
+/HiddifyConfigs/Properties/Resources.resx
+/HiddifyConfigs/Properties/Settings.Designer.cs
+/HiddifyConfigs/Properties/Settings.settings
