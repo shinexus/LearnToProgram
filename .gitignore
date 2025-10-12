@@ -417,7 +417,7 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
-# 用户自定义 JimTsui & shinexus
+# JimTsui & shinexus VS Studio 2022
 sourceRaw.txt
 *.cs
 *.config
@@ -425,6 +425,8 @@ sourceRaw.txt
 *.resx
 *.sln
 [Pp]roperties/
+/HiddifyConfigs/HiddifyConfigs.csproj
+/HiddifyConfigs/HiddifyConfigs.sln
 /HiddifyConfigs/HiddifyConfigsProgram.cs
 /HiddifyConfigs/HiddifyConfigsForm.cs
 /HiddifyConfigs/HiddifyConfigsForm.Designer.cs
