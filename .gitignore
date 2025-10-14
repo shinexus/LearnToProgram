@@ -425,7 +425,7 @@ sourceRaw.txt
 *.resx
 *.sln
 [Pp]roperties/
-/HiddifyConfigs/sourceRaw.txt
+/HiddifyConfigs/sourceRawgit.txt
 /HiddifyConfigs/HiddifyConfigs.csproj
 /HiddifyConfigs/HiddifyConfigs.sln
 /HiddifyConfigs/HiddifyConfigsProgram.cs
