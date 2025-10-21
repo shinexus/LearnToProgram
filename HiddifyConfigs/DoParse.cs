@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 namespace HiddifyConfigs
 {
     /// <summary>
+    /// 感谢 Grok 提供的 DoParse 解析思路与代码框架。
+    /// 感谢 chatGPT 协助完善异步处理与日志记录。
+    /// 
     /// DoParse 负责整个解析流程：
     /// 1. 从文件读取 URL 列表；
     /// 2. 过滤无效或注释行；
@@ -73,6 +76,8 @@ namespace HiddifyConfigs
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
                 httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
+
+                // 设置 User-Agent 头
 
                 log = "User-Agent 已设置: Chrome/128";
                 logInfo.AppendLine(log);

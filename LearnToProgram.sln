@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36603.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HysteriaConfigs", "HysteriaConfigs\HysteriaConfigs.csproj", "{82D0C248-5F8C-4998-A209-C8161D6DF7FD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HiddifyConfigs", "SharpDevelop\HiddifyConfigs.csproj", "{3EB0D8C7-D63E-4480-948F-A08DFE6313B0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HiddifyConfigs", "HiddifyConfigs\HiddifyConfigs.csproj", "{3EB0D8C7-D63E-4480-948F-A08DFE6313B0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

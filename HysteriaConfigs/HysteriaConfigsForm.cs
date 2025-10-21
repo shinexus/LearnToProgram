@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace HysteriaConfigs
 {
-    public partial class Form1 : Form
+    public partial class HysteriaConfigsForm : Form
     {
-        public Form1()
+        public HysteriaConfigsForm()
         {
             InitializeComponent();
         }

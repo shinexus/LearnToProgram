@@ -1,6 +1,6 @@
 ﻿namespace HysteriaConfigs
 {
-    partial class Form1
+    partial class HysteriaConfigsForm
     {
         /// <summary>
         /// 必需的设计器变量。
@@ -28,10 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            this.SuspendLayout();
+            // 
+            // HysteriaConfigsForm
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "Form1";
+            this.Name = "HysteriaConfigsForm";
+            this.Text = "HysteriaConfigs";
+            this.ResumeLayout(false);
+
         }
 
         #endregion
