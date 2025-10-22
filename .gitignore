@@ -419,16 +419,14 @@ FodyWeavers.xsd
 
 # JimTsui & shinexus
 
-/HiddifyConfigs/Properties/*.*
-/HiddifyConfigs/Properties/*.resx
+/HiddifyConfigs/Properties/AssemblyInfo.cs
+/HiddifyConfigs/Properties/Resources.Designer.cs
+/HiddifyConfigs/Properties/Resources.resx
+/HiddifyConfigs/Properties/Settings.Designer.cs
+/HiddifyConfigs/Properties/Settings.settings
 
 /HiddifyConfigs/*.config
 /HiddifyConfigs/*.cs
 /HiddifyConfigs/*.resx
 /HiddifyConfigs/*.csproj
 /HiddifyConfigs/source*.txt
-
-/HiddifyConfigs/Properties/Resources.Designer.cs
-/HiddifyConfigs/Properties/Resources.resx
-/HiddifyConfigs/Properties/Settings.Designer.cs
-/HiddifyConfigs/Properties/Settings.settings
