@@ -435,3 +435,6 @@ FodyWeavers.xsd
 /HiddifyConfigs/HiddifyConfigs.csproj
 /HiddifyConfigs/Program.cs
 /HiddifyConfigs/sourceRaw.txt
+
+/HysteriaConfigs/*.cs
+/HysteriaConfigs/*.csproj
