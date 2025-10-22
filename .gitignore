@@ -438,3 +438,14 @@ FodyWeavers.xsd
 
 /HysteriaConfigs/*.cs
 /HysteriaConfigs/*.csproj
+/HysteriaConfigs/Properties/AssemblyInfo.cs
+/HysteriaConfigs/Properties/Resources.Designer.cs
+/HysteriaConfigs/Properties/Resources.resx
+/HysteriaConfigs/Properties/Settings.Designer.cs
+/HysteriaConfigs/Properties/Settings.settings
+/HysteriaConfigs/App.config
+/HysteriaConfigs/HysteriaConfigs.csproj
+/HysteriaConfigs/HysteriaConfigsForm.cs
+/HysteriaConfigs/HysteriaConfigsForm.Designer.cs
+/HysteriaConfigs/HysteriaConfigsForm.resx
+/HysteriaConfigs/HysteriaConfigsProgram.cs
