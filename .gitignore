@@ -418,14 +418,14 @@ FodyWeavers.xsd
 *.msp
 
 # JimTsui & shinexus
-#*.sln
-#*.cs
-#*.config
-#*.csproj
-#*.csx
-#*.resx
-#*.settings
+*.sln
+*.cs
+*.config
+*.csproj
+*.csx
+*.resx
+*.settings
 #*.txt
 
-#.Properties/
-.SharpDevelop/
+.Properties/
+source*.txt

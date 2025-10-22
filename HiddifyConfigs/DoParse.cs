@@ -75,9 +75,7 @@ namespace HiddifyConfigs
             {
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
                 httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");
-
-                // 设置 User-Agent 头
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36");                
 
                 log = "User-Agent 已设置: Chrome/128";
                 logInfo.AppendLine(log);
