@@ -429,3 +429,19 @@ FodyWeavers.xsd
 
 .Properties/
 source*.txt
+/HiddifyConfigs/App.config
+/HiddifyConfigs/ConnectivityChecker.cs
+/HiddifyConfigs/DoParse.cs
+/HiddifyConfigs/FileSaver.cs
+/HiddifyConfigs/GitHelper.cs
+/HiddifyConfigs/HiddifyConfigsForm.cs
+/HiddifyConfigs/HiddifyConfigsForm.Designer.cs
+/HiddifyConfigs/HiddifyConfigsForm.resx
+/HiddifyConfigs/HiddifyConfigsProgram.cs
+/HiddifyConfigs/LogHelper.cs
+/HiddifyConfigs/ProtocolParser.cs
+/HiddifyConfigs/ResultProcessor.cs
+/HiddifyConfigs/SettingsForm.cs
+/HiddifyConfigs/SettingsForm.Designer.cs
+/HiddifyConfigs/SettingsForm.resx
+/HiddifyConfigs/Test.cs
