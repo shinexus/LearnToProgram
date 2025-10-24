@@ -183,7 +183,14 @@ namespace HiddifyConfigs
                         if (string.IsNullOrEmpty(hostParam) || IPAddress.TryParse(hostParam, out var ipParam) || Regex.IsMatch(hostParam, @"^[a-zA-Z0-9\.\-]+$"))
                         {
                             // 新增：存储所有查询参数到 ExtraParams
-                            var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // 原先代码：var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // 若 query 中存在 null 或空键，则会触发 ArgumentNullException(key)。
+                            // 修复方式：在构建 Dictionary 之前过滤掉 null 或空字符串键。
+                            var extraParams = query.AllKeys
+                                .Where(k => !string.IsNullOrWhiteSpace(k)) // ✅ 过滤无效键
+                                .ToDictionary(k => k, k => query[k]);
+
                             return (host, uri.Port, hostParam, "none", security, "Trojan", extraParams);
                         }
                     }
@@ -214,7 +221,12 @@ namespace HiddifyConfigs
                             var query = HttpUtility.ParseQueryString(queryString);
                             hostParam = query["sni"]?.Trim('[', ']').ToLowerInvariant() ?? host;
                             security = query["security"]?.ToLowerInvariant() ?? "tls";
-                            extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+
+                            // 对 query.AllKeys.ToDictionary() 添加过滤
+                            // extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            extraParams = query.AllKeys
+                                .Where(k => !string.IsNullOrWhiteSpace(k))
+                                .ToDictionary(k => k, k => query[k]);
                         }
 
                         // 新增：验证 hostParam 合法性
@@ -269,7 +281,13 @@ namespace HiddifyConfigs
                         if (string.IsNullOrEmpty(hostParam) || IPAddress.TryParse(hostParam, out var ipParam) || Regex.IsMatch(hostParam, @"^[a-zA-Z0-9\.\-]+$"))
                         {
                             // 新增：存储所有查询参数到 ExtraParams
-                            var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // 原先 ToDictionary() 若 query.AllKeys 中有 null，会引发 ArgumentNullException。
+                            // 这里添加过滤逻辑，确保 key 不为空。
+                            var extraParams = query.AllKeys
+                                .Where(k => !string.IsNullOrWhiteSpace(k))
+                                .ToDictionary(k => k, k => query[k]);
+
                             return (host, uri.Port, hostParam, encryption, security, "VLESS", extraParams);
                         }
                     }
@@ -294,6 +312,7 @@ namespace HiddifyConfigs
                         string hostParam = host;
                         string encryption = "none";
                         string security = "tls";
+
                         var extraParams = new Dictionary<string, string>();
                         if (line.Contains("?"))
                         {
@@ -302,7 +321,12 @@ namespace HiddifyConfigs
                             hostParam = query["host"]?.Trim('[', ']').ToLowerInvariant() ?? host;
                             encryption = query["encryption"]?.ToLowerInvariant() ?? "none";
                             security = query["security"]?.ToLowerInvariant() ?? "tls";
-                            extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+
+                            // 同理：过滤空键，防止 .ToDictionary() 抛 ArgumentNullException。
+                            // extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            extraParams = query.AllKeys
+                                .Where(k => !string.IsNullOrWhiteSpace(k))
+                                .ToDictionary(k => k, k => query[k]);
                         }
 
                         // 新增：验证 hostParam 合法性
@@ -354,7 +378,10 @@ namespace HiddifyConfigs
                         if (string.IsNullOrEmpty(hostParam) || IPAddress.TryParse(hostParam, out var ipParam) || Regex.IsMatch(hostParam, @"^[a-zA-Z0-9\.\-]+$"))
                         {
                             // 新增：存储所有查询参数到 ExtraParams（包括 obfs, alpn 等）
-                            var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            // 同样的问题：HttpUtility.ParseQueryString 可能生成 null 键。
+                            // 增加过滤，避免 ArgumentNullException。
+                            // var extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            var extraParams = query.AllKeys.Where(k => !string.IsNullOrWhiteSpace(k)).ToDictionary(k => k, k => query[k]);
                             return (host, uri.Port, hostParam, "none", security, "Hysteria2", extraParams);
                         }
                     }
@@ -385,7 +412,12 @@ namespace HiddifyConfigs
                             var query = HttpUtility.ParseQueryString(queryString);
                             hostParam = query["sni"]?.Trim('[', ']').ToLowerInvariant() ?? host;
                             security = query["insecure"] == "1" ? "none" : "tls";
-                            extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+
+                            // 同样添加过滤条件，避免空键。
+                            // extraParams = query.AllKeys.ToDictionary(k => k, k => query[k]);
+                            extraParams = query.AllKeys
+                                .Where(k => !string.IsNullOrWhiteSpace(k))
+                                .ToDictionary(k => k, k => query[k]);
                         }
 
                         // 新增：验证 hostParam 合法性

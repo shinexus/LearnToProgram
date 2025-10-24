@@ -106,8 +106,8 @@ namespace HiddifyConfigs
                     string content;
                     try
                     {
-                        // 原有注释：下载 URL 内容
-                        // 新增：修复 GetStringAsync 不支持 CancellationToken 的问题，使用 GetAsync
+                        // 下载 URL 内容
+                        // 修复 GetStringAsync 不支持 CancellationToken 的问题，使用 GetAsync
                         using (var response = await httpClient.GetAsync(uri, cancellationToken))
                         {
                             // 新增：确保响应成功

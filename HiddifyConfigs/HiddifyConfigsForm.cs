@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace HiddifyConfigs
@@ -166,7 +167,7 @@ namespace HiddifyConfigs
                 progress.Report(20);
                 status.Report("解析完成，正在测试连接...");
 
-                // 新增：调用 ConnectivityChecker 测试连接
+                // 调用 ConnectivityChecker 测试连接
                 var connectivityResults = await ConnectivityChecker.CheckHostsBatchAsync(
                     parsedResults.Select(r => (r.Host, r.Port, r.HostParam, r.Encryption, r.Security, r.Protocol, r.ExtraParams)),
                     timeoutMs: appSettings.TcpCheck.TimeoutMs,
@@ -241,6 +242,8 @@ namespace HiddifyConfigs
                 toolStripStatusLabel1.Text = "AE处理失败";
                 logProgress.Report($"处理失败: {ae.Message}");
                 MessageBox.Show($"处理失败: {ae.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logInfo.AppendLine($"信息: {ae.ParamName}");
+                logInfo.AppendLine($"堆栈信息: {ae.StackTrace}");
             }
             catch (Exception ex)
             {
