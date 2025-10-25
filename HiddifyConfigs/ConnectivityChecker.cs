@@ -35,13 +35,45 @@ namespace HiddifyConfigs
             CancellationToken cancellationToken = default,
             IProgress<string> progress = null )
         {
+            // ✅ 防御性编程：确保 hosts 不为 null
+            if (hosts == null)
+                throw new ArgumentNullException(nameof(hosts), "传入的主机列表 hosts 为空。");
+
+            // ✅ 过滤 Host 为空的记录，防止 NullReferenceException
+            hosts = hosts
+                .Where(h => !string.IsNullOrWhiteSpace(h.Host))
+                .Select(h => (
+                    Host: h.Host,
+                    Port: h.Port,
+                    HostParam: h.HostParam,
+                    Encryption: h.Encryption,
+                    Security: h.Security,
+                    Protocol: h.Protocol,
+                    ExtraParams: h.ExtraParams ?? new Dictionary<string, string>() // 保证不为空
+                ))
+                .ToList();
+
+            if (!hosts.Any())
+            {
+                progress?.Report("[检测] ⚠️ 主机列表为空或全部无效，跳过检测。");
+                LogHelper.WriteError("[检测] 警告：传入的主机列表为空或全部无效。");
+                return new List<ConnectivityResult>();
+            }
+
             // 新增：初始化结果列表和并发控制
             var results = new List<ConnectivityResult>();
             var tasks = new List<Task<ConnectivityResult>>();
             var semaphore = new SemaphoreSlim(maxConcurrency);
 
+            //
+            int hostIndex = 0;
+            string reportNum = "";
+
             foreach (var (host, port, hostParam, encryption, security, protocol, extraParams) in hosts)
             {
+                hostIndex++;
+                reportNum = $"[{hostIndex}/{hosts.Count()}]";
+
                 // 新增：等待并发控制信号量
                 await semaphore.WaitAsync(cancellationToken);
                 tasks.Add(Task.Run(async () =>
@@ -69,7 +101,7 @@ namespace HiddifyConfigs
                         // 新增：XTLS 不支持，记录警告并返回不可达
                         if (security == "xtls")
                         {
-                            progress?.Report($"[{protocol}] ⚠️ {connectHost}:{port} 不支持 security=xtls");
+                            progress?.Report(reportNum+$"[{protocol}] ⚠️ {connectHost}:{port} 不支持 security=xtls");
                             result.IsReachable = false;
                             return result;
                         }
@@ -78,18 +110,19 @@ namespace HiddifyConfigs
                         // 新增：Hysteria2 协议使用 UDP 测试
                         if (protocol == "Hysteria2")
                         {
-                            progress?.Report($"[{protocol}] 尝试 UDP {connectHost}:{port} (host={hostParam}, security={security})");
+                            progress?.Report(reportNum + $"[{protocol}] 尝试 UDP {connectHost}:{port} (host={hostParam}, security={security})");
                             var (isReachable, responseTimeMs) = await CheckUdpAsync(connectHost, port, timeoutMs, cancellationToken);
                             result.IsReachable = isReachable;
                             result.ResponseTimeMs = responseTimeMs;
 
                             if (isReachable)
                             {
-                                progress?.Report($"[{protocol}] ✅ {connectHost}:{port} 可达 (UDP, host={hostParam}, security={security}, 耗时 {responseTimeMs} ms)");
+                                progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (UDP, host={hostParam}, security={security}, 耗时 {responseTimeMs} ms)");
                             }
                             else
                             {
-                                progress?.Report($"[{protocol}] ❌ {connectHost}:{port} 不可达 (UDP, host={hostParam}, security={security})");
+                                // 简化日志
+                                // progress?.Report($"[{protocol}] ❌ {connectHost}:{port} 不可达 (UDP, host={hostParam}, security={security})");
                             }
                             return result;
                         }
@@ -98,7 +131,7 @@ namespace HiddifyConfigs
                         // 原有注释：尝试域名连接（TLS SNI）
                         if (security == "tls" && !IPAddress.TryParse(normalizedHost, out var ipAddress))
                         {
-                            progress?.Report($"[{protocol}] 尝试域名 {connectHost}:{port} (host={hostParam}, security={security})");
+                            progress?.Report(reportNum+$"[{protocol}] 尝试域名 {connectHost}:{port} (host={hostParam}, security={security})");
                             using (var tcp = new TcpClient())
                             {
                                 var connectTask = tcp.ConnectAsync(connectHost, port);
@@ -109,7 +142,7 @@ namespace HiddifyConfigs
                                 {
                                     result.IsReachable = true;
                                     result.ResponseTimeMs = (long)(DateTime.UtcNow - result.Timestamp).TotalMilliseconds;
-                                    progress?.Report($"[{protocol}] ✅ {connectHost}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
+                                    progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
                                     return result;
                                 }
                             }
@@ -132,7 +165,9 @@ namespace HiddifyConfigs
                             var ipAddresses = await dnsTask;
                             foreach (var ip in ipAddresses)
                             {
-                                progress?.Report($"[{protocol}] 尝试 IP {ip}:{port} (host={hostParam}, security={security})");
+                                // 简化日志
+                                // progress?.Report($"[{protocol}] 尝试 IP {ip}:{port} (host={hostParam}, security={security})");
+                                
                                 using (var tcp = new TcpClient(ip.AddressFamily))
                                 {
                                     var connectTask = tcp.ConnectAsync(ip, port);
@@ -144,7 +179,7 @@ namespace HiddifyConfigs
                                         result.IsReachable = true;
                                         result.ResponseTimeMs = (long)(DateTime.UtcNow - result.Timestamp).TotalMilliseconds;
                                         result.IPAddress = ip;
-                                        progress?.Report($"[{protocol}] ✅ {ip}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
+                                        progress?.Report(reportNum + $"[{protocol}] ✅ {ip}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
                                         return result;
                                     }
                                 }
@@ -153,13 +188,14 @@ namespace HiddifyConfigs
                         catch (Exception ex)
                         {
                             // 新增：记录错误到 LogHelper
-                            progress?.Report($"[{protocol}] ❌ {connectHost}:{port} 失败 (host={hostParam}, security={security}): {ex.Message}");
+                            progress?.Report(reportNum + $"[{protocol}] ❌ {connectHost}:{port} 失败 (host={hostParam}, security={security}): {ex.Message}");
                             LogHelper.WriteError($"[{protocol}] 检测失败：{connectHost}:{port}，错误：{ex.Message}");
                         }
 
                         // 新增：TCP 测试失败，返回不可达
                         result.IsReachable = false;
-                        progress?.Report($"[{protocol}] ❌ {connectHost}:{port} 不可达 (host={hostParam}, security={security})");
+                        // 简化日志
+                        // progress?.Report($"[{protocol}] ❌ {connectHost}:{port} 不可达 (host={hostParam}, security={security})");
                         return result;
                     }
                     finally

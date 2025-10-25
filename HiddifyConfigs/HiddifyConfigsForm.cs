@@ -82,11 +82,12 @@ namespace HiddifyConfigs
         /// </summary>
         private async void ParsingFileButton_Click( object sender, EventArgs e )
         {
-            // 新增：禁用按钮并初始化界面
+            // 禁用按钮并初始化界面
             ParsingFileButton.Enabled = false;
             ParsingCancelButton.Enabled = true;
             toolStripStatusLabel1.Text = "开始...";
             LogInfoTextBox.Clear();
+            toolStripProgressBar1.Value = 0;
 
             string filePath = FilePathTextBox.Text;
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
@@ -97,44 +98,45 @@ namespace HiddifyConfigs
                 return;
             }
 
-            var logInfo = new StringBuilder(); // 用于日志和调试信息
+            var logInfo = new StringBuilder();
 
-            // 新增：设置日志进度回调
+            // 设置日志进度回调
             IProgress<string> logProgress = new Progress<string>(log =>
             {
                 if (LogInfoTextBox.InvokeRequired)
                     LogInfoTextBox.Invoke(new Action(() => LogInfoTextBox.AppendText(log + Environment.NewLine)));
                 else
                     LogInfoTextBox.AppendText(log + Environment.NewLine);
-            }) ?? throw new InvalidOperationException("日志进度回调初始化失败");
+            });
 
-            // 新增：设置进度条回调
+            // 设置进度条回调
             IProgress<int> progress = new Progress<int>(percent =>
             {
                 if (InvokeRequired)
                     Invoke(new Action(() => toolStripProgressBar1.Value = Math.Min(percent, toolStripProgressBar1.Maximum)));
                 else
                     toolStripProgressBar1.Value = Math.Min(percent, toolStripProgressBar1.Maximum);
-            }) ?? throw new InvalidOperationException("进度条回调初始化失败");
+            });
 
-            // 新增：设置状态标签回调
+            // 设置状态标签回调
             IProgress<string> status = new Progress<string>(message =>
             {
                 if (InvokeRequired)
                     Invoke(new Action(() => toolStripStatusLabel1.Text = message));
                 else
                     toolStripStatusLabel1.Text = message;
-            }) ?? throw new InvalidOperationException("状态标签回调初始化失败");
+            });
 
-            // 新增：验证输出设置
+            // 验证输出配置
             if (appSettings.OutputSplit.LinesPerFile <= 0 || appSettings.OutputSplit.MaxFiles <= 0)
             {
                 MessageBox.Show("输出分割设置无效，请检查配置。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 ParsingFileButton.Enabled = true;
+                ParsingCancelButton.Enabled = false;
                 return;
             }
 
-            // 新增：验证代理可用性
+            // 验证代理可用性
             if (proxy != null)
             {
                 try
@@ -148,40 +150,45 @@ namespace HiddifyConfigs
                 {
                     MessageBox.Show("代理配置不可用，请检查设置。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     ParsingFileButton.Enabled = true;
+                    ParsingCancelButton.Enabled = false;
                     return;
                 }
             }
 
             try
             {
+                // 新增：初始化 CancellationTokenSource
                 cts = new CancellationTokenSource();
 
-                // 新增：调用 DoParse 读取和解析协议链接
+                // ✅ 异步调用 DoParse.ProcessUrlsAsync，避免 UI 卡死
                 var parsedResults = await DoParse.ProcessUrlsAsync(
                     filePath,
                     logInfo,
                     cts.Token,
                     proxy,
-                    logProgress) ?? new List<(string Line, string Host, int Port, string HostParam, string Encryption, string Security, string Protocol, Dictionary<string, string> ExtraParams)>();
+                    logProgress,
+                    status)
+                    ?? new List<(string Line, string Host, int Port, string HostParam, string Encryption, string Security, string Protocol, Dictionary<string, string> ExtraParams)>();
 
                 progress.Report(20);
                 status.Report("解析完成，正在测试连接...");
 
-                // 调用 ConnectivityChecker 测试连接
+                // 调用 ConnectivityChecker 异步测试连接
                 var connectivityResults = await ConnectivityChecker.CheckHostsBatchAsync(
                     parsedResults.Select(r => (r.Host, r.Port, r.HostParam, r.Encryption, r.Security, r.Protocol, r.ExtraParams)),
                     timeoutMs: appSettings.TcpCheck.TimeoutMs,
                     maxConcurrency: appSettings.TcpCheck.MaxConcurrency,
                     cancellationToken: cts.Token,
-                    progress: logProgress) ?? new List<ConnectivityResult>();
+                    progress: logProgress)
+                    ?? new List<ConnectivityResult>();
 
                 progress.Report(60);
                 status.Report("连接测试完成，正在去重...");
 
-                // 新增：将 ConnectivityChecker 结果转换为 ResultProcessor 输入格式
+                // 转换结果，保持原有逻辑
+                // var parsedDict = parsedResults.ToDictionary(p => (p.Host, p.Port));
                 var convertedResults = connectivityResults.Select(cr =>
                 {
-                    // 在 parsedResults 中查找匹配项；如果找不到则使用一个默认的 tuple
                     var (Line, Host, Port, HostParam, Encryption, Security, Protocol, ExtraParams) = parsedResults
                         .Where(pr => pr.Host == cr.Host && pr.Port == cr.Port)
                         .DefaultIfEmpty((
@@ -230,27 +237,34 @@ namespace HiddifyConfigs
                 toolStripStatusLabel1.Text = "处理完成";
                 status.Report("处理完成");
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException)
             {
-                logInfo.AppendLine($"操作已取消: {ex.Message}");
+                logInfo.AppendLine("操作已取消");
                 toolStripStatusLabel1.Text = "操作已取消";
                 logProgress.Report("操作已取消。");
             }
-            catch(ArgumentNullException ae)
+            catch (ArgumentNullException ae)
             {
                 logInfo.AppendLine($"处理失败: {ae.Message} (Inner: {ae.InnerException?.Message})");
                 toolStripStatusLabel1.Text = "AE处理失败";
-                logProgress.Report($"处理失败: {ae.Message}");
-                MessageBox.Show($"处理失败: {ae.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logProgress.Report($"处理失败: {ae.Message}");                
                 logInfo.AppendLine($"信息: {ae.ParamName}");
                 logInfo.AppendLine($"堆栈信息: {ae.StackTrace}");
+                // MessageBox.Show($"处理失败: {ae.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (NullReferenceException ne)
+            {
+                logInfo.AppendLine($"处理失败: {ne.Message} (Inner: {ne.InnerException?.Message})");
+                toolStripStatusLabel1.Text = "NE处理失败";
+                logProgress.Report($"处理失败: {ne.Message}");
+                LogHelper.WriteError($"NE处理失败: {ne.Message}");             
             }
             catch (Exception ex)
             {
                 logInfo.AppendLine($"处理失败: {ex.Message} (Inner: {ex.InnerException?.Message})");
                 toolStripStatusLabel1.Text = "处理失败";
                 logProgress.Report($"处理失败: {ex.Message}");
-                MessageBox.Show($"处理失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // MessageBox.Show($"处理失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
