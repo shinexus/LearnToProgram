@@ -185,6 +185,12 @@ namespace HiddifyConfigs
                                 }
                             }
                         }
+                        catch(SocketException se)
+                        {
+                            // 新增：记录 Socket 错误到 LogHelper
+                            //progress?.Report(reportNum + $"[{protocol}] ❌ {connectHost}:{port} 失败 (host={hostParam}, security={security}): Socket 错误代码：{se.SocketErrorCode}");
+                            LogHelper.WriteError($"[{protocol}] 检测失败：{connectHost}:{port}，Socket 错误代码：{se.SocketErrorCode}, 消息：{se.Message}");
+                        }
                         catch (Exception ex)
                         {
                             // 新增：记录错误到 LogHelper
@@ -249,13 +255,18 @@ namespace HiddifyConfigs
                                 var timeMs = (long)(DateTime.UtcNow - start).TotalMilliseconds;
                                 return (true, timeMs);
                             }
-                        }
+                        }                        
                         catch
                         {
                             // 新增：忽略单个 IP 的错误，继续尝试下一个
                             continue;
                         }
                     }
+                }
+                catch (SocketException se)
+                {
+                    // 新增：记录 UDP 测试的 Socket 错误
+                    LogHelper.WriteError($"[Hysteria2] UDP 测试 Socket 错误：{host}:{port}，错误代码：{se.SocketErrorCode}, 消息：{se.Message}");                    
                 }
                 catch (Exception ex)
                 {
