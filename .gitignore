@@ -433,7 +433,7 @@ FodyWeavers.xsd
 /HiddifyConfigs/source*.txt
 
 /HiddifyConfigs/HiddifyConfigs.csproj
-/HiddifyConfigs/Program.cs
+
 /HiddifyConfigs/sourceRaw.txt
 
 # 
@@ -450,7 +450,7 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-/HiddifyConfigs/Program.cs
+
 /HiddifyConfigs/DoParse.cs
 /HiddifyConfigs/HiddifyConfigsForm.cs
 /HiddifyConfigs/HiddifyConfigsForm.Designer.cs
