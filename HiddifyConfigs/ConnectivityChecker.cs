@@ -110,14 +110,16 @@ namespace HiddifyConfigs
                         // 新增：Hysteria2 协议使用 UDP 测试
                         if (protocol == "Hysteria2")
                         {
-                            progress?.Report(reportNum + $"[{protocol}] 尝试 UDP {connectHost}:{port} (host={hostParam}, security={security})");
+                            // 简化日志
+                            // progress?.Report(reportNum + $"[{protocol}] 尝试 UDP {connectHost}:{port} (host={hostParam}, security={security})");
                             var (isReachable, responseTimeMs) = await CheckUdpAsync(connectHost, port, timeoutMs, cancellationToken);
                             result.IsReachable = isReachable;
                             result.ResponseTimeMs = responseTimeMs;
 
                             if (isReachable)
                             {
-                                progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (UDP, host={hostParam}, security={security}, 耗时 {responseTimeMs} ms)");
+                                // 简化日志
+                                //progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (UDP, host={hostParam}, security={security}, 耗时 {responseTimeMs} ms)");
                             }
                             else
                             {
@@ -131,19 +133,30 @@ namespace HiddifyConfigs
                         // 原有注释：尝试域名连接（TLS SNI）
                         if (security == "tls" && !IPAddress.TryParse(normalizedHost, out var ipAddress))
                         {
-                            progress?.Report(reportNum+$"[{protocol}] 尝试域名 {connectHost}:{port} (host={hostParam}, security={security})");
+                            // 简化日志
+                            // progress?.Report(reportNum+$"[{protocol}] 尝试域名 {connectHost}:{port} (host={hostParam}, security={security})");
+
                             using (var tcp = new TcpClient())
                             {
-                                var connectTask = tcp.ConnectAsync(connectHost, port);
-                                var timeoutTask = Task.Delay(timeoutMs, cancellationToken);
-                                var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-
-                                if (completedTask == connectTask && tcp.Connected)
+                                try
                                 {
-                                    result.IsReachable = true;
-                                    result.ResponseTimeMs = (long)(DateTime.UtcNow - result.Timestamp).TotalMilliseconds;
-                                    progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
-                                    return result;
+                                    var connectTask = tcp.ConnectAsync(connectHost, port);
+                                    var timeoutTask = Task.Delay(timeoutMs, cancellationToken);
+                                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+
+                                    if (completedTask == connectTask && tcp.Connected)
+                                    {
+                                        result.IsReachable = true;
+                                        result.ResponseTimeMs = (long)(DateTime.UtcNow - result.Timestamp).TotalMilliseconds;
+                                        // 简化日志
+                                        // progress?.Report(reportNum + $"[{protocol}] ✅ {connectHost}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
+                                        return result;
+                                    }
+                                }
+                                catch (SocketException se)
+                                {
+                                    LogHelper.WriteError($"[{protocol}] 尝试域名失败：{connectHost}:{port}，Socket 错误代码：{se.SocketErrorCode}, 消息：{se.Message}");
+
                                 }
                             }
                         }
@@ -179,7 +192,8 @@ namespace HiddifyConfigs
                                         result.IsReachable = true;
                                         result.ResponseTimeMs = (long)(DateTime.UtcNow - result.Timestamp).TotalMilliseconds;
                                         result.IPAddress = ip;
-                                        progress?.Report(reportNum + $"[{protocol}] ✅ {ip}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
+                                        // 简化日志
+                                        // progress?.Report(reportNum + $"[{protocol}] ✅ {ip}:{port} 可达 (host={hostParam}, security={security}, 耗时 {result.ResponseTimeMs} ms)");
                                         return result;
                                     }
                                 }
@@ -189,13 +203,13 @@ namespace HiddifyConfigs
                         {
                             // 新增：记录 Socket 错误到 LogHelper
                             //progress?.Report(reportNum + $"[{protocol}] ❌ {connectHost}:{port} 失败 (host={hostParam}, security={security}): Socket 错误代码：{se.SocketErrorCode}");
-                            LogHelper.WriteError($"[{protocol}] 检测失败：{connectHost}:{port}，Socket 错误代码：{se.SocketErrorCode}, 消息：{se.Message}");
+                            LogHelper.WriteError($"[{protocol}] IP检测失败：{connectHost}:{port}，Socket 错误代码：{se.SocketErrorCode}, 消息：{se.Message}");
                         }
                         catch (Exception ex)
                         {
                             // 新增：记录错误到 LogHelper
                             progress?.Report(reportNum + $"[{protocol}] ❌ {connectHost}:{port} 失败 (host={hostParam}, security={security}): {ex.Message}");
-                            LogHelper.WriteError($"[{protocol}] 检测失败：{connectHost}:{port}，错误：{ex.Message}");
+                            LogHelper.WriteError($"[{protocol}] IP检测失败：{connectHost}:{port}，错误：{ex.Message}");
                         }
 
                         // 新增：TCP 测试失败，返回不可达
