@@ -434,7 +434,7 @@ FodyWeavers.xsd
 
 /HiddifyConfigs/HiddifyConfigs.csproj
 
-/HiddifyConfigs/sourceRaw.txt
+/HiddifyConfigs/_*.txt
 
 # 
 /HysteriaConfigs/*.cs
@@ -457,3 +457,4 @@ FodyWeavers.xsd
 /HiddifyConfigs/HiddifyConfigsForm.resx
 /HiddifyConfigs/_oneRaw.txt
 /HiddifyConfigs/_sourceRaw.txt
+/HiddifyConfigs/ConnectivityChecker.cs
