@@ -75,5 +75,7 @@ jobs:
             echo "🔄 Changes detected, committing..."
             git add README.md
             git commit -m "Auto update file dates in README [skip ci]"
+            
+            git pull --rebase origin "${{ steps.branch.outputs.branch }}" || true
             git push origin "${{ steps.branch.outputs.branch }}"
           fi
