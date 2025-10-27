@@ -1,0 +1,35 @@
+name: Update README with file dates
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天凌晨自动执行
+  workflow_dispatch:      # 可手动触发
+  push:
+    branches: [ master ]
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get last commit dates
+        id: getdates
+        run: |
+          echo "ALL=$(git log -1 --format=%ci -- HiddifyConfigs/bin/Debug/valid_links.txt)" >> $GITHUB_OUTPUT
+          echo "L01=$(git log -1 --format=%ci -- HiddifyConfigs/bin/Debug/valid_links_01.txt)" >> $GITHUB_OUTPUT
+          echo "L02=$(git log -1 --format=%ci -- HiddifyConfigs/bin/Debug/valid_links_02.txt)" >> $GITHUB_OUTPUT
+
+      - name: Update README.md
+        run: |
+          sed -i "s|{{DATE_VALID_ALL}}|${{ steps.getdates.outputs.ALL }}|g" README.md
+          sed -i "s|{{DATE_VALID_01}}|${{ steps.getdates.outputs.L01 }}|g" README.md
+          sed -i "s|{{DATE_VALID_02}}|${{ steps.getdates.outputs.L02 }}|g" README.md
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add README.md
+          git commit -m "Auto update file dates in README" || echo "No changes to commit"
+          git push
