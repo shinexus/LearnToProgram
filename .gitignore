@@ -458,8 +458,7 @@ FodyWeavers.xsd
 /HiddifyConfigs/_oneRaw.txt
 /HiddifyConfigs/_sourceRaw.txt
 /HiddifyConfigs/ConnectivityChecker.cs
-/.github/workflows/LastUpdated.yml
+
 /README.md
-/.github/workflows/LastUpdated.yml
-/README.md
-/README.md
+.github/workflows/update-readme.yml
+.github/workflows/*.yml
