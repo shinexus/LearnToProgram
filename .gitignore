@@ -476,3 +476,5 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
 /README.md
+/README.md
+/.github/workflows/update-readme.yml
