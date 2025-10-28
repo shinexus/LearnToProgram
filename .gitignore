@@ -460,6 +460,7 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/ResultProcessor.cs
 /HiddifyConfigsCLI/RunOption.cs
 /HiddifyConfigsCLI/_sourceRaw.txt
+/HiddifyConfigsCLI/_oneTest.txt
 
 # 
 /HysteriaConfigs/*.cs
@@ -475,5 +476,3 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-
-/HiddifyConfigsCLI/_oneTest.txt
