@@ -418,6 +418,8 @@ FodyWeavers.xsd
 *.msp
 
 # JimTsui & shinexus
+*.csproj
+
 /README.md
 .github/workflows/update-readme.yml
 .github/workflows/*.yml
@@ -473,4 +475,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-*.csproj
+
