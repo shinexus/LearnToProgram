@@ -420,7 +420,6 @@ FodyWeavers.xsd
 # JimTsui & shinexus
 *.csproj
 
-/README.md
 .github/workflows/update-readme.yml
 .github/workflows/*.yml
 
