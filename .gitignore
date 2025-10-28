@@ -418,6 +418,10 @@ FodyWeavers.xsd
 *.msp
 
 # JimTsui & shinexus
+/README.md
+.github/workflows/update-readme.yml
+.github/workflows/*.yml
+
 /LearnToProgram.sln
 
 /HiddifyConfigs/Properties/AssemblyInfo.cs
@@ -436,6 +440,25 @@ FodyWeavers.xsd
 
 /HiddifyConfigs/_*.txt
 
+/HiddifyConfigs/DoParse.cs
+/HiddifyConfigs/HiddifyConfigsForm.cs
+/HiddifyConfigs/HiddifyConfigsForm.Designer.cs
+/HiddifyConfigs/HiddifyConfigsForm.resx
+/HiddifyConfigs/_oneRaw.txt
+/HiddifyConfigs/_sourceRaw.txt
+/HiddifyConfigs/ConnectivityChecker.cs
+
+/HiddifyConfigsCLI/ConnectivityChecker.cs
+/HiddifyConfigsCLI/DoParse.cs
+/HiddifyConfigsCLI/FileSaver.cs
+/HiddifyConfigsCLI/LogHelper.cs
+/HiddifyConfigsCLI/NodeInfo.cs
+/HiddifyConfigsCLI/Program.cs
+/HiddifyConfigsCLI/ProtocolParser.cs
+/HiddifyConfigsCLI/ResultProcessor.cs
+/HiddifyConfigsCLI/RunOption.cs
+/HiddifyConfigsCLI/_sourceRaw.txt
+
 # 
 /HysteriaConfigs/*.cs
 /HysteriaConfigs/*.csproj
@@ -450,15 +473,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-
-/HiddifyConfigs/DoParse.cs
-/HiddifyConfigs/HiddifyConfigsForm.cs
-/HiddifyConfigs/HiddifyConfigsForm.Designer.cs
-/HiddifyConfigs/HiddifyConfigsForm.resx
-/HiddifyConfigs/_oneRaw.txt
-/HiddifyConfigs/_sourceRaw.txt
-/HiddifyConfigs/ConnectivityChecker.cs
-
-/README.md
-.github/workflows/update-readme.yml
-.github/workflows/*.yml
+*.csproj
