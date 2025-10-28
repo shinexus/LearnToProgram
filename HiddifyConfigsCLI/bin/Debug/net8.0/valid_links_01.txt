@@ -1,0 +1,100 @@
+﻿trojan://fuck@42.236.73.72:443/?sni=www.zitian.cn#未知105
+vless://71552f5b-0597-4524-c035-916f9298e163@chat.deepseek.com:80/?type=ws&path=/olem/ws?ed=1024&host=fin.channel.digicyber.click&security=none#🔥Join+Telegram:@Farah_VPN🟣
+trojan://bpb-trojan@visa.cn:443/?allowInsecure=0&sni=bpbpanel.ac.cn.eu.org&ws=1&wspath=%2Ftr%3Fed%3D2560#[]t.me/ConfigsHub
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n001.xunxunmimisbs.sbs:19000/?allowInsecure=1&sni=in01.xxxxyyyysbs.sbs#🇫🇷 法国 01
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n001.xunxunmimisbs.sbs:31001/?allowInsecure=1&sni=sg02.xxxxyyyysbs.sbs#🇸🇬 新加坡 54
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n001.xunxunmimisbs.sbs:28200/?allowInsecure=0&sni=vn01.xxxxyyyysbs.sbs#🇻🇳 越南 30
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n002.xunxunmimisbs.sbs:23100/?allowInsecure=0&sni=uk01.xxxxyyyysbs.sbs#🇬🇧 英国 22
+trojan://9f8c7379-e824-4f95-862c-f40f0bd53adf@n001.xunxunmimisbs.sbs:44100/?allowInsecure=0&sni=uk01.xxxxyyyysbs.sbs#🇬🇧 英国 07
+trojan://9f8c7379-e824-4f95-862c-f40f0bd53adf@n002.xunxunmimisbs.sbs:49110/?allowInsecure=0&sni=vn01.xxxxyyyysbs.sbs#🇻🇳 越南 09
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n001.xunxunmimisbs.sbs:24100/?allowInsecure=0&sni=us01.xxxxyyyysbs.sbs#🇺🇸 美国 112
+trojan://7075c97e-8931-4f65-aacd-020a995d7b97@n001.xunxunmimisbs.sbs:46100/?allowInsecure=0&sni=de01.xxxxyyyysbs.sbs#🇩🇪 德国 13
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n001.xunxunmimisbs.sbs:31201/?allowInsecure=0&sni=sg02.xxxxyyyysbs.sbs#🇸🇬 新加坡 40
+trojan://7075c97e-8931-4f65-aacd-020a995d7b97@n001.xunxunmimisbs.sbs:48100/?allowInsecure=0&sni=fr01.xxxxyyyysbs.sbs#🇫🇷 法国 15
+trojan://47541274-1bb1-4590-9877-356da0938356@n001.xunxunmimisbs.sbs:21100/?allowInsecure=0&sni=hk01.xxxxyyyysbs.sbs#🇭🇰 香港 078
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n002.xunxunmimisbs.sbs:26100/?allowInsecure=0&sni=fr01.xxxxyyyysbs.sbs#🇫🇷 法国 12
+trojan://6AC378EE-C9AE-9D3C-3DD9-8C034898BE44@117.186.219.179:14424/?security=tls&sni=mpvideo.qpic.cn&type=tcp#[]t.me/ConfigsHub
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n002.xunxunmimisbs.sbs:31000/?allowInsecure=1&sni=sg01.xxxxyyyysbs.sbs#🇸🇬 新加坡 28
+trojan://Aimer@43.154.34.74:1935/?allowInsecure=0&sni=ngepz.ambercc.filegear-sg.me#[]t.me/ConfigsHub
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n002.xunxunmimisbs.sbs:28100/?allowInsecure=0&sni=db01.xxxxyyyysbs.sbs#🇦🇪 阿联酋 01
+trojan://6AC378EE-C9AE-9D3C-3DD9-8C034898BE44@117.186.219.179:14436/?security=tls&sni=mpvideo.qpic.cn&type=tcp#[]t.me/ConfigsHub
+trojan://Aimer@8.212.44.95:443/?allowInsecure=0&sni=agepy.ambercc.filegear-sg.me#[]t.me/ConfigsHub
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n002.xunxunmimisbs.sbs:21200/?allowInsecure=0&sni=hk01.xxxxyyyysbs.sbs#🇭🇰 香港 055
+vless://f61a4285-7264-4d07-9408-7b9ba1922c26@47.76.218.163:443/?&security=tls&sni=gaosir.unfeeling.sbs&type=ws&headerType=none&host=gaosir.unfeeling.sbs&path=%2Ffreecodes%2F#🇺🇸[openproxylist.com]
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n001.xunxunmimisbs.sbs:31200/?allowInsecure=0&sni=sg01.xxxxyyyysbs.sbs#🇸🇬 新加坡 11
+trojan://47541274-1bb1-4590-9877-356da0938356@n002.xunxunmimisbs.sbs:49120/?allowInsecure=0&sni=tai01.xxxxyyyysbs.sbs#🇹🇭 泰国 14
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n001.xunxunmimisbs.sbs:23100/?allowInsecure=0&sni=uk01.xxxxyyyysbs.sbs#🇬🇧 英国 11
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n001.xunxunmimisbs.sbs:28100/?allowInsecure=0&sni=db01.xxxxyyyysbs.sbs#🇦🇪 阿联酋 06
+trojan://a9db69fc-79e1-4dc2-8948-b8dea5cdb5db@n001.xunxunmimisbs.sbs:28300/?allowInsecure=0&sni=tai01.xxxxyyyysbs.sbs#🇹🇭 泰国 05
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n002.xunxunmimisbs.sbs:21000/?allowInsecure=1&sni=hk01.xxxxyyyysbs.sbs#🇭🇰 香港 046
+trojan://7075c97e-8931-4f65-aacd-020a995d7b97@n001.xunxunmimisbs.sbs:49100/?allowInsecure=0&sni=db01.xxxxyyyysbs.sbs#🇦🇪 阿联酋 03
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n002.xunxunmimisbs.sbs:41001/?allowInsecure=1&sni=jp02.xxxxyyyysbs.sbs#🇯🇵 日本 33
+trojan://47541274-1bb1-4590-9877-356da0938356@n001.xunxunmimisbs.sbs:49120/?allowInsecure=0&sni=tai01.xxxxyyyysbs.sbs#🇹🇭 泰国 04
+trojan://9f8c7379-e824-4f95-862c-f40f0bd53adf@n002.xunxunmimisbs.sbs:42101/?allowInsecure=1&sni=jp02.xxxxyyyysbs.sbs#🇯🇵 日本 07
+trojan://79c000d1-afd4-43b1-9fb4-2a0f77d7c50a@n002.xunxunmimisbs.sbs:41300/?allowInsecure=1&sni=jp01.xxxxyyyysbs.sbs#🇯🇵 日本 20
+trojan://adbac894-90b9-4913-b77e-a715a8d4ebc8@oss-cn-shanghai.letssepub.com:20021/?sni=dingding-doc.com#4Kian-4155
+vless://f61a4285-7264-4d07-9408-7b9ba1922c26@123.111.169.70:443/?encryption=none&security=tls&sni=gaosir.unfeeling.sbs&fp=chrome&type=ws&host=gaosir.unfeeling.sbs&path=%2FTelegram🇨🇳 %40WangCai2 %2F%3Fed%3D2560#%5BOpenRay%5D 🇰🇷 KR-634
+trojan://6a60356a-0875-40d9-81f3-3ef82cede767@tr.node1link.xyz:23015/?allowInsecure=0&sni=102.yuanul.com#[]t.me/ConfigsHub
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-hk.04z3susick.download:5605/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_279
+trojan://02d9ff17-b930-4981-8c7c-7cd0515ff468@n001.xunxunmimisbs.sbs:16000/?allowInsecure=1&sni=us01.xxxxyyyysbs.sbs#🇺🇸 美国 124
+trojan://47541274-1bb1-4590-9877-356da0938356@n002.xunxunmimisbs.sbs:42100/?allowInsecure=1&sni=jp01.xxxxyyyysbs.sbs#🇯🇵 日本 24
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-jp.04z3susick.download:5620/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_158
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-hk.04z3susick.download:5603/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_212
+trojan://596de3c8-c1c4-4fe1-a7aa-7046b0f2af8a@36.103.168.7:21862/?allowInsecure=1&sni=www.baidu.com#🇭🇰 香港6|%40ripaojiedian
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-hk.04z3susick.download:5604/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_210
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-tw.04z3susick.download:5621/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_308
+trojan://cf8c51d3-e692-46a6-b351-4c5ef0b5efc3@naiu-jp.05vr9nyqg5.download:13017/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&type=tcp&headerType=none#@Vip_Security
+trojan://6e1b9a65-884f-3aa9-9469-bf6ec0f08610@210.203.60.189:443/?type=tcp&security=tls&fp=chrome&sni=45.32.28.232&allowInsecure=1#Telegram:@IP_CF
+trojan://6e1b9a65-884f-3aa9-9469-bf6ec0f08610@taifo01a.kbservice.club:443/?allowInsecure=0&sni=45.32.28.232#@MoftConfigTaiwanTaipeiping:319.22ms
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-sg.04z3susick.download:5611/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_76
+trojan://6a60356a-0875-40d9-81f3-3ef82cede767@tr.node1link.xyz:23003/?allowInsecure=0&sni=sni.eos-suzhou-4.cmecloud.cn#[]t.me/ConfigsHub
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-sg.04z3susick.download:5612/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_236
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-tw.04z3susick.download:5625/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com#
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-hk.04z3susick.download:5606/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_199
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-sg.04z3susick.download:5613/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_72
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-jp.04z3susick.download:5617/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_189
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-hk.04z3susick.download:5602/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_211
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-tw.04z3susick.download:5623/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_309
+trojan://898e1dca-14b2-4371-abc8-1b9f839bff6d@jp02.weyaf9sdoh2h.space:19077/?allowInsecure=1&sni=TG.WangCai2#🇯🇵 日本 38
+trojan://5b4becce-5739-483f-97ec-68b81a855d68@naiu-other.05vr9nyqg5.download:13036/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&type=tcp&headerType=none#@Vip_Security
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-jp.04z3susick.download:5615/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_176
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-sg.04z3susick.download:5614/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_143
+trojan://596de3c8-c1c4-4fe1-a7aa-7046b0f2af8a@36.103.168.7:21864/?allowInsecure=1&sni=www.baidu.com#4Kian-3751
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-hk.04z3susick.download:5601/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com#
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-jp.04z3susick.download:5616/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_191
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-jp.04z3susick.download:5618/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_224
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-jp.04z3susick.download:5619/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_200
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-sg.04z3susick.download:5610/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_58
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-sg.04z3susick.download:5609/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_65
+trojan://6a60356a-0875-40d9-81f3-3ef82cede767@tr.node1link.xyz:23012/?allowInsecure=0&sni=97.yuanul.com#[]t.me/ConfigsHub
+trojan://Aimer@103.30.76.210:444/?allowInsecure=0&sni=ngepo.ambercc.filegear-sg.me#[]t.me/ConfigsHub
+trojan://52396679-53eb-4d6f-ba2e-a08746e300ad@sdv2-hk.04z3susick.download:5607/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_281
+trojan://898e1dca-14b2-4371-abc8-1b9f839bff6d@jp03.weyaf9sdoh2h.space:17053/?allowInsecure=1&sni=TG.WangCai2#🇯🇵 日本 68
+vless://c7c8a2f3-d24e-44e9-a3a6-e41099cb1cd5@speedtest.net:80/?type=xhttp&path=/Join----HAJIMAMADVPN---Join----HAJIMAMADVPN---Join----HAJIMAMADVPN---Join----HAJIMAMADVPN---Join----HAJIMAMADVPN---Join----HAJIMAMADVPN---Join----HAJIMAMADVPN&host=p30download.ir&mode=auto&security=none#سرورهای
+trojan://9995cc0e-2e9d-4c80-8c81-4fdbb6322a3a@20.89.130.227:443/?security=tls&sni=fscus.fscloud123456789.com&allowInsecure=1&type=tcp#4Kian-3995
+vless://7c9e3c1d-a360-4429-9189-e45a98de7fde@ufc.ru:80/?type=ws&host=Channel-VPNCUSTOMIZE.ir&path=/VPNCUSTOMIZE--VPNCUSTOMIZE--VPNCUSTOMIZE--VPNCUSTOMIZE--VPNCUSTOMIZE?ed=2048#🔥Join+Telegram:@Farah_VPN🟣
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-tw.04z3susick.download:5624/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_234
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-tw.04z3susick.download:5622/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_280
+trojan://5e2ce79c-170e-484a-8802-40584a1a3a12@naiu-us.05vr9nyqg5.download:13020/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&type=tcp&headerType=none#@Vip_Security
+vless://9560e246-c399-4b54-ba6c-3184576ff217@pscresearch.faculty.ucdavis.edu:80/?security=none&amp;encryption=none&amp;headerType=none&amp;type=tcp#🔥Join+Telegram:@Farah_VPN🟣
+trojan://c07010b0-3fe6-4d34-8e7b-3944dab22d21@t.ctrip-oss-fc-amazon.52forest.com:12521/?security=tls&sni=m.ctrip.com&allowInsecure=1&type=tcp&headerType=none#[]t.me/ConfigsHub
+trojan://fac28a4c-c36c-4014-b7d5-3e5a3e066998@sdv2-tw.04z3susick.download:5626/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&allowInsecure=1&type=tcp&headerType=none# Google搜二爷翻墙，免费获取翻墙节点_235
+trojan://b264982e-e333-4085-ac04-406afef23455@naiu-jp.05vr9nyqg5.download:13012/?security=tls&sni=cloudflare.node-ssl.cdn-alibaba.com&type=tcp&headerType=none#@Vip_Security
+trojan://share.mjj-home.com@185.212.56.168:443/?security=tls&sni=tw.softbank.mjj-home.com&type=tcp#4Kian-4546
+vless://telegram-id-ArV2ray@speedtest.net:443/?encryption=none&amp;security=tls&amp;sni=speedtest.net&amp;alpn=h2%2Chttp%2F1.1&amp;fp=chrome&amp;type=ws&amp;host=dwojwh14.ir&amp;path=%2Ftelegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray,telegram-ArV2ray%3Fed%3D2048#🔥Join+Telegram:@Farah_VPN🟣
+trojan://6a60356a-0875-40d9-81f3-3ef82cede767@tr.node1link.xyz:23020/?allowInsecure=0&sni=168.yuanul.com#[]t.me/ConfigsHub
+trojan://Aimer@156.251.180.181:21698/?security=tls&type=tcp&sni=agept.ambercc.filegear-sg.me#Telegram:@IP_CF
+vless://0d2b6505-c554-43db-95f0-0b51bac41f48@199.232.208.18:80/?mode=auto&path=/msproxyx&security=none&encryption=none&host=aliirancel12.global.ssl.fastly.net&type=xhttp#🔥Join+Telegram:@Farah_VPN🟣
+trojan://cd41b9d7-df15-46ad-a778-257b0851525a@35.79.36.24:443/?security=tls&sni=sg02.trojanyyds.xyz&allowInsecure=1#[]t.me/ConfigsHub
+trojan://d0ed2685-82ae-4f09-ac6d-a456146b05ba@2c6f2139-838e-4478-9e47-55140df12640.hkglink.xyz:12013/?type=tcp&security=tls&sni=tr.yuanul.com#@Vip_Security
+trojan://030ba667-fde3-498d-99bb-9a0187519dcf@zfa03.333210.xyz:42406/?security=tls&headerType=&type=tcp&sni=cdn.alibaba.com#[]t.me/ConfigsHub
+trojan://981db44e-9f07-49eb-9ba0-6ab4939919a2@61.220.126.180:443/?security=tls&sni=twnode11.oportal.cc&type=tcp&headerType=none#美国%28yudou66.com 玉豆免费节点%29
+trojan://Aimer@103.234.53.133:443/?allowInsecure=1&sni=ngepy.ambercc.filegear-sg.me#[]t.me/ConfigsHub
+trojan://26c62533-8401-42b8-a799-a08958070706@s1.oss-qq-weixin-9945001.kl886.cn:15320/?security=tls&sni=m.ctrip.com&allowInsecure=1&type=tcp&headerType=none#Telegram:@IP_CF
+trojan://030ba667-fde3-498d-99bb-9a0187519dcf@zfa03.333210.xyz:42395/?security=tls&headerType=&type=tcp&sni=cdn.alibaba.com#[]t.me/ConfigsHub
+trojan://a124e41a-0fb8-4543-a0ab-a127c7b515a9@jp006.421421.xyz:20230/?allowInsecure=0#[]t.me/MoftConfig
+trojan://6a60356a-0875-40d9-81f3-3ef82cede767@tr.node1link.xyz:23002/?allowInsecure=0&sni=76.yuanul.com#[]t.me/ConfigsHub
+trojan://26c62533-8401-42b8-a799-a08958070706@g3.oss-qq-weixin-9945001.kl988.cn:15313/?security=tls&sni=m.ctrip.com&allowInsecure=1&type=tcp&headerType=none#Telegram:@IP_CF
+trojan://ouo@152.70.101.24:16800/?allowInsecure=1&sni=tr.koiok.us.kg&type=ws&host=tr.koiok.us.kg&path=//?ed=2560#[]t.me/ConfigsHub
+vless://f61a4285-7264-4d07-9408-7b9ba1922c26@168.138.192.16:54584/?encryption=none&security=tls&sni=gaosir.unfeeling.sbs&type=ws&host=gaosir.unfeeling.sbs&path=telegram %40freecodes %2F%3Fed%3D2560#%5BOpenRay%5D 🇯🇵 JP-2792
+vless://f61a4285-7264-4d07-9408-7b9ba1922c26@155.248.181.189:443/?encryption=none&security=tls&sni=gaosir.unfeeling.sbs&type=ws&host=gaosir.unfeeling.sbs&path=%2FX%40节点狂魔%2F#%5BOpenRay%5D 🇯🇵 JP-2782
