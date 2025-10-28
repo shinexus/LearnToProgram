@@ -31,9 +31,9 @@ jobs:
         run: |
           set -e
           # 定义文件路径
-          FILE_ALL="HiddifyConfigs/bin/Debug/valid_links.txt"
-          FILE_01="HiddifyConfigs/bin/Debug/valid_links_01.txt"
-          FILE_02="HiddifyConfigs/bin/Debug/valid_links_02.txt"
+          FILE_ALL="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
+          FILE_01="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
+          FILE_02="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
 
           # 检查文件是否存在
           for f in "$FILE_ALL" "$FILE_01" "$FILE_02"; do
