@@ -1,4 +1,4 @@
-#
+# .github/workflows/update-readme.yml
 name: Update README with file dates
 
 on:
@@ -27,7 +27,7 @@ jobs:
           DEFAULT=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
           echo "branch=$DEFAULT" >> $GITHUB_OUTPUT
 
-      - name: Get last commit dates → [Last updated: YYYY-MM-DD HH:MM:SS +0800]
+      - name: Get last commit dates # [Last updated: YYYY-MM-DD HH:MM:SS +0800]
         id: getdates
         run: |
           set -uo pipefail
