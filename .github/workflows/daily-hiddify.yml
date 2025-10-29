@@ -9,7 +9,7 @@ on:
 jobs:
   run:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
 
     steps:
       # -------------------------------------------------
@@ -20,6 +20,7 @@ jobs:
       - name: 2. 运行 exe（带完整诊断）
         id: run_exe
         shell: pwsh
+        timeout-minutes: 45
         run: |
           # ---- 打印当前目录结构（关键诊断）----
           Write-Host "=== 当前目录树 ==="
