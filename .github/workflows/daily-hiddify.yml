@@ -1,5 +1,6 @@
 # .github/workflows/daily-hiddify.yml
 # 2025-10-29
+# 感谢 Grok（xAI）
 name: Daily HiddifyConfigsCLI
 
 on:
