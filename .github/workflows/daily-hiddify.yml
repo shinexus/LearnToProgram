@@ -40,7 +40,7 @@ jobs:
             --timeout 3 `
             --parallel 20 `
             --http-timeout 10 `
-            --verbose true
+          #  --verbose true
 
           $code = $LASTEXITCODE
           Write-Host "CLI 退出码: $code"
