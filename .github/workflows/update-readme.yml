@@ -1,3 +1,4 @@
+# .github/workflows/update-readme-dates.yml
 name: Update README with file dates
 
 on:
@@ -26,7 +27,7 @@ jobs:
           DEFAULT=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
           echo "branch=$DEFAULT" >> $GITHUB_OUTPUT
 
-      - name: Get last commit dates # [Last updated: YYYY-MM-DD HH:MM:SS +0800]
+      - name: Get last commit dates (纯时间，供替换)
         id: getdates
         run: |
           set -uo pipefail
@@ -35,72 +36,48 @@ jobs:
           FILE_01="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
           FILE_02="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
 
-          # 调试：打印文件是否存在
-          echo "=== 文件检查 ==="
-          ls -la "$FILE_ALL" || echo "FILE_ALL 不存在"
-          ls -la "$FILE_01" || echo "FILE_01 不存在"
-          ls -la "$FILE_02" || echo "FILE_02 不存在"
-
           format_date() {
             local f="$1"
             if git log -1 --format=%cI -- "$f" >/dev/null 2>&1; then
-              # 调试：打印原始 UTC 时间
-              RAW_UTC=$(TZ=UTC git log -1 --format=%cI -- "$f")
-              echo "Raw UTC for $f: $RAW_UTC"
-              # +8 小时 → 北京时间
               TZ=UTC git log -1 --format=%cI -- "$f" |
-                xargs -I {} date -d "{} + 8 hours" +"[Last updated: %Y-%m-%d %H:%M:%S +0800]"
+                xargs -I {} date -d "{} + 8 hours" +"%Y-%m-%d %H:%M:%S +0800"
             else
-              echo "[Last updated: N/A]"
+              echo "N/A"
             fi
           }
 
-          ALL_DATE=$(format_date "$FILE_ALL")
-          L01_DATE=$(format_date "$FILE_01")
-          L02_DATE=$(format_date "$FILE_02")
+          echo "ALL=$(format_date "$FILE_ALL")" >> $GITHUB_OUTPUT
+          echo "L01=$(format_date "$FILE_01")" >> $GITHUB_OUTPUT
+          echo "L02=$(format_date "$FILE_02")" >> $GITHUB_OUTPUT
 
-          # 调试：打印最终日期
-          echo "=== 最终日期输出 ==="
-          echo "ALL_DATE: $ALL_DATE"
-          echo "L01_DATE: $L01_DATE"
-          echo "L02_DATE: $L02_DATE"
-
-          echo "ALL=$ALL_DATE" >> $GITHUB_OUTPUT
-          echo "L01=$L01_DATE" >> $GITHUB_OUTPUT
-          echo "L02=$L02_DATE" >> $GITHUB_OUTPUT
-
-      - name: Update README.md (用 envsubst 替换，带调试)
+      - name: Update README.md (替换时间 + 加前缀)
         run: |
-          # 调试：打印替换前 README
-          echo "=== 替换前 README 片段 ==="
-          grep -A 5 -B 1 "{{DATE" README.md || echo "未找到占位符！"
-
           # 设置环境变量（envsubst 用）
-          export DATE_VALID_ALL="${{ steps.getdates.outputs.ALL }}"
-          export DATE_VALID_01="${{ steps.getdates.outputs.L01 }}"
-          export DATE_VALID_02="${{ steps.getdates.outputs.L02 }}"
+          export DATE_ALL="${{ steps.getdates.outputs.ALL }}"
+          export DATE_01="${{ steps.getdates.outputs.L01 }}"
+          export DATE_02="${{ steps.getdates.outputs.L02 }}"
 
-          # 用 envsubst 替换（更稳，支持 ${VAR} 格式）
-          envsubst < README.md > README.new
-          mv README.new README.md
+          # 1. 先替换纯时间（${DATE_XX} → 2025-10-29 18:42:10 +0800）
+          envsubst < README.md > README.tmp
 
-          # 调试：打印替换后
-          echo "=== 替换后 README 片段 ==="
-          grep -A 5 -B 1 "Last updated" README.md || echo "替换失败？"
+          # 2. 再统一加前缀 [Last updated: ...]
+          sed -i \
+            -e 's|${DATE_ALL}|[Last updated: ${DATE_ALL}]|g' \
+            -e 's|${DATE_01}|[Last updated: ${DATE_01}]|g' \
+            -e 's|${DATE_02}|[Last updated: ${DATE_02}]|g' \
+            README.tmp
+
+          mv README.tmp README.md
 
       - name: Commit & push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 先拉取最新
+          # 先拉取最新，防止 rejected
           git fetch origin "${{ steps.branch.outputs.branch }}"
           git rebase "origin/${{ steps.branch.outputs.branch }}" || \
             (git rebase --abort && git merge "origin/${{ steps.branch.outputs.branch }}")
-
-          # 调试：打印 diff 结果
-          echo "=== Git diff README.md ==="
-          git diff README.md
 
           if git diff --quiet README.md; then
             echo "No changes in README.md"
