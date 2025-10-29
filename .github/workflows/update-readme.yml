@@ -1,5 +1,4 @@
 # .github/workflows/update-readme.yml
-# Grok(xAI)
 name: Update README Dates
 
 on:
