@@ -421,6 +421,7 @@ FodyWeavers.xsd
 *.csproj
 
 .github/workflows/update-readme.yml
+.github/workflows/daily-hiddify.yml
 .github/workflows/*.yml
 
 /LearnToProgram.sln
