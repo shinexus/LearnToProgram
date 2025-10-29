@@ -77,6 +77,10 @@ jobs:
         if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
         run: |
+          # 关键：先 pull 再 push
+          git config pull.rebase false
+          git pull origin master --no-edit
+          
           $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net8.0" -Filter "valid_links*.txt"
           if ($files.Count -eq 0) { Write-Host "没有文件可提交"; exit 0 }
           git config --global user.name  "github-actions[bot]"
