@@ -20,7 +20,7 @@ jobs:
       - name: 2. 运行 exe（带完整诊断）
         id: run_exe
         shell: pwsh
-        timeout-minutes: 45
+        timeout-minutes: 50
         run: |
           # ---- 打印当前目录结构（关键诊断）----
           Write-Host "=== 当前目录树 ==="
