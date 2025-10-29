@@ -61,7 +61,8 @@ jobs:
           name: valid-links
           path: |
             valid_links.txt
-            valid_links_*.txt
+            valid_links_01.txt
+            valid_links_02.txt
           retention-days: 7
 
       - name: Commit & push results (optional)
@@ -69,7 +70,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add valid_links*.txt
+          git add valid_*.txt
           git commit -m "Auto-update valid links $(Get-Date -Format 'yyyy-MM-dd HH:mm')" || echo "Nothing to commit"
           git push
         env:
