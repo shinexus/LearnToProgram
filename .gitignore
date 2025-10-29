@@ -479,3 +479,4 @@ FodyWeavers.xsd
 /README.md
 /README.md
 /.github/workflows/update-readme.yml
+/.github/workflows/daily-hiddify.yml
