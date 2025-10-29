@@ -1,46 +1,65 @@
 # .github/workflows/update-readme.yml
-name: Update README Dates
+name: Update README Timestamps
 
 on:
   schedule:
+    # 每天北京时间 04:00 运行（UTC 20:00 前一天）
     - cron: '0 5 * * *'
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  workflow_dispatch:  # 支持手动触发
 
 jobs:
-  run:
+  update-readme:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 需要写权限以推送更改
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: master
 
-      - name: Get Dates
-        id: d
+      - name: Get file last modified time in Beijing time (UTC+8)
+        id: timestamps
         run: |
-          f() {
-            if git log -1 --format=%cI -- "$1" >/dev/null 2>&1; then
-              TZ=UTC git log -1 --format=%cI -- "$1" | xargs -I {} date -d "{} + 8 hours" +"%Y-%m-%d %H:%M:%S +0800"
-            else
-              echo "N/A"
+          # 目标文件路径（相对于仓库根目录）
+          ALL_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
+          PART01_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
+          PART02_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
+
+          # 函数：格式化 git commit 时间为 [Last Updated: YYYY-MM-DD HH:MM:SS +0800]
+          format_time() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
+              echo "[Last Updated: File Not Found]"
+              return
             fi
+            local ts
+            ts=$(git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S' "$file")
+            echo "[Last Updated: $ts +0800]"
           }
-          echo "ALL=$(f 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt')" >> $GITHUB_OUTPUT
-          echo "01=$(f 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt')" >> $GITHUB_OUTPUT
-          echo "02=$(f 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt')" >> $GITHUB_OUTPUT
 
-      - name: Update README
+          # 获取时间戳
+          ALL_TIME=$(format_time "$ALL_FILE")
+          PART01_TIME=$(format_time "$PART01_FILE")
+          PART02_TIME=$(format_time "$PART02_FILE")
+
+          # 输出到 GITHUB_OUTPUT
+          echo "DATE_VALID_ALL=$ALL_TIME" >> $GITHUB_OUTPUT
+          echo "DATE_VALID_01=$PART01_TIME" >> $GITHUB_OUTPUT
+          echo "DATE_VALID_02=$PART02_TIME" >> $GITHUB_OUTPUT
+
+      - name: Update README.md with timestamps
         run: |
-          sed -i "s|UPDATE_ALL|[Last updated: ${{ steps.d.outputs.ALL }}]|g" README.md
-          sed -i "s|UPDATE_01|[Last updated: ${{ steps.d.outputs.01 }}]|g" README.md
-          sed -i "s|UPDATE_02|[Last updated: ${{ steps.d.outputs.02 }}]|g" README.md
+          sed -i "s|{DATE_VALID_ALL}|${{ steps.timestamps.outputs.DATE_VALID_ALL }}|g" README.md
+          sed -i "s|{DATE_VALID_01}|${{ steps.timestamps.outputs.DATE_VALID_01 }}|g" README.md
+          sed -i "s|{DATE_VALID_02}|${{ steps.timestamps.outputs.DATE_VALID_02 }}|g" README.md
 
-      - name: Push
+      - name: Commit and push if README changed
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git commit -m "Update dates [skip ci]" || exit 0
-          git push || echo "Nothing to push"
+          git diff --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update README timestamps [skip ci]"
+          git push
