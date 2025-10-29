@@ -1,0 +1,83 @@
+# .github/workflows/daily-hiddify.yml
+name: Daily HiddifyConfigsCLI
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # UTC 03:00，北京时间 11:00
+  workflow_dispatch:      # 手动触发
+
+jobs:
+  run:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      # -------------------------------------------------
+      - name: 1. 拉代码
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      - name: 2. 运行 exe（带完整诊断）
+        id: run_exe
+        shell: pwsh
+        run: |
+          # ---- 打印当前目录结构（关键诊断）----
+          Write-Host "=== 当前目录树 ==="
+          Get-ChildItem -Recurse | Format-Table Name, FullName
+
+          # ---- 检查必备文件 ----
+          $exe   = "HiddifyConfigsCLI/bin/Debug/net8.0/HiddifyConfigsCLI.exe"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
+          if (!(Test-Path $exe))   { Write-Error "EXE 未找到: $exe"; exit 1 }
+          if (!(Test-Path $input)) { Write-Warning "urls.txt 未找到，CLI 必须支持远程 URL" }
+
+          # ---- 真正执行 ----
+          & $exe `
+            --input $input `
+            --output valid_links.txt `
+            --max-lines 100 `
+            --max-parts 2 `
+            --timeout 3 `
+            --parallel 20 `
+            --http-timeout 10 `
+            --verbose true
+
+          $code = $LASTEXITCODE
+          Write-Host "CLI 退出码: $code"
+          if ($code -ne 0) { exit $code }   # 让 Action 也返回 1，便于定位
+        continue-on-error: true   # 即使失败也继续后面的诊断步骤
+
+      # -------------------------------------------------
+      - name: 3. 列出所有生成的文件（总是执行）
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== 生成的文件列表 ==="
+          Get-ChildItem -Recurse "*valid_links*" | Format-Table Name, FullName, Length
+
+      # -------------------------------------------------
+      - name: 4. 上传产物（即使为空也警告而不是错误）
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: valid-links
+          path: |
+            **/valid_links.txt
+            **/valid_links_*.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      # -------------------------------------------------
+      - name: 5. 提交结果（仅当文件存在且 exe 成功）
+        if: always() && steps.run_exe.outcome == 'success'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Recurse -Filter "valid_links*.txt"
+          if ($files.Count -eq 0) { Write-Host "没有文件可提交"; exit 0 }
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add $files.FullName
+          git commit -m "Auto update $(Get-Date -Format yyyy-MM-dd_HHmm)"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
