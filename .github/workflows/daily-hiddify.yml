@@ -1,4 +1,5 @@
 # .github/workflows/daily-hiddify.yml
+# 2025-10-29
 name: Daily HiddifyConfigsCLI
 
 on:
