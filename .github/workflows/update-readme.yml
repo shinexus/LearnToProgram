@@ -27,7 +27,7 @@ jobs:
           DEFAULT=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
           echo "branch=$DEFAULT" >> $GITHUB_OUTPUT
 
-      - name: Get last commit dates (纯时间，供替换)
+      - name: Get last commit dates (纯时间)
         id: getdates
         run: |
           set -uo pipefail
@@ -50,37 +50,48 @@ jobs:
           echo "L01=$(format_date "$FILE_01")" >> $GITHUB_OUTPUT
           echo "L02=$(format_date "$FILE_02")" >> $GITHUB_OUTPUT
 
-      - name: Update README.md (替换时间 + 加前缀)
+      - name: Update README.md (强制替换 + 调试)
+        env:
+          DATE_ALL: ${{ steps.getdates.outputs.ALL }}
+          DATE_01: ${{ steps.getdates.outputs.L01 }}
+          DATE_02: ${{ steps.getdates.outputs.L02 }}
         run: |
-          # 设置环境变量（envsubst 用）
-          export DATE_ALL="${{ steps.getdates.outputs.ALL }}"
-          export DATE_01="${{ steps.getdates.outputs.L01 }}"
-          export DATE_02="${{ steps.getdates.outputs.L02 }}"
+          echo "=== 调试：输出变量 ==="
+          echo "DATE_ALL = $DATE_ALL"
+          echo "DATE_01  = $DATE_01"
+          echo "DATE_02  = $DATE_02"
 
-          # 1. 先替换纯时间（${DATE_XX} → 2025-10-29 18:42:10 +0800）
-          envsubst < README.md > README.tmp
+          echo "=== 调试：替换前 README 内容 ==="
+          grep -n "valid_links" README.md || echo "未找到 valid_links 行"
 
-          # 2. 再统一加前缀 [Last updated: ...]
+          # 1. 替换 ${DATE_ALL} → 实际时间
+          sed -i "s|\${DATE_ALL}|$DATE_ALL|g" README.md
+          sed -i "s|\${DATE_01}|$DATE_01|g" README.md
+          sed -i "s|\${DATE_02}|$DATE_02|g" README.md
+
+          # 2. 统一加前缀 [Last updated: ...]
           sed -i \
-            -e 's|${DATE_ALL}|[Last updated: ${DATE_ALL}]|g' \
-            -e 's|${DATE_01}|[Last updated: ${DATE_01}]|g' \
-            -e 's|${DATE_02}|[Last updated: ${DATE_02}]|g' \
-            README.tmp
+            -e 's|\($DATE_ALL\)|\[Last updated: \1\]|g' \
+            -e 's|\($DATE_01\)|\[Last updated: \1\]|g' \
+            -e 's|\($DATE_02\)|\[Last updated: \1\]|g' \
+            README.md
 
-          mv README.tmp README.md
+          echo "=== 调试：替换后 README 内容 ==="
+          grep -n "Last updated" README.md || echo "未找到 Last updated 行"
 
       - name: Commit & push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 先拉取最新，防止 rejected
+          # 先拉取最新
           git fetch origin "${{ steps.branch.outputs.branch }}"
           git rebase "origin/${{ steps.branch.outputs.branch }}" || \
             (git rebase --abort && git merge "origin/${{ steps.branch.outputs.branch }}")
 
-          if git diff --quiet README.md; then
-            echo "No changes in README.md"
+          # 强制 diff（忽略空格）
+          if git diff --quiet --ignore-space-at-eol README.md; then
+            echo "No meaningful changes in README.md"
             exit 0
           fi
 
