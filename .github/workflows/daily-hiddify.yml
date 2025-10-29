@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 3 * * *'
   workflow_dispatch:
+  
+permissions:
+    contents: write  # ✅ 允许推送修改
 
 jobs:
   run-cli:
@@ -14,6 +17,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # ✅ 使用 GITHUB_TOKEN 自动认证
 
       # 【关键】如果 exe 已随仓库提交，则无需 Restore/Build
       # - name: Setup .NET 8          # ← 可删除
