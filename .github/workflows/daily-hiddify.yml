@@ -35,7 +35,8 @@ jobs:
       - name: Run Pre-built HiddifyConfigsCLI.exe
         env:
           CLI_ARGS: >-
-            --input urls.txt
+     #       --input urls.txt
+            --input https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/bin/Debug/net8.0/urls.txt
             --output valid_links.txt
             --max-lines 100
             --max-parts 2
