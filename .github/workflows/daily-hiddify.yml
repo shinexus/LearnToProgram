@@ -21,10 +21,13 @@ jobs:
         id: run_exe
         shell: pwsh
         timeout-minutes: 50
+        # ---- 关键：切换到 exe 所在目录 ----
+          $exeDir = "HiddifyConfigsCLI/bin/Debug/net8.0"
+          Set-Location $exeDir
         run: |
-          # ---- 打印当前目录结构（关键诊断）----
-          Write-Host "=== 当前目录树 ==="
-          Get-ChildItem -Recurse | Format-Table Name, FullName
+          # ---- 打印当前目录（确认切换成功）----
+          Write-Host "=== 当前工作目录（已切到 exe 目录）==="
+          Write-Host "PWD: $(Get-Location)"
 
           # ---- 检查必备文件 ----
           $exe   = "HiddifyConfigsCLI/bin/Debug/net8.0/HiddifyConfigsCLI.exe"
@@ -53,8 +56,8 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== 生成的文件列表 ==="
-          Get-ChildItem -Recurse "*valid_links*" | Format-Table Name, FullName, Length
+          Write-Host "=== 生成的文件（位于 exe 目录）==="
+          Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net8.0" -Filter "valid_links*" | Format-Table Name, FullName, Length
 
       # -------------------------------------------------
       - name: 4. 上传产物（即使为空也警告而不是错误）
@@ -62,9 +65,7 @@ jobs:
         if: always()
         with:
           name: valid-links
-          path: |
-            **/valid_links.txt
-            **/valid_links_*.txt
+          path: HiddifyConfigsCLI/bin/Debug/net8.0/valid_*.txt
           retention-days: 7
           if-no-files-found: warn
 
@@ -73,7 +74,7 @@ jobs:
         if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
         run: |
-          $files = Get-ChildItem -Recurse -Filter "valid_links*.txt"
+          $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net8.0" -Filter "valid_links*.txt"
           if ($files.Count -eq 0) { Write-Host "没有文件可提交"; exit 0 }
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
