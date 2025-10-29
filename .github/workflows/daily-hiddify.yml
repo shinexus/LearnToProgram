@@ -44,6 +44,7 @@ jobs:
             --parallel 20
             --sort latency
             --http-timeout 10
+            --verbose
         run: |
           $exe = "./HiddifyConfigsCLI/bin/Debug/net8.0/HiddifyConfigsCLI.exe"
           if (-not (Test-Path $exe)) {
