@@ -38,9 +38,9 @@ jobs:
             --output valid_links.txt `
             --max-lines 100 `
             --max-parts 2 `
-            --timeout 3 `
-            --parallel 200 `
-            --http-timeout 10 `
+            --timeout 2 `
+            --parallel 250 `
+            --http-timeout 5 `
           #  --verbose true
 
           $code = $LASTEXITCODE
