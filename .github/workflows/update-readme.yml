@@ -2,54 +2,47 @@ name: Update README with file dates
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 每天凌晨执行
-  workflow_dispatch:       # 手动触发
+    - cron: '0 0 * * *'     # 每天 UTC 00:00（北京 08:00）
+  workflow_dispatch:
   push:
     branches-ignore: [ gh-pages ]
 
 permissions:
-  contents: write  # ✅ 允许推送修改
+  contents: write
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (full history)
         uses: actions/checkout@v4
         with:
-          persist-credentials: true  # ✅ 使用 GITHUB_TOKEN 自动认证
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Detect default branch
         id: branch
         run: |
-          DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
-          echo "branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+          DEFAULT=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
+          echo "branch=$DEFAULT" >> $GITHUB_OUTPUT
 
-      - name: Get last commit dates
+      - name: Get last commit dates → [Last updated: YYYY-MM-DD HH:MM:SS +0800]
         id: getdates
         run: |
-          set -e
-          # 定义文件路径
+          set -uo pipefail
+
           FILE_ALL="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
           FILE_01="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
           FILE_02="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
 
-          # 检查文件是否存在
-          for f in "$FILE_ALL" "$FILE_01" "$FILE_02"; do
-            if [ ! -f "$f" ]; then
-              echo "⚠️ 文件不存在: $f"
-            fi
-          done
-
-          # 提取最后提交时间（UTC），并格式化为北京时间 (+8)
           format_date() {
-            if git log -1 --format=%ci -- "$1" >/dev/null 2>&1; then
-              RAW_DATE=$(git log -1 --format=%ci -- "$1")
-              TZ_DATE=$(date -d "$RAW_DATE +8 hours" +"%Y-%m-%d %H:%M:%S +0800")
-              echo "$TZ_DATE"
+            local f="$1"
+            if git log -1 --format=%cI -- "$f" >/dev/null 2>&1; then
+              # 直接在 UTC 基础上 +8 小时 → 北京时间
+              TZ=UTC git log -1 --format=%cI -- "$f" |
+                xargs -I {} date -d "{} + 8 hours" +"[Last updated: %Y-%m-%d %H:%M:%S +0800]"
             else
-              echo "N/A"
+              echo "[Last updated: N/A]"
             fi
           }
 
@@ -63,19 +56,21 @@ jobs:
           sed -i "s|{{DATE_VALID_01}}|${{ steps.getdates.outputs.L01 }}|g" README.md
           sed -i "s|{{DATE_VALID_02}}|${{ steps.getdates.outputs.L02 }}|g" README.md
 
-      - name: Commit and push if changed
+      - name: Commit & push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 检查 README 是否修改
+          # 先拉取最新，防止 rejected
+          git fetch origin "${{ steps.branch.outputs.branch }}"
+          git rebase "origin/${{ steps.branch.outputs.branch }}" || \
+            (git rebase --abort && git merge "origin/${{ steps.branch.outputs.branch }}")
+
           if git diff --quiet README.md; then
-            echo "✅ No changes detected in README.md"
-          else
-            echo "🔄 Changes detected, committing..."
-            git add README.md
-            git commit -m "Auto update file dates in README [skip ci]"
-            
-            git pull --rebase origin "${{ steps.branch.outputs.branch }}" || true
-            git push origin "${{ steps.branch.outputs.branch }}"
+            echo "No changes in README.md"
+            exit 0
           fi
+
+          git add README.md
+          git commit -m "Auto update file dates in README [skip ci]"
+          git push origin HEAD:"${{ steps.branch.outputs.branch }}"
