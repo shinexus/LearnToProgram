@@ -18,19 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: true  # ✅ 使用 GITHUB_TOKEN 自动认证
-
-      # 【关键】如果 exe 已随仓库提交，则无需 Restore/Build
-      # - name: Setup .NET 8          # ← 可删除
-      #   uses: actions/setup-dotnet@v4
-      #   with:
-      #     dotnet-version: '8.0.x'
-      #
-      # - name: Restore dependencies  # ← 可删除
-      #   run: dotnet restore ...
-      #
-      # - name: Build (Debug)         # ← 可删除
-      #   run: dotnet build ...
+          persist-credentials: true  # ✅ 使用 GITHUB_TOKEN 自动认证      
 
       - name: Run Pre-built HiddifyConfigsCLI.exe
         env:
