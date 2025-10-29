@@ -1,100 +1,46 @@
-# .github/workflows/update-readme-dates.yml
-name: Update README with file dates
+# .github/workflows/update-readme.yml
+name: Update README Dates
 
 on:
   schedule:
-    - cron: '0 0 * * *'     # 每天 UTC 00:00（北京 08:00）
+    - cron: '0 0 * * *'
   workflow_dispatch:
-  push:
-    branches-ignore: [ gh-pages ]
 
 permissions:
   contents: write
 
 jobs:
-  update-readme:
+  run:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (full history)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: true
 
-      - name: Detect default branch
-        id: branch
+      - name: Get Dates
+        id: dates
         run: |
-          DEFAULT=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
-          echo "branch=$DEFAULT" >> $GITHUB_OUTPUT
-
-      - name: Get last commit dates (纯时间)
-        id: getdates
-        run: |
-          set -uo pipefail
-
-          FILE_ALL="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
-          FILE_01="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
-          FILE_02="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
-
-          format_date() {
-            local f="$1"
-            if git log -1 --format=%cI -- "$f" >/dev/null 2>&1; then
-              TZ=UTC git log -1 --format=%cI -- "$f" |
-                xargs -I {} date -d "{} + 8 hours" +"%Y-%m-%d %H:%M:%S +0800"
+          format() {
+            if git log -1 --format=%cI -- "$1" >/dev/null 2>&1; then
+              TZ=UTC git log -1 --format=%cI -- "$1" | xargs -I {} date -d "{} + 8 hours" +"%Y-%m-%d %H:%M:%S +0800"
             else
               echo "N/A"
             fi
           }
+          echo "ALL=$(format 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt')" >> $GITHUB_OUTPUT
+          echo "01=$(format 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt')" >> $GITHUB_OUTPUT
+          echo "02=$(format 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt')" >> $GITHUB_OUTPUT
 
-          echo "ALL=$(format_date "$FILE_ALL")" >> $GITHUB_OUTPUT
-          echo "L01=$(format_date "$FILE_01")" >> $GITHUB_OUTPUT
-          echo "L02=$(format_date "$FILE_02")" >> $GITHUB_OUTPUT
-
-      - name: Update README.md (强制替换 + 调试)
-        env:
-          DATE_ALL: ${{ steps.getdates.outputs.ALL }}
-          DATE_01: ${{ steps.getdates.outputs.L01 }}
-          DATE_02: ${{ steps.getdates.outputs.L02 }}
+      - name: Update README
         run: |
-          echo "=== 调试：输出变量 ==="
-          echo "DATE_ALL = $DATE_ALL"
-          echo "DATE_01  = $DATE_01"
-          echo "DATE_02  = $DATE_02"
+          sed -i "s|LAST_UPDATED_ALL|[Last updated: ${{ steps.dates.outputs.ALL }}]|g" README.md
+          sed -i "s|LAST_UPDATED_01|[Last updated: ${{ steps.dates.outputs.01 }}]|g" README.md
+          sed -i "s|LAST_UPDATED_02|[Last updated: ${{ steps.dates.outputs.02 }}]|g" README.md
 
-          echo "=== 调试：替换前 README 内容 ==="
-          grep -n "valid_links" README.md || echo "未找到 valid_links 行"
-
-          # 1. 替换 ${DATE_ALL} → 实际时间
-          sed -i "s|\${DATE_ALL}|$DATE_ALL|g" README.md
-          sed -i "s|\${DATE_01}|$DATE_01|g" README.md
-          sed -i "s|\${DATE_02}|$DATE_02|g" README.md
-
-          # 2. 统一加前缀 [Last updated: ...]
-          sed -i \
-            -e 's|\($DATE_ALL\)|\[Last updated: \1\]|g' \
-            -e 's|\($DATE_01\)|\[Last updated: \1\]|g' \
-            -e 's|\($DATE_02\)|\[Last updated: \1\]|g' \
-            README.md
-
-          echo "=== 调试：替换后 README 内容 ==="
-          grep -n "Last updated" README.md || echo "未找到 Last updated 行"
-
-      - name: Commit & push if changed
+      - name: Push
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # 先拉取最新
-          git fetch origin "${{ steps.branch.outputs.branch }}"
-          git rebase "origin/${{ steps.branch.outputs.branch }}" || \
-            (git rebase --abort && git merge "origin/${{ steps.branch.outputs.branch }}")
-
-          # 强制 diff（忽略空格）
-          if git diff --quiet --ignore-space-at-eol README.md; then
-            echo "No meaningful changes in README.md"
-            exit 0
-          fi
-
+          git config user.email "github-actions@users.noreply.github.com"
           git add README.md
-          git commit -m "Auto update file dates in README [skip ci]"
-          git push origin HEAD:"${{ steps.branch.outputs.branch }}"
+          git commit -m "Update dates [skip ci]" || exit 0
+          git push
