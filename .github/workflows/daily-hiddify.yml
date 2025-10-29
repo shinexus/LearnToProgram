@@ -27,7 +27,7 @@ jobs:
 
           # ---- 检查必备文件 ----
           $exe   = "HiddifyConfigsCLI/bin/Debug/net8.0/HiddifyConfigsCLI.exe"
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/bin/Debug/net8.0/urls.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
           if (!(Test-Path $exe))   { Write-Error "EXE 未找到: $exe"; exit 1 }
           if (!(Test-Path $input)) { Write-Warning "urls.txt 未找到，CLI 必须支持远程 URL" }
 
