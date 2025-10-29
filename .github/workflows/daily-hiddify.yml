@@ -39,7 +39,7 @@ jobs:
             --max-lines 100 `
             --max-parts 2 `
             --timeout 3 `
-            --parallel 20 `
+            --parallel 200 `
             --http-timeout 10 `
           #  --verbose true
 
