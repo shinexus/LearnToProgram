@@ -1,0 +1,28 @@
+# .github/workflows/delete-failed-workflows.yml
+name: Delete Failed Workflow Runs
+
+on:
+  schedule:
+    # 每天北京时间 05:00 运行（UTC 21:00 前一天）——紧随 update-readme 之后
+    - cron: '0 21 * * *'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  delete-failed:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write  # 需要删除 workflow runs 的权限
+      contents: read
+
+    steps:
+      - name: Delete failed workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0          # 不保留任何天数（立即删除）
+          keep_minimum_runs: 50   # 保留最近 50 次运行（防止误删）
+          delete_run_by_status: |
+            failure
+            cancelled
+            timed_out

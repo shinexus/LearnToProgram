@@ -1,81 +1,83 @@
-name: Update README with file dates
+# .github/workflows/update-readme.yml
+name: Update README Timestamps
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # 每天凌晨执行
-  workflow_dispatch:       # 手动触发
   push:
-    branches-ignore: [ gh-pages ]
-
-permissions:
-  contents: write  # ✅ 允许推送修改
+    paths:
+      - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt'
+      - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt'
+      - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt'
+  schedule:
+    # 每天北京时间 04:00 运行（UTC 20:00 前一天）——作为兜底
+    - cron: '0 20 * * *'
+  workflow_dispatch:  # 支持手动触发
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: true  # ✅ 使用 GITHUB_TOKEN 自动认证
+          ref: master
 
-      - name: Detect default branch
-        id: branch
+      - name: Get file last modified time in Beijing time (UTC+8)
+        id: timestamps
         run: |
-          DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
-          echo "branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+          # 目标文件路径
+          ALL_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
+          PART01_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
+          PART02_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
 
-      - name: Get last commit dates
-        id: getdates
-        run: |
-          set -e
-          # 定义文件路径
-          FILE_ALL="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
-          FILE_01="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
-          FILE_02="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
-
-          # 检查文件是否存在
-          for f in "$FILE_ALL" "$FILE_01" "$FILE_02"; do
-            if [ ! -f "$f" ]; then
-              echo "⚠️ 文件不存在: $f"
+          # 函数：格式化 git commit 时间
+          format_time() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
+              echo "[Last Updated: File Not Found]"
+              return
             fi
-          done
-
-          # 提取最后提交时间（UTC），并格式化为北京时间 (+8)
-          format_date() {
-            if git log -1 --format=%ci -- "$1" >/dev/null 2>&1; then
-              RAW_DATE=$(git log -1 --format=%ci -- "$1")
-              TZ_DATE=$(date -d "$RAW_DATE +8 hours" +"%Y-%m-%d %H:%M:%S +0800")
-              echo "$TZ_DATE"
-            else
-              echo "N/A"
-            fi
+            local ts
+            ts=$(git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S' "$file")
+            echo "[Last Updated: $ts +0800]"
           }
 
-          echo "ALL=$(format_date "$FILE_ALL")" >> $GITHUB_OUTPUT
-          echo "L01=$(format_date "$FILE_01")" >> $GITHUB_OUTPUT
-          echo "L02=$(format_date "$FILE_02")" >> $GITHUB_OUTPUT
+          ALL_TIME=$(format_time "$ALL_FILE")
+          PART01_TIME=$(format_time "$PART01_FILE")
+          PART02_TIME=$(format_time "$PART02_FILE")
 
-      - name: Update README.md
+          echo "DATE_VALID_ALL=$ALL_TIME" >> $GITHUB_OUTPUT
+          echo "DATE_VALID_01=$PART01_TIME" >> $GITHUB_OUTPUT
+          echo "DATE_VALID_02=$PART02_TIME" >> $GITHUB_OUTPUT
+
+      - name: Update README.md with new timestamps
         run: |
-          sed -i "s|{{DATE_VALID_ALL}}|${{ steps.getdates.outputs.ALL }}|g" README.md
-          sed -i "s|{{DATE_VALID_01}}|${{ steps.getdates.outputs.L01 }}|g" README.md
-          sed -i "s|{{DATE_VALID_02}}|${{ steps.getdates.outputs.L02 }}|g" README.md
+          sed -i "s|{DATE_VALID_ALL}|${{ steps.timestamps.outputs.DATE_VALID_ALL }}|g" README.md
+          sed -i "s|{DATE_VALID_01}|${{ steps.timestamps.outputs.DATE_VALID_01 }}|g" README.md
+          sed -i "s|{DATE_VALID_02}|${{ steps.timestamps.outputs.DATE_VALID_02 }}|g" README.md
 
-      - name: Commit and push if changed
+      - name: Commit and push only if valid_links files changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # 检查 README 是否修改
-          if git diff --quiet README.md; then
-            echo "✅ No changes detected in README.md"
-          else
-            echo "🔄 Changes detected, committing..."
-            git add README.md
-            git commit -m "Auto update file dates in README [skip ci]"
-            
-            git pull --rebase origin "${{ steps.branch.outputs.branch }}" || true
-            git push origin "${{ steps.branch.outputs.branch }}"
+          # 检查触发文件是否有变更（push 事件）
+          if git diff --quiet HEAD~1 -- \
+            HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt \
+            HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt \
+            HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt; then
+            echo "No changes in valid_links files. Skipping commit."
+            exit 0
           fi
+
+          # 检查 README 是否因时间戳更新而变化
+          git add README.md
+          if git diff --quiet --staged; then
+            echo "README unchanged after timestamp update."
+            exit 0
+          fi
+
+          git commit -m "chore: update README timestamps [skip ci]"
+          git push

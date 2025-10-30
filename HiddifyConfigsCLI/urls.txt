@@ -14,9 +14,7 @@ https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/light
 https://raw.githubusercontent.com/barry-far/V2ray-config/main/Splitted-By-Protocol/vless.txt
 https://raw.githubusercontent.com/SoliSpirit/v2ray-configs/refs/heads/main/Protocols/vless.txt
 https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/wireguard.txt
-https://raw.githubusercontent.com/V2RAYCONFIGSPOOL/V2RAY_SUB/refs/heads/main/v2ray_configs_no1.txt
-https://raw.githubusercontent.com/V2RAYCONFIGSPOOL/V2RAY_SUB/refs/heads/main/v2ray_configs_no2.txt
-https://raw.githubusercontent.com/V2RAYCONFIGSPOOL/V2RAY_SUB/refs/heads/main/v2ray_configs_no10.txt
+https://raw.githubusercontent.com/ARMANERGAN/V2RAYCONFIGSPOOL/refs/heads/main/V2RAY_SUB.txt
 https://raw.githubusercontent.com/Epodonios/v2ray-configs/refs/heads/main/Sub1.txt
 https://raw.githubusercontent.com/Epodonios/v2ray-configs/refs/heads/main/Sub2.txt
 https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/python/hysteria2
