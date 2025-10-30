@@ -8,4 +8,4 @@ This repository contains configuration files and scripts for Hiddify, a tool des
 
 [valid_links_02](https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt) , (Mix, No Base64, 100 Lines) - [Last Updated: 2025-10-29 14:39:03 +0800]
 
-JimTsui
+JimTsui +8613820887401
