@@ -1,0 +1,34 @@
+# .github/workflows/test-publish-readme-to-threads.yml
+name: Test Publish README to Threads
+
+on:
+  workflow_dispatch:  # 手动触发测试
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: ThreadsAPI
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Read and truncate README
+        id: content
+        run: |
+          CONTENT=$(head -c 500 README.md | tr -d '\n' | sed 's/"/\\"/g')  # 截取 + 转义引号
+          echo "post_content=$CONTENT..." >> $GITHUB_OUTPUT  # 加 "..." 提示截取
+
+      - name: Publish to Threads
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_APP_ID }}
+        run: |
+          RESPONSE=$(curl -s -X POST "https://graph.threads.net/v1.0/$THREADS_USER_ID/threads_publish" \
+            -H "Content-Type: application/json" \
+            -d "{\"caption\":\"${{ steps.content.outputs.post_content }}\",\"access_token\":\"$THREADS_ACCESS_TOKEN\"}")
+          echo $RESPONSE | jq .  # 输出 JSON 响应（成功 ID 或错误）
