@@ -14,8 +14,9 @@ finally 必释令牌，
 于是 进度如流水，十息一报，十二分钟而功成。
 终得 良链二千三百六十一，可分 valid_links_01.txt 至 valid_links_24.txt。
 
-Linus 曰：“Talk is cheap. Show me the valid_links.txt.”
+曰：“Talk is cheap. Show me the valid_links.txt.”
 余曰：“已成，敬请验收。”
+
 ---
 
 <!-- AUTO: VALID_LINKS_TIMESTAMP -->
@@ -23,5 +24,6 @@ Linus 曰：“Talk is cheap. Show me the valid_links.txt.”
 - [valid_links_01](https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt) , (Mix, No Base64, 100 Lines) - [Last Updated: 2025-10-31 04:00:18 +0800]
 - [valid_links_02](https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt) , (Mix, No Base64, 100 Lines) - [Last Updated: 2025-10-31 04:00:18 +0800]
 <!-- END AUTO -->
+
 
 JimTsui & shinexus
