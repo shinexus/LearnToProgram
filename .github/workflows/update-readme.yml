@@ -7,7 +7,7 @@ on:
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt'
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt'
   schedule:
-    - cron: '0 20 * * *'   # UTC 20:00 → 北京 04:00 次日
+    - cron: '0 20 * * *'
   workflow_dispatch:
 
 jobs:
@@ -17,19 +17,13 @@ jobs:
       contents: write
 
     steps:
-      # -------------------------------------------------
-      # 1. 拉取完整历史
-      # -------------------------------------------------
       - name: Checkout with full history
         uses: actions/checkout@v4
         with:
           ref: master
           fetch-depth: 0
 
-      # -------------------------------------------------
-      # 2. 计算时间戳
-      # -------------------------------------------------
-      - name: Get timestamps (Beijing time)
+      - name: Get timestamps
         id: ts
         run: |
           format_time() {
@@ -45,9 +39,6 @@ jobs:
           echo "P01_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt') +0800" >> $GITHUB_OUTPUT
           echo "P02_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt') +0800" >> $GITHUB_OUTPUT
 
-      # -------------------------------------------------
-      # 3. 创建 Perl 脚本文件（避免 YAML 转义地狱）
-      # -------------------------------------------------
       - name: Create Perl replacement script
         run: |
           cat > replace_time.pl <<'EOF'
@@ -55,29 +46,29 @@ jobs:
           use strict;
           use warnings;
 
-          my $all  = $ENV{ALL_TIME};
-          my $p01  = $ENV{P01_TIME};
-          my $p02  = $ENV{P02_TIME};
+          my $all = $ENV{ALL_TIME} // "1970-01-01 00:00:00 +0800";
+          my $p01 = $ENV{P01_TIME} // "1970-01-01 00:00:00 +0800";
+          my $p02 = $ENV{P02_TIME} // "1970-01-01 00:00:00 +0800";
 
           while (<>) {
-            if (/valid_links\.txt[^`]*`/) {
-              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$all/;
+            # 匹配 valid_links.txt 行
+            if (/valid_links\.txt/) {
+              s/(?<=\[Last Updated: )[^]]+(?=\])/\$all/;
             }
-            if (/valid_links_01\.txt[^`]*`/) {
-              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$p01/;
+            # 匹配 valid_links_01.txt
+            if (/valid_links_01\.txt/) {
+              s/(?<=\[Last Updated: )[^]]+(?=\])/\$p01/;
             }
-            if (/valid_links_02\.txt[^`]*`/) {
-              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$p02/;
+            # 匹配 valid_links_02.txt
+            if (/valid_links_02\.txt/) {
+              s/(?<=\[Last Updated: )[^]]+(?=\])/\$p02/;
             }
             print;
           }
           EOF
           chmod +x replace_time.pl
 
-      # -------------------------------------------------
-      # 4. 执行替换（传环境变量）
-      # -------------------------------------------------
-      - name: Replace time inside [] 
+      - name: Replace time inside []
         env:
           ALL_TIME: ${{ steps.ts.outputs.ALL_TIME }}
           P01_TIME: ${{ steps.ts.outputs.P01_TIME }}
@@ -88,10 +79,7 @@ jobs:
           echo "=== Updated timestamps ==="
           grep "Last Updated" README.md || true
 
-      # -------------------------------------------------
-      # 5. 提交变更
-      # -------------------------------------------------
-      - name: Commit if changed
+      - name: Commit if changed402
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
