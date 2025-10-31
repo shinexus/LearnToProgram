@@ -45,4 +45,85 @@ jobs:
             fi
             # git log 取最近一次提交该文件的本地时间
             local ts
-            ts=$(git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S
+            ts=$(git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S' "$f" 2>/dev/null || echo "1970-01-01 00:00:00")
+            echo "[Last Updated: $ts +0800]"
+          }
+
+          ALL_TIME=$(format_time "$ALL_FILE")
+          PART01_TIME=$(format_time "$PART01_FILE")
+          PART02_TIME=$(format_time "$PART02_FILE")
+
+          # 去掉可能的换行/空格
+          ALL_TIME=$(echo "$ALL_TIME" | tr -d '\n\r')
+          PART01_TIME=$(echo "$PART01_TIME" | tr -d '\n\r')
+          PART02_TIME=$(echo "$PART02_TIME" | tr -d '\n\r')
+
+          echo "DATE_VALID_ALL=$ALL_TIME" >> "$GITHUB_OUTPUT"
+          echo "DATE_VALID_01=$PART01_TIME" >> "$GITHUB_OUTPUT"
+          echo "DATE_VALID_02=$PART02_TIME" >> "$GITHUB_OUTPUT"
+
+      # -------------------------------------------------
+      # 3. 生成要插入的块（仅包含三行内容，不含标记）
+      # -------------------------------------------------
+      - name: Generate timestamp block
+        id: block
+        run: |
+          cat <<'EOF' > timestamp_block.txt
+          - **完整节点文件**: `valid_links.txt` → ${{ steps.timestamps.outputs.DATE_VALID_ALL }}
+          - **分段1 (1–100)**: `valid_links_01.txt` → ${{ steps.timestamps.outputs.DATE_VALID_01 }}
+          - **分段2 (101–200)**: `valid_links_02.txt` → ${{ steps.timestamps.outputs.DATE_VALID_02 }}
+          EOF
+          # 为后面 awk 提供文件路径
+          echo "block_file=timestamp_block.txt" >> "$GITHUB_OUTPUT"
+
+      # -------------------------------------------------
+      # 4. 替换 README 中的 AUTO 块（保留标记）
+      # -------------------------------------------------
+      - name: Replace AUTO block in README.md
+        run: |
+          awk -v block_file="${{ steps.block.outputs.block_file }}" '
+            # 遇到开始标记：打印标记 + 插入块内容
+            /<!-- AUTO: VALID_LINKS_TIMESTAMP -->/ {
+              print $0
+              while ((getline line < block_file) > 0) { print line }
+              close(block_file)
+              # 跳到 END 标记
+              while (getline && $0 !~ /<!-- END AUTO -->/) {}
+              next
+            }
+            # 打印 END 标记本身
+            /<!-- END AUTO -->/ { print $0; next }
+            # 其他行原样输出
+            { print }
+          ' README.md > README.tmp && mv README.tmp README.md
+
+          echo "=== Updated block ==="
+          sed -n '/<!-- AUTO: VALID_LINKS_TIMESTAMP -->/,/<!-- END AUTO -->/p' README.md
+
+      # -------------------------------------------------
+      # 5. 提交变更（仅当 README 实际改动时）
+      # -------------------------------------------------
+      - name: Commit & push if README changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # push 触发时，确认是 valid_links 文件变化导致的
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if git diff --quiet HEAD~1 -- \
+              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt \
+              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt \
+              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt 2>/dev/null; then
+              echo "valid_links files unchanged → skip commit"
+              exit 0
+            fi
+          fi
+
+          git add README.md
+          if git diff --quiet --staged; then
+            echo "README unchanged after timestamp block replacement"
+            exit 0
+          fi
+
+          git commit -m "chore: update README timestamps [skip ci]"
+          git push
