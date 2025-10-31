@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
 
       # -------------------------------------------------
-      # 2. 计算时间戳（北京时间）
+      # 2. 计算时间戳
       # -------------------------------------------------
       - name: Get timestamps (Beijing time)
         id: ts
@@ -46,39 +46,68 @@ jobs:
           echo "P02_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt') +0800" >> $GITHUB_OUTPUT
 
       # -------------------------------------------------
-      # 3. 只替换 [] 中的时间（已修复正则）
+      # 3. 创建 Perl 脚本文件（避免 YAML 转义地狱）
       # -------------------------------------------------
-      - name: Replace time inside [] (Perl)
+      - name: Create Perl replacement script
         run: |
-          perl -i -pe '
-            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.ALL_TIME }}@   if /valid_links\\.txt/;
-            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.P01_TIME }}@   if /valid_links_01\\.txt/;
-            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.P02_TIME }}@   if /valid_links_02\\.txt/;
-          ' README.md
+          cat > replace_time.pl <<'EOF'
+          #!/usr/bin/perl -i
+          use strict;
+          use warnings;
 
-          echo "=== Updated timestamps in [] ==="
+          my $all  = $ENV{ALL_TIME};
+          my $p01  = $ENV{P01_TIME};
+          my $p02  = $ENV{P02_TIME};
+
+          while (<>) {
+            if (/valid_links\.txt[^`]*`/) {
+              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$all/;
+            }
+            if (/valid_links_01\.txt[^`]*`/) {
+              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$p01/;
+            }
+            if (/valid_links_02\.txt[^`]*`/) {
+              s/(?<=\[Last Updated: )[^]]+(?= \+0800\])/$p02/;
+            }
+            print;
+          }
+          EOF
+          chmod +x replace_time.pl
+
+      # -------------------------------------------------
+      # 4. 执行替换（传环境变量）
+      # -------------------------------------------------
+      - name: Replace time inside [] 
+        env:
+          ALL_TIME: ${{ steps.ts.outputs.ALL_TIME }}
+          P01_TIME: ${{ steps.ts.outputs.P01_TIME }}
+          P02_TIME: ${{ steps.ts.outputs.P02_TIME }}
+        run: |
+          ./replace_time.pl README.md
+
+          echo "=== Updated timestamps ==="
           grep "Last Updated" README.md || true
 
       # -------------------------------------------------
-      # 4. 提交（仅当 README 真正改动时）
+      # 5. 提交变更
       # -------------------------------------------------
-      - name: Commit if README changed
+      - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
             if git diff --quiet HEAD~1 -- HiddifyConfigsCLI/bin/Debug/net8.0/valid_links*.txt 2>/dev/null; then
-              echo "Source files unchanged → skip commit"
+              echo "No source change → skip"
               exit 0
             fi
           fi
 
           git add README.md
           if git diff --quiet --staged; then
-            echo "README unchanged → skip commit"
+            echo "README unchanged → skip"
             exit 0
           fi
 
-          git commit -m "chore: update timestamps in README [skip ci]"
+          git commit -m "chore: update timestamps [skip ci]"
           git push
