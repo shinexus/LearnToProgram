@@ -7,7 +7,7 @@ on:
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt'
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt'
   schedule:
-    - cron: '0 20 * * *'  # UTC 20:00 → 北京 04:00 次日
+    - cron: '0 20 * * *'   # UTC 20:00 → 北京 04:00 次日
   workflow_dispatch:
 
 jobs:
@@ -17,12 +17,18 @@ jobs:
       contents: write
 
     steps:
+      # -------------------------------------------------
+      # 1. 拉取完整历史
+      # -------------------------------------------------
       - name: Checkout with full history
         uses: actions/checkout@v4
         with:
           ref: master
           fetch-depth: 0
 
+      # -------------------------------------------------
+      # 2. 计算时间戳（北京时间）
+      # -------------------------------------------------
       - name: Get timestamps (Beijing time)
         id: ts
         run: |
@@ -39,17 +45,23 @@ jobs:
           echo "P01_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt') +0800" >> $GITHUB_OUTPUT
           echo "P02_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt') +0800" >> $GITHUB_OUTPUT
 
-      - name: Replace only time inside []  (using Perl regex)
+      # -------------------------------------------------
+      # 3. 只替换 [] 中的时间（已修复正则）
+      # -------------------------------------------------
+      - name: Replace time inside [] (Perl)
         run: |
           perl -i -pe '
-            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.ALL_TIME }}$2@  if /valid_links\.txt/;
-            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.P01_TIME }}$2@  if /valid_links_01\.txt/;
-            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.P02_TIME }}$2@  if /valid_links_02\.txt/;
+            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.ALL_TIME }}@   if /valid_links\\.txt/;
+            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.P01_TIME }}@   if /valid_links_01\\.txt/;
+            s@(?<=\\[Last Updated: )[^]]+(?= \\+0800\\])@${{ steps.ts.outputs.P02_TIME }}@   if /valid_links_02\\.txt/;
           ' README.md
 
           echo "=== Updated timestamps in [] ==="
-          grep "Last Updated" README.md
+          grep "Last Updated" README.md || true
 
+      # -------------------------------------------------
+      # 4. 提交（仅当 README 真正改动时）
+      # -------------------------------------------------
       - name: Commit if README changed
         run: |
           git config user.name "github-actions[bot]"
@@ -57,14 +69,14 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
             if git diff --quiet HEAD~1 -- HiddifyConfigsCLI/bin/Debug/net8.0/valid_links*.txt 2>/dev/null; then
-              echo "No change in source files → skip"
+              echo "Source files unchanged → skip commit"
               exit 0
             fi
           fi
 
           git add README.md
           if git diff --quiet --staged; then
-            echo "No change in README → skip commit"
+            echo "README unchanged → skip commit"
             exit 0
           fi
 
