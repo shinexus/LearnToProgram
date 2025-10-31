@@ -7,9 +7,8 @@ on:
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt'
       - 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt'
   schedule:
-    # 每天北京时间 04:00（UTC 前一天 20:00）
-    - cron: '0 20 * * *'
-  workflow_dispatch:   # 手动触发
+    - cron: '0 20 * * *'  # UTC 20:00 → 北京 04:00 次日
+  workflow_dispatch:
 
 jobs:
   update-readme:
@@ -18,112 +17,56 @@ jobs:
       contents: write
 
     steps:
-      # -------------------------------------------------
-      # 1. 拉取完整历史（必须，否则 HEAD~1 会报错）
-      # -------------------------------------------------
-      - name: Checkout repository with full history
+      - name: Checkout with full history
         uses: actions/checkout@v4
         with:
           ref: master
           fetch-depth: 0
 
-      # -------------------------------------------------
-      # 2. 计算三个文件最近一次提交的时间（北京时间）
-      # -------------------------------------------------
-      - name: Get last-modified timestamps (Beijing time)
-        id: timestamps
+      - name: Get timestamps (Beijing time)
+        id: ts
         run: |
-          ALL_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt"
-          PART01_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt"
-          PART02_FILE="HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt"
-
           format_time() {
             local f="$1"
             if [ ! -f "$f" ]; then
-              echo "[Last Updated: File Not Found]"
+              echo "1970-01-01 00:00:00"
               return
             fi
-            # git log 取最近一次提交该文件的本地时间
-            local ts
-            ts=$(git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S' "$f" 2>/dev/null || echo "1970-01-01 00:00:00")
-            echo "[Last Updated: $ts +0800]"
+            git log -1 --format="%cd" --date=format-local:'%Y-%m-%d %H:%M:%S' "$f" 2>/dev/null || echo "1970-01-01 00:00:00"
           }
 
-          ALL_TIME=$(format_time "$ALL_FILE")
-          PART01_TIME=$(format_time "$PART01_FILE")
-          PART02_TIME=$(format_time "$PART02_FILE")
+          echo "ALL_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt') +0800" >> $GITHUB_OUTPUT
+          echo "P01_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt') +0800" >> $GITHUB_OUTPUT
+          echo "P02_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt') +0800" >> $GITHUB_OUTPUT
 
-          # 去掉可能的换行/空格
-          ALL_TIME=$(echo "$ALL_TIME" | tr -d '\n\r')
-          PART01_TIME=$(echo "$PART01_TIME" | tr -d '\n\r')
-          PART02_TIME=$(echo "$PART02_TIME" | tr -d '\n\r')
-
-          echo "DATE_VALID_ALL=$ALL_TIME" >> "$GITHUB_OUTPUT"
-          echo "DATE_VALID_01=$PART01_TIME" >> "$GITHUB_OUTPUT"
-          echo "DATE_VALID_02=$PART02_TIME" >> "$GITHUB_OUTPUT"
-
-      # -------------------------------------------------
-      # 3. 生成要插入的块（仅包含三行内容，不含标记）
-      # -------------------------------------------------
-      - name: Generate timestamp block
-        id: block
+      - name: Replace only time inside []  (using Perl regex)
         run: |
-          cat <<'EOF' > timestamp_block.txt
-          - **完整节点文件**: `valid_links.txt` → ${{ steps.timestamps.outputs.DATE_VALID_ALL }}
-          - **分段1 (1–100)**: `valid_links_01.txt` → ${{ steps.timestamps.outputs.DATE_VALID_01 }}
-          - **分段2 (101–200)**: `valid_links_02.txt` → ${{ steps.timestamps.outputs.DATE_VALID_02 }}
-          EOF
-          # 为后面 awk 提供文件路径
-          echo "block_file=timestamp_block.txt" >> "$GITHUB_OUTPUT"
+          perl -i -pe '
+            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.ALL_TIME }}$2@  if /valid_links\.txt/;
+            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.P01_TIME }}$2@  if /valid_links_01\.txt/;
+            s@(\[Last Updated: )[^]]+(@]@\$1${{ steps.ts.outputs.P02_TIME }}$2@  if /valid_links_02\.txt/;
+          ' README.md
 
-      # -------------------------------------------------
-      # 4. 替换 README 中的 AUTO 块（保留标记）
-      # -------------------------------------------------
-      - name: Replace AUTO block in README.md
-        run: |
-          awk -v block_file="${{ steps.block.outputs.block_file }}" '
-            # 遇到开始标记：打印标记 + 插入块内容
-            /<!-- AUTO: VALID_LINKS_TIMESTAMP -->/ {
-              print $0
-              while ((getline line < block_file) > 0) { print line }
-              close(block_file)
-              # 跳到 END 标记
-              while (getline && $0 !~ /<!-- END AUTO -->/) {}
-              next
-            }
-            # 打印 END 标记本身
-            /<!-- END AUTO -->/ { print $0; next }
-            # 其他行原样输出
-            { print }
-          ' README.md > README.tmp && mv README.tmp README.md
+          echo "=== Updated timestamps in [] ==="
+          grep "Last Updated" README.md
 
-          echo "=== Updated block ==="
-          sed -n '/<!-- AUTO: VALID_LINKS_TIMESTAMP -->/,/<!-- END AUTO -->/p' README.md
-
-      # -------------------------------------------------
-      # 5. 提交变更（仅当 README 实际改动时）
-      # -------------------------------------------------
-      - name: Commit & push if README changed
+      - name: Commit if README changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # push 触发时，确认是 valid_links 文件变化导致的
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            if git diff --quiet HEAD~1 -- \
-              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt \
-              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt \
-              HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt 2>/dev/null; then
-              echo "valid_links files unchanged → skip commit"
+            if git diff --quiet HEAD~1 -- HiddifyConfigsCLI/bin/Debug/net8.0/valid_links*.txt 2>/dev/null; then
+              echo "No change in source files → skip"
               exit 0
             fi
           fi
 
           git add README.md
           if git diff --quiet --staged; then
-            echo "README unchanged after timestamp block replacement"
+            echo "No change in README → skip commit"
             exit 0
           fi
 
-          git commit -m "chore: update README timestamps [skip ci]"
+          git commit -m "chore: update timestamps in README [skip ci]"
           git push
