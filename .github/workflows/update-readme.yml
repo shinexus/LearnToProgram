@@ -1,4 +1,4 @@
-name: Update README Timestamps
+name: Update README Timestamps (Direct Replace in [])
 
 on:
   push:
@@ -39,47 +39,26 @@ jobs:
           echo "P01_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt') +0800" >> $GITHUB_OUTPUT
           echo "P02_TIME=$(format_time 'HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt') +0800" >> $GITHUB_OUTPUT
 
-      - name: Create Perl replacement script
+      - name: Replace time in [] using sed (safe & simple)
         run: |
-          cat > replace_time.pl <<'EOF'
-          #!/usr/bin/perl -i
-          use strict;
-          use warnings;
-
-          my $all = $ENV{ALL_TIME} // "1970-01-01 00:00:00 +0800";
-          my $p01 = $ENV{P01_TIME} // "1970-01-01 00:00:00 +0800";
-          my $p02 = $ENV{P02_TIME} // "1970-01-01 00:00:00 +0800";
-
-          while (<>) {
-            # 匹配 valid_links.txt 行
-            if (/valid_links\.txt/) {
-              s/(?<=\[Last Updated: )[^]]+(?=\])/\$all/;
-            }
-            # 匹配 valid_links_01.txt
-            if (/valid_links_01\.txt/) {
-              s/(?<=\[Last Updated: )[^]]+(?=\])/\$p01/;
-            }
-            # 匹配 valid_links_02.txt
-            if (/valid_links_02\.txt/) {
-              s/(?<=\[Last Updated: )[^]]+(?=\])/\$p02/;
-            }
-            print;
+          # 转义 sed 特殊字符
+          escape_sed() {
+            echo "$1" | sed 's/[&/\]/\\&/g'
           }
-          EOF
-          chmod +x replace_time.pl
 
-      - name: Replace time inside []
-        env:
-          ALL_TIME: ${{ steps.ts.outputs.ALL_TIME }}
-          P01_TIME: ${{ steps.ts.outputs.P01_TIME }}
-          P02_TIME: ${{ steps.ts.outputs.P02_TIME }}
-        run: |
-          ./replace_time.pl README.md
+          ALL_ESC=$(escape_sed "${{ steps.ts.outputs.ALL_TIME }}")
+          P01_ESC=$(escape_sed "${{ steps.ts.outputs.P01_TIME }}")
+          P02_ESC=$(escape_sed "${{ steps.ts.outputs.P02_TIME }}")
+
+          # 替换 valid_links.txt 行
+          sed -i "/valid_links\.txt/ s/\[Last Updated: [^]]\+\]/[Last Updated: $ALL_ESC]/" README.md
+          sed -i "/valid_links_01\.txt/ s/\[Last Updated: [^]]\+\]/[Last Updated: $P01_ESC]/" README.md
+          sed -i "/valid_links_02\.txt/ s/\[Last Updated: [^]]\+\]/[Last Updated: $P02_ESC]/" README.md
 
           echo "=== Updated timestamps ==="
           grep "Last Updated" README.md || true
 
-      - name: Commit if changed402
+      - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
