@@ -419,6 +419,7 @@ FodyWeavers.xsd
 
 # JimTsui & shinexus
 *.csproj
+*.json
 
 /LearnToProgram.sln
 
@@ -472,4 +473,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-*.json
+
