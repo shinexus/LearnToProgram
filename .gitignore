@@ -420,10 +420,6 @@ FodyWeavers.xsd
 # JimTsui & shinexus
 *.csproj
 
-.github/workflows/update-readme.yml
-.github/workflows/daily-hiddify.yml
-.github/workflows/*.yml
-
 /LearnToProgram.sln
 
 /HiddifyConfigs/Properties/AssemblyInfo.cs
@@ -476,9 +472,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.Designer.cs
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
-/README.md
-/README.md
-/.github/workflows/update-readme.yml
-/.github/workflows/daily-hiddify.yml
-/.github/workflows/daily-hiddify.yml
-/.github/workflows/daily-hiddify.yml
+*.json
