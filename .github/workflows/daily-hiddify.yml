@@ -38,8 +38,8 @@ jobs:
           if (!(Test-Path $exe)) { Write-Error "EXE 未找到: $exe"; exit 1 }
 
           # ---- 输入为远程 URL（CLI 支持）----
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/one.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/one.txt"
 
           # ---- 执行 CLI（所有输出文件会落在 exe 目录）----
           & ".\$exe" `
@@ -47,8 +47,8 @@ jobs:
             --output valid_links.txt `
             --max-lines 100 `
             --max-parts 2 `
-            --timeout 2 `
-            --parallel 250 `
+            --timeout 4 `
+            --parallel 256 `
             --http-timeout 5
 
           $code = $LASTEXITCODE
