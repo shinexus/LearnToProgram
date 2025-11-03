@@ -49,7 +49,7 @@ jobs:
             --max-parts 2 `
             --timeout 4 `
             --parallel 256 `
-            --http-timeout 5
+            --http-timeout 5 `
             --verbose
 
           $code = $LASTEXITCODE
