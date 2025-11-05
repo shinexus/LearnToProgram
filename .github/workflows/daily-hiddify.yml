@@ -2,8 +2,8 @@
 name: Daily HiddifyConfigsCLI
 
 on:
-# schedule:
-#   - cron: '0 3 * * *'
+ schedule:
+  - cron: '0 3 * * *'
  workflow_dispatch:
   
 permissions:
@@ -38,20 +38,20 @@ jobs:
           if (!(Test-Path $exe)) { Write-Error "EXE 未找到: $exe"; exit 1 }
 
           # ---- 输入为远程 URL（CLI 支持）----
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
           # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/one.txt"
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/vless.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/vless.txt"
 
           # ---- 执行 CLI（所有输出文件会落在 exe 目录）----
           & ".\$exe" `
             --input $input `
-            --output valid_test.txt `
+            --output valid_links.txt `
             --max-lines 100 `
             --max-parts 2 `
-            --timeout 4 `
-            --parallel 256 `
-            --http-timeout 5 `
-            --verbose
+            --timeout 6 `
+            --parallel 128 `
+            --http-timeout 5 
+            #--verbose
 
           $code = $LASTEXITCODE
           Write-Host "CLI 退出码: $code"
