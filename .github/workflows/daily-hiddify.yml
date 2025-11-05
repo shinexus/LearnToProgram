@@ -43,14 +43,17 @@ jobs:
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/vless.txt"
 
           # ---- 执行 CLI（所有输出文件会落在 exe 目录）----
-          & ".\$exe" `
-            --input $input `
-            --output valid_links.txt `
-            --max-lines 100 `
-            --max-parts 2 `
-            --timeout 6 `
-            --parallel 128 `
-            --http-timeout 5
+          $params = @(
+           "--input", $input
+           "--output", "valid_links.txt"
+           "--max-lines", "100"
+           "--max-parts", "2"
+           "--timeout", "6"
+           "--parallel", "128"
+           "--http-timeout", "5"
+          )
+
+          & ".\$exe" @params
 
           $code = $LASTEXITCODE
           Write-Host "CLI 退出码: $code"
