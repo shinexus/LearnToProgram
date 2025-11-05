@@ -50,8 +50,7 @@ jobs:
             --max-parts 2 `
             --timeout 6 `
             --parallel 128 `
-            --http-timeout 5 
-            #--verbose
+            --http-timeout 5
 
           $code = $LASTEXITCODE
           Write-Host "CLI 退出码: $code"
