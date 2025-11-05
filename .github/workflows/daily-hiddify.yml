@@ -38,9 +38,9 @@ jobs:
           if (!(Test-Path $exe)) { Write-Error "EXE 未找到: $exe"; exit 1 }
 
           # ---- 输入为远程 URL（CLI 支持）----
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/urls.txt"
           # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/one.txt"
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/vless.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/vless.txt"
 
           # ---- 执行 CLI（所有输出文件会落在 exe 目录）----
           & ".\$exe" `
