@@ -474,3 +474,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
 
+/HiddifyConfigsCLI/WebSocketRequestBuilder.cs
