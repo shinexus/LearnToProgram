@@ -478,6 +478,7 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt
 /HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_01.txt
 /HiddifyConfigsCLI/bin/Debug/net8.0/valid_links_02.txt
+/HiddifyConfigsCLI/bin/Debug/net8.0/*test*.txt
 /HiddifyConfigsCLI/one.txt
 /HiddifyConfigsCLI/vless.txt
 /HiddifyConfigsCLI/vless_test
