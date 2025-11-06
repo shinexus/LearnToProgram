@@ -22,7 +22,7 @@ https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt
 https://raw.githubusercontent.com/sevcator/5ubscrpt10n/main/protocols/vl.txt
 https://raw.githubusercontent.com/sevcator/5ubscrpt10n/main/protocols/tr.txt
 https://raw.githubusercontent.com/V2RayRoot/V2Root-ConfigPilot/refs/heads/main/output/BestConfigs.txt
-
+https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt
 #
 # 以下协议暂不支持
 #https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/wireguard.txt
