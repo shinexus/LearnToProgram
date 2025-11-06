@@ -475,3 +475,4 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsProgram.cs
 
 /HiddifyConfigsCLI/WebSocketRequestBuilder.cs
+/HiddifyConfigsCLI/bin/Debug/net8.0/valid_links.txt
