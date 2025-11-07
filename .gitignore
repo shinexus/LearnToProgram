@@ -480,3 +480,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/vless.txt
 /HiddifyConfigsCLI/vless_test
 /HiddifyConfigsCLI/*test*.txt
+/HiddifyConfigsCLI/RegexPatterns.cs
