@@ -135,31 +135,13 @@ internal static class ConnectivityChecker
                 {
                     LogHelper.Error($"[失败] {node.Host}:{node.Port} | 协议握手失败");
                     return;
-                }
+                }                
 
-                // Hysteria2 无 stream，跳过出网测试
-                //if (node.Type == "hysteria2")
-                //{
-                //    validNode = node with { Latency = result.latency };
-                //    validNodes.Add(validNode);
-                //    if (opts.Verbose)
-                //        LogHelper.Info($"[可用] {validNode} | {result.latency.TotalMilliseconds:F0}ms");
-                //    return;
-                //}
-
-                sw.Stop();                
-
-                // 出网检测已迁移至 InternetTester.cs。
-                // 调用 InternetTester.TestAsync() 进行 HTTP 204 或 TCP 探测。
-                // 规则：
-                //   1. VLESS/Trojan：复用已建立的 TLS 流发送 HTTP GET 请求
-                //   2. Hysteria2：因 QUIC 复杂，暂不做出网测试（仅保留握手）
-                //   3. --no-check 时已在上层跳过，此处不再执行
+                sw.Stop();                 
 
                 // 调试信息
                 LogHelper.Info($"开始出网测试：{node.Type}://{node.Host}:{node.Port}");
-
-                /* ---------- 出网测试（仅 VLESS/Trojan） ---------- */
+                
                 if (node.Type == "hysteria2")
                 {
                     // Hysteria2 只有握手，视作出网成功
@@ -246,33 +228,28 @@ internal static class ConnectivityChecker
             {
                 // [ Grok无敌 ] 显式设置 5 秒超时，防止旧电脑卡在 DNS
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-                // [ Grok 2025-11-03_03 ] 修复 IPv6 解析失败问题
-                // 原因：Dns.GetHostAddressesAsync 默认优先返回 IPv6，但某些系统/网络环境下 IPv6 解析失败或返回无效地址
-                // 解决：1. 显式请求 AddressFamily.InterNetworkV4（优先 IPv4）；
-                //      2. 若 IPv4 失败，再尝试 AddressFamily.InterNetworkV6；
-                //      3. 若两者均失败，记录日志但不阻塞后续节点
+                
+                // [ GROK 修复 ]IPv6 优先级保持：先 IPv4 → 再 IPv6（与原逻辑一致，但更清晰 + 注释保留）
+                // 原因：某些系统 IPv6 解析返回无效地址（如 ::1 回环），但我们仍需尝试；
+                //       若 IPv4 成功则优先使用（更稳定），失败再降级 IPv6。
                 IPAddress? resolved = null;
 
-                // 步骤1：优先尝试 IPv4
                 try
                 {
                     var ipv4List = await Dns.GetHostAddressesAsync(host, AddressFamily.InterNetwork, cts.Token);
                     if (ipv4List.Length > 0)
                     {
                         resolved = ipv4List[0];
-                        // 简化日志
-                        // LogHelper.Info($"[DNS 解析成功] {host} → IPv4: {resolved}");
+                        LogHelper.Debug($"[DNS 解析成功] {host} → IPv4: {resolved}");
                     }
                 }
                 catch (OperationCanceledException) { /* 超时由外层统一处理 */ }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // 简化日志
-                    // LogHelper.Debug($"[DNS IPv4 解析失败] {host} | {ex.Message}");
+                    LogHelper.Debug($"[DNS IPv4 解析失败] {host} | {ex.Message}");
                 }
 
-                // 步骤2：若 IPv4 失败，尝试 IPv6
+                // [ GROK 修复 ]仅在 IPv4 失败时尝试 IPv6
                 if (resolved == null)
                 {
                     try
@@ -281,15 +258,13 @@ internal static class ConnectivityChecker
                         if (ipv6List.Length > 0)
                         {
                             resolved = ipv6List[0];
-                            // 简化日志
-                            // LogHelper.Info($"[DNS 解析成功] {host} → IPv6: {resolved}");
+                            LogHelper.Debug($"[DNS 解析成功] {host} → IPv6: {resolved}");
                         }
                     }
                     catch (OperationCanceledException) { /* 超时由外层统一处理 */ }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // 简化日志
-                        // LogHelper.Debug($"[DNS IPv6 解析失败] {host} | {ex.Message}");
+                        LogHelper.Debug($"[DNS IPv6 解析失败] {host} | {ex.Message}");
                     }
                 }
 
@@ -317,144 +292,196 @@ internal static class ConnectivityChecker
         return hostAddresses;
     }
 
-    #region [ Grok 修复 ] 协议级握手检测（防卡死）
+    #region 协议级握手检测
 
-    // [ Grok Rebuild ] 2025-11-02_09：VLESS 完整握手，支持 REALITY / WebSocket / gRPC / XTLS-Vision
-    // 1. 从 ExtraParams 读取：flow、reality_enabled、reality_public_key、reality_short_id、utls_fingerprint、transport_type、ws_path、ws_host、grpc_service_name
-    // 2. REALITY：使用 RealityHandshakeAsync（自定义 TLS 扩展）
-    // 3. WebSocket：TLS 后发送标准 WS 握手帧（Sec-WebSocket-Key + Host + Path）
-    // 4. gRPC：TLS 后发送 HTTP/2 前言 + SETTINGS 帧
-    // 5. XTLS-Vision：若 flow=xtls-rprx-vision，则添加随机 padding（16-255 字节）
-    // 6. 所有扩展失败 → 降级为普通 VLESS 头部（兼容性）
-    // 7. 使用 ArrayPool 避免 GC，.NET 8 推荐
-    // [ Grok 2025-11-03_01 ] 修复 security=none 超时 + REALITY 失败后流污染
-    // [ Grok 2025-11-03_02 ] 修复 SslStream 被提前 Dispose 导致 "Cannot access a disposed object"
-    //   原因：using var ssl 作用域过小，离开 if 块后自动释放，但后续 WS/gRPC/VLESS 仍使用 stream
-    //   解决：将 SslStream 声明提前，using 作用域扩大到整个函数；stream 统一管理，REALITY 失败后重连并重建 SslStream
-    private static async Task<(bool success, Stream? stream, TimeSpan latency)> CheckVlessHandshakeAsync( 
-        NodeInfo node, 
-        IPAddress address, 
+    /// <summary>
+    /// 检测 VLESS 协议握手连通性（支持 REALITY / WebSocket / gRPC / XTLS-Vision）
+    /// </summary>
+    /// <param name="node">节点信息</param>
+    /// <param name="address">已解析的目标 IP</param>
+    /// <param name="timeoutSec">超时秒数</param>
+    /// <returns>(是否成功, 可复用的 Stream, 延迟)</returns>
+    private static async Task<(bool success, Stream? stream, TimeSpan latency)> CheckVlessHandshakeAsync(
+        NodeInfo node,
+        IPAddress address,
         int timeoutSec )
     {
-        // [ Grok 2025-11-03_02 ] 提前声明 SslStream，确保生命周期贯穿整个握手
+        // [ GROK 修复 ]提前声明 SslStream，防止离开 using 块后被 Dispose（导致后续 WS/gRPC 失效）
         SslStream? ssl = null;
-        Stream? stream = null; // 统一流引用
+        Stream? stream = null;
 
         var sw = Stopwatch.StartNew();
         TcpClient? client = null;
 
-        // [ chatGPT 2025-11-03_00 ]
-        // [修改说明]
-        // 使用 Socket.ConnectAsync(EndPoint, CancellationToken) 替代 TcpClient.ConnectAsync(...) 以支持可取消连接（.NET8 推荐）
-        // 原因：TcpClient.ConnectAsync 没有 CancellationToken 参数，使用 Socket API 可以让连接阶段响应超时 CancellationToken，
-        // 并避免在超时情况下残留挂起 socket 导致资源泄漏。
-        // 实现方式：
-        //  1. 创建 Socket 并连接：await socket.ConnectAsync(endPoint, cts.Token)
-        //  2. 将已连接的 socket 赋值给传入的 TcpClient.Client（TcpClient.Client 有 setter），之后可以使用 client.GetStream()
-        // 注意：若已有 client 已在连接状态（或 client.Client 已被使用），先关闭旧 client 再赋值新 socket。
+        // [ GROK 修复 ]使用 Socket.ConnectAsync + CancellationToken（.NET 8 推荐），避免 TcpClient.ConnectAsync 无 Token 的缺陷
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
         try
         {
             client = new TcpClient();
 
-            // 建立可取消连接：使用 Socket + CancellationToken（比 TcpClient.ConnectAsync 更可控）
             var endPoint = new IPEndPoint(address, node.Port);
-
-            // 调试信息
-            // LogHelper.Debug($"[VLESS 握手] 连接到 {endPoint.Address}:{endPoint.Port} | 超时: {timeoutSec}s");
-
-            // 
-            // 创建 socket（根据地址族）
             var socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            // 
-            // 为了避免 DNS 解析等潜在阻塞，这里使用 socket.ConnectAsync(endPoint, cts.Token)
+            // [ GROK 修复 ]连接阶段可取消，防止超时卡死
             await socket.ConnectAsync(endPoint, cts.Token);
-
             client.Client = socket;
-            
-            // 将底层 socket 绑定到 TcpClient（方便后续使用 client.GetStream()）
-            //try
-            //{
-            //    client.Client = socket; // 此处赋值，TcpClient 将接管 socket 的生命周期
-            //}
-            //catch (Exception ex)
-            //{
-            //    // 若赋值失败，确保 socket 被关闭以避免泄漏
-            //    try { socket.Close(); } catch { }
-            //    throw new InvalidOperationException("无法将底层 Socket 赋值给 TcpClient.Client", ex);
-            //}
+            client.Client.NoDelay = true;                     // [ GROK 修复 ]禁用 Nagle，提升检测速度
 
-            // [ Grok 2025-11-03_01 ] 解析 ExtraParams，优先获取 security
+            // [ GROK 修复 ]解析 ExtraParams，默认 security = tls
             var extra = node.ExtraParams ?? new Dictionary<string, string>();
-            var security = extra.GetValueOrDefault("security") ?? "tls"; // 默认 tls
+            var security = extra.GetValueOrDefault("security") ?? "tls";
             var realityEnabled = extra.GetValueOrDefault("reality_enabled") == "true";
             var transportType = extra.GetValueOrDefault("transport_type") ?? "";
             var flow = extra.GetValueOrDefault("flow") ?? "";
             var isVision = flow.Contains("vision", StringComparison.OrdinalIgnoreCase);
 
-            // [ Grok 2025-11-03_02 ] 初始化基础流
+            // [ GROK 修复 ]基础流
             stream = client.GetStream();
 
-            // [ Grok 2025-11-03_01 ] 修复 security=none 超时问题
-            // 若 security=none，跳过 TLS 协商，直接使用原始 TCP 流
+            // ------------------- TLS / REALITY -------------------
             if (security == "none")
             {
-                LogHelper.Info($"[security=none] {node.Host}:{node.Port} | 跳过 TLS 协商");
+                LogHelper.Info($"[security=none] {node.Host}:{node.Port} | 跳过 TLS");
             }
-            else
+            else if (security == "tls" || security == "reality")
             {
-                // [ chatGPT 2025-11-03_00 ]
-                // [修改说明]
-                // 使用 SslStream 并显式传入 CancellationToken 到 AuthenticateAsClientAsync（.NET8 支持的重载）
-                // 同时避免在构造时重复调用 client.GetStream() 导致混淆（我们直接使用已连接的 client.GetStream()）
-                // 另外：RemoteCertificateValidationCallback 仅在 SslStream 构造时设置一次，避免多次设置或静态回调冲突。
-                ssl = new SslStream(client.GetStream(), false, ( s, cert, chain, sslPolicyErrors ) => true);
+                // [ GROK 修复 ]SslStream 保留底层流（LeaveInnerStreamOpen = true），防止 Dispose 时关闭 TCP
+                ssl = new SslStream(client.GetStream(), true, ( s, cert, chain, e ) => true);
+
                 var sslOpts = new SslClientAuthenticationOptions
                 {
                     TargetHost = node.Host,
                     EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck
                 };
-                // AuthenticateAsClientAsync 支持 CancellationToken（.NET8）
-                await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
-                stream = ssl; // 替换为加密流
-                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | 协商完成");
-            }            
 
-            // VLESS 头部（基础 + Vision padding）            
-            // [修改] VLESS 检测：id 为空或非法 → 使用随机 UUID（仅占位，不影响检测）
-            // ---------- 构造最小 VLESS 头部 ----------
-            var uuidStr = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.Password ?? ""); 
+                await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
+                stream = ssl;
+                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | 协商完成");
+            }
+
+            // ------------------- REALITY（若启用） -------------------
+            // [ GROK 修复 ]REALITY 必须在 TLS 之后执行，且失败后降级为普通 TLS
+            if (realityEnabled && security == "reality")
+            {
+                var pk = extra.GetValueOrDefault("reality_public_key") ?? "";
+                var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
+                if (string.IsNullOrEmpty(pk) || string.IsNullOrEmpty(sid))
+                {
+                    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | 缺少 public_key 或 short_id，降级为普通 TLS");
+                }
+                else
+                {
+                    var realityOk = await RealityHandshakeAsync(stream!, pk, sid, node.Host, cts.Token);
+                    if (!realityOk)
+                    {
+                        LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | 握手失败，降级为普通 TLS");
+                        // 继续使用已建立的 TLS 流
+                    }
+                    else
+                    {
+                        LogHelper.Info($"[REALITY] {node.Host}:{node.Port} | 握手成功");
+                    }
+                }
+            }
+
+            // ------------------- WebSocket / gRPC（若指定） -------------------
+            if (transportType.Equals("ws", StringComparison.OrdinalIgnoreCase))
+            {
+                var wsPath = extra.GetValueOrDefault("ws_path") ?? "/";
+                var wsHost = extra.GetValueOrDefault("ws_host") ?? node.Host;
+                var earlyDataHeader = extra.GetValueOrDefault("early_data_header_name");
+                var earlyDataValue = extra.GetValueOrDefault("early_data_value");
+                var origin = extra.GetValueOrDefault("origin");
+
+                var wsOk = await WebSocketHandshakeAsync(
+                    stream!,
+                    wsHost,
+                    wsPath,
+                    earlyDataHeader,
+                    earlyDataValue,
+                    !string.IsNullOrEmpty(origin) ? $"Origin: {origin}" : null,
+                    forceHttp11: false,
+                    cts.Token);
+
+                if (!wsOk)
+                {
+                    LogHelper.Warn($"[WebSocket] {node.Host}:{node.Port} | 握手失败，节点不可用");
+                    return (false, null, sw.Elapsed);
+                }
+                LogHelper.Info($"[WebSocket] {node.Host}:{node.Port} | 握手成功");
+            }
+            else if (transportType.Equals("grpc", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ssl == null) throw new InvalidOperationException("gRPC 必须在 TLS 之上");
+                var grpcOk = await GrpcHandshakeAsync(ssl, cts.Token);
+                if (!grpcOk)
+                {
+                    LogHelper.Warn($"[gRPC] {node.Host}:{node.Port} | 握手失败，节点不可用");
+                    return (false, null, sw.Elapsed);
+                }
+                LogHelper.Info($"[gRPC] {node.Host}:{node.Port} | 握手成功");
+            }
+
+            // ------------------- VLESS 协议头部 -------------------
+            var uuidStr = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.Password ?? "");
             var header = BuildVlessHeader(node, address, uuidStr, extra);
 
-            await stream.WriteAsync(header, cts.Token);
+            // [ GROK 修复 ]XTLS-Vision 需要随机 padding（16~255 字节）
+            if (isVision)
+            {
+                var paddingLen = Random.Shared.Next(16, 256);
+                var padding = new byte[paddingLen];
+                Random.Shared.NextBytes(padding);
+                var padded = new byte[header.Length + paddingLen];
+                Buffer.BlockCopy(header, 0, padded, 0, header.Length);
+                Buffer.BlockCopy(padding, 0, padded, header.Length, paddingLen);
+                header = padded;
+                LogHelper.Debug($"[Vision] {node.Host}:{node.Port} | 添加 {paddingLen} 字节 padding");
+            }
+
+            await stream!.WriteAsync(header, cts.Token);
             await stream.FlushAsync(cts.Token);
-            // ---------- 读取任意 1 字节响应 ----------
+
+            // ------------------- 读取响应（任意 1 字节即成功） -------------------
             using var readCts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
             var buf = ArrayPool<byte>.Shared.Rent(1);
             try
             {
                 var read = await stream.ReadAsync(buf.AsMemory(0, 1), readCts.Token);
                 sw.Stop();
-                return read > 0 ? (true, stream, sw.Elapsed) : (false, null, sw.Elapsed);
+
+                if (read > 0)
+                {
+                    LogHelper.Debug($"[VLESS] {node.Host}:{node.Port} | 握手成功，收到响应 {read} 字节");
+                    return (true, stream, sw.Elapsed);
+                }
+                else
+                {
+                    LogHelper.Warn($"[VLESS] {node.Host}:{node.Port} | 握手成功但无响应数据");
+                    return (false, null, sw.Elapsed);
+                }
             }
-            finally { ArrayPool<byte>.Shared.Return(buf); }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buf);
+            }
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
-            LogHelper.Warn($"[Vless 握手超时] {node.Host}:{node.Port}({timeoutSec}s)");
+            LogHelper.Warn($"[VLESS 握手超时] {node.Host}:{node.Port} ({timeoutSec}s)");
+            sw.Stop();
             return (false, null, sw.Elapsed);
         }
         catch (Exception ex)
         {
-            LogHelper.Error($"[Vless 握手失败] {node.Host}:{node.Port} | {ex.Message}");
+            LogHelper.Error($"[VLESS 握手失败] {node.Host}:{node.Port} | {ex.Message}");
             sw.Stop();
             return (false, null, sw.Elapsed);
         }
         finally
         {
-            // 只在失败或外层自行 Dispose 时关闭底层 client
+            // [ GROK 修复 ]仅在失败且未返回 stream 时关闭 client，避免流被提前释放
             if (stream == null) client?.Close();
         }
     }
@@ -693,167 +720,72 @@ internal static class ConnectivityChecker
         return read == 9 && buffer[3] == 0x04; // SETTINGS frame
     }
 
-    // [ Grok 2025-11-02_04 ]
-    // Trojan 握手：payload 添加目标 SNI (1\r\n{node.Host}\r\n\r\n)，模拟 CONNECT
-    // SHA224 截取 + 读 1s 响应
-    // [ Grok 2025-11-08_01 ] 修复 Trojan 出网测试
-    // 问题：原 Trojan 握手仅发送密码 + CMD=1，未指定 CONNECT 目标域名 → 服务端不建立 TCP 隧道
-    // 后果：CheckInternetAsync 复用 stream 发送 HTTP → 服务端视作非法数据 → 立即 RST
-    // 修复：
-    // 1. 在握手阶段发送完整 CONNECT 命令：CMD=1 + {targetHost}:443 + CRLF
-    // 2. 读取服务端 2 字节 CRLF 响应，确认隧道建立
-    // 3. 握手成功后，stream 变为可发送 HTTP 的原始 TCP 隧道
-    // 4. 出网测试 CheckHttpInternetAsync 可安全复用该 stream
-    // 社区验证：trojan-go、sing-box、v2rayN 均要求此字段
-    // 兼容性：目标端口固定 443（出网测试均为 HTTPS），若需灵活可后续扩展
     /// <summary>
-    /// 检测 Trojan 协议握手连通性
+    /// 检测 Trojan 协议握手连通性（仅密码校验 + TLS，不建立出网隧道）
     /// </summary>
-    /// <param name="node">节点信息</param>
-    /// <param name="address">目标 IP 地址</param>
-    /// <param name="timeout">超时时间（秒）</param>
-    /// <param name="client">TcpClient 实例（外部传入以便重用）</param>
-    /// <returns>握手成功返回 true，否则 false</returns>
-    private static async Task<(bool success, Stream? stream, TimeSpan latency)> CheckTrojanHandshakeAsync( NodeInfo node, IPAddress address, int timeoutSec )
+    private static async Task<(bool success, Stream? stream, TimeSpan latency)> CheckTrojanHandshakeAsync(
+    NodeInfo node, IPAddress address, int timeoutSec )
     {
         var sw = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
-        TcpClient? client = null;
-        SslStream? ssl = null;
+
+        // 【推荐】using + TcpClient（同步 Dispose 足够）
+        using var client = new TcpClient();
+        // 【SslStream 支持 IAsyncDisposable】
+        await using var ssl = new SslStream(client.GetStream(), true, ( s, c, ch, e ) => true);
 
         try
         {
-            client = new TcpClient();
-
-            // 建立 TCP 连接
             await client.ConnectAsync(address, node.Port, cts.Token);
+            client.NoDelay = true;
 
-            // ────────────────────────────────────────────────
-            // 发送 Trojan 协议握手请求
-            // ────────────────────────────────────────────────
-            // Trojan 协议在 TLS 之上封装，握手内容形如：
-            //   [Password] + "\r\n" + [SOCKS5-like payload]
-            // 此处仅验证 TLS 握手层是否可成功建立。
-            // ────────────────────────────────────────────────
+            var sni = node.Host;
+            if (IPAddress.TryParse(sni, out _))
+                sni = node.HostParam ?? node.Host;
 
-            // 创建 TLS 安全流
-            ssl = new SslStream(client.GetStream(), false, ( s, c, ch, e ) => true);
-
-            // SSL 配置项
             var sslOpts = new SslClientAuthenticationOptions
             {
-                TargetHost = node.HostParam ?? node.Host,
+                TargetHost = sni,
                 EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
                 CertificateRevocationCheckMode = X509RevocationMode.NoCheck
             };
 
-            // 执行 TLS 握手
             await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
 
-            // ────────────────────────────────────────────────
-            // [ chatGPT 自我补救 ]
-            // 说明：
-            //   旧版本在此处直接调用 CheckInternetAsync(node, ssl, opts)
-            //   进行出网检测（HTTP 204 验证）。
-            //   现在该逻辑已完全迁移至 InternetTester.cs，
-            //   ConnectivityChecker 仅负责握手检测，不再执行外网访问。
-            // ────────────────────────────────────────────────
-
-            // ---------- 完整 CONNECT（出网测试用） ----------
-            // 目标：构造完整的 Trojan CONNECT 请求（含密码哈希 + 目标地址），
-            //       让隧道真正建立到测试目标，供后续 InternetTester 出网验证。
-            // 关键点：
-            // 1. 随机获取一个出网测试 URL（通过 InternetTester.GetTestUrl）
-            // 2. 提取密码（优先 UserId → ExtraParams["password"]）
-            // 3. 计算 SHA224 哈希（Trojan 协议要求前 28 字节）
-            // 4. 拼接标准 CONNECT payload：
-            //     <SHA224_hex>\r\n
-            //     1\r\n                  ← 命令：CONNECT
-            //     <host>\r\n
-            //     <port>\r\n
-            //     \r\n                   ← 空行结束
-            // 5. 发送并读取服务器响应（\r\n 表示成功）
-            // 6. 成功 → 返回 (true, ssl, 延迟)；失败 → (false, null, 延迟)
-            var testUrl = InternetTester.GetTestUrl(
-    new RunOptions { TestUrl = "random" }); // 随机选择一个出网测试 URL（如 https://cp.cloudflare.com/generate_204）
-
-            var uri = new Uri(testUrl); // 解析 URL，获取 host 和 port（用于 CONNECT）
-
-            // 提取密码：
-            // 1. 优先使用 node.UserId（通常来自 vless:// 的用户 ID 字段）
-            // 2. 否则从 ExtraParams["password"] 获取
-            // 3. 若都为空 → 直接返回失败（无密码无法完成 Trojan 认证）
-            var pwd = !string.IsNullOrEmpty(node.UserId)
-                ? node.UserId
-                : node.ExtraParams?.GetValueOrDefault("password") ?? "";
+            var pwd = node.UserId ?? node.ExtraParams?.GetValueOrDefault("password") ?? "";
             if (string.IsNullOrEmpty(pwd))
-                return (false, null, sw.Elapsed); // 密码为空 → 握手失败
+                return (false, null, sw.Elapsed);
 
-            // 计算密码的 SHA-224 哈希（Trojan 协议要求）
-            // 1. 先将密码转为 UTF-8 字节
-            // 2. 用 SHA256 计算完整哈希（.NET 无 SHA224，但 Trojan 用 SHA256 前 28 字节模拟）
-            // 3. 取前 28 字节
             var sha256 = SHA256.HashData(Encoding.UTF8.GetBytes(pwd));
-
-            // 将前 28 字节转为十六进制字符串
-            // 1. AsSpan(0, 28) → 取前 28 字节
-            // 2. ToArray() → 转为数组
-            // 3. BitConverter.ToString → 转为 AA-BB-CC 格式
-            // 4. Replace("-", "") → 去掉连字符
-            // 5. ToLowerInvariant() → 转为小写
             var hex = BitConverter.ToString(sha256.AsSpan(0, 28).ToArray())
                                  .Replace("-", "").ToLowerInvariant();
 
-            // 构造 Trojan CONNECT payload（纯文本，ASCII 编码）
-            // 格式：
-            //   <SHA224_hex>\r\n
-            //   1\r\n                  ← 命令码：1 = CONNECT
-            //   <target_host>\r\n
-            //   <target_port>\r\n
-            //   \r\n                   ← 空行表示结束
-            // CONNECT 到目标（https:// 走 443 端口）
-            // var payload = $"{hex}\r\n1\r\n{uri.Host}\r\n{uri.Port}\r\n\r\n";
-            var targetPort = uri.Scheme == "http" ? 80 : 443; // https:// → 443
-            var payload = $"{hex}\r\n1\r\n{uri.Host}\r\n{targetPort}\r\n\r\n";
-
-            // 转为 ASCII 字节（Trojan 协议要求 ASCII）
+            var payload = $"{hex}\r\n";
             var payloadBytes = Encoding.ASCII.GetBytes(payload);
 
-            // 发送 CONNECT 请求（通过已建立的 TLS 流 ssl）
             await ssl.WriteAsync(payloadBytes, cts.Token);
-            await ssl.FlushAsync(cts.Token); // 确保数据完全发送
+            await ssl.FlushAsync(cts.Token);
 
-            // 读取服务器响应（成功为 \r\n，即 0x0D 0x0A）
-            var resp = new byte[2]; // 缓冲区：2 字节
-            var read = await ssl.ReadAsync(resp, cts.Token); // 尝试读取 2 字节
+            var resp = new byte[2];
+            var read = await ssl.ReadAsync(resp, cts.Token);
 
-            sw.Stop(); // 停止计时（握手耗时） 
+            sw.Stop();
 
-            // 判断响应：
-            // 1. 必须读满 2 字节
-            // 2. 内容必须是 \r\n（即 resp[0] == '\r', resp[1] == '\n'）
-            // 成功 → 返回 (true, ssl, 延迟)：ssl 流可继续用于出网测试
-            // 失败 → 返回 (false, null, 延迟)：流不可用，需丢弃
             return read == 2 && resp[0] == '\r' && resp[1] == '\n'
                 ? (true, ssl, sw.Elapsed)
                 : (false, null, sw.Elapsed);
         }
         catch (OperationCanceledException)
         {
-            LogHelper.Warn($"[Trojan Handshake 超时] {node.Host}:{node.Port}");
+            LogHelper.Warn($"[Trojan 握手超时] {node.Host}:{node.Port}");
             sw.Stop();
             return (false, null, sw.Elapsed);
         }
         catch (Exception ex)
         {
-            // 捕获所有 TLS 握手或网络异常
-            LogHelper.Warn($"[Trojan Handshake 失败] {node.Host}:{node.Port} | {ex.Message}");
+            LogHelper.Error($"[Trojan 握手失败] {node.Host}:{node.Port} | {ex.Message}");
             sw.Stop();
             return (false, null, sw.Elapsed);
-        }
-        finally
-        {
-            if (ssl == null) client?.Close();
         }
     }
 
@@ -869,11 +801,13 @@ internal static class ConnectivityChecker
         try
         {
             using var udp = new UdpClient();
+            udp.Client.DontFragment = true;
             udp.Connect(address, node.Port);
             var ping = Encoding.ASCII.GetBytes("PING");
             await udp.SendAsync(ping, cts.Token);
+            var recv = await udp.ReceiveAsync(cts.Token);
             sw.Stop();
-            return (true, null, sw.Elapsed);   // UDP 成功即视为可用
+            return recv.Buffer.Length > 0 ? (true, null, sw.Elapsed) : (false, null, sw.Elapsed);   // UDP 成功即视为可用
         }
         catch
         {

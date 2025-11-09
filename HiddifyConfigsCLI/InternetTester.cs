@@ -87,7 +87,8 @@ internal static class InternetTester
         // [ Grok 2025-11-09_10_关键修复 ]：确定 CONNECT 端口
         // https:// → 443 端口（目标服务器支持明文降级）
         // http:// → 80 端口
-        var connectPort = uri.Scheme == "https" ? 443 : 80;
+        // var connectPort = uri.Scheme == "https" ? 443 : 80;
+        var connectPort = uri.Port > 0 ? uri.Port : (uri.Scheme == "https" ? 443 : 80);
 
         // 构造最小化 HTTP 请求
         var request = $"GET {path} HTTP/1.1\r\n" +
@@ -142,9 +143,12 @@ internal static class InternetTester
                 // 调试信息
                 LogHelper.Debug($"[ 返回响应：]{host} | {response} | {response.Length}");
 
+                var statusCode = firstLine.Split(' ', 3).ElementAtOrDefault(1) ?? "";
+                bool is204 = statusCode == "204";
+                bool is200 = statusCode == "200";
                 // 【Grok 增强】成功条件
-                bool is204 = firstLine.Contains("204");
-                bool is200 = firstLine.Contains("200");
+                // bool is204 = firstLine.Contains("204");
+                // bool is200 = firstLine.Contains("200");
                 bool hasSuccessText = response.Contains("success", StringComparison.OrdinalIgnoreCase) ||
                                       response.Contains("Microsoft Connect Test", StringComparison.OrdinalIgnoreCase);
                 bool hasEmptyBody = response.Contains("Content-Length: 0");
@@ -228,7 +232,11 @@ internal static class InternetTester
     /// </summary>
     public static string GetTestUrl( RunOptions opts )
     {
-        if (!string.IsNullOrEmpty(opts.TestUrl) && opts.TestUrl != "random")
+        //if (!string.IsNullOrEmpty(opts.TestUrl) && opts.TestUrl != "random")
+        //    return opts.TestUrl;
+        //return DefaultTestUrls[Random.Shared.Next(DefaultTestUrls.Length)];
+
+        if (!string.IsNullOrWhiteSpace(opts.TestUrl) && opts.TestUrl != "random")
             return opts.TestUrl;
         return DefaultTestUrls[Random.Shared.Next(DefaultTestUrls.Length)];
     }
