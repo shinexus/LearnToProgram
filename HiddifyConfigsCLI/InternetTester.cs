@@ -36,7 +36,7 @@ internal static class InternetTester
     ];
 
     /// <summary>
-    /// 【Grok 修复】出网测试总入口
+    /// [ GROK 修复 ] 出网测试总入口
     /// 传入已建立的隧道流（Trojan/VLESS 握手后）
     /// 优先 HTTP 204 → 失败则 TCP SYN
     /// </summary>
@@ -67,7 +67,7 @@ internal static class InternetTester
     }
 
     /// <summary>
-    /// 【Grok 修复】HTTP 出网检测
+    /// [ GROK 修复 ] HTTP 出网检测
     /// 必须读完整响应头，支持 204/200 + 拦截页过滤
     /// 使用 ArrayPool 避免 GC
     /// [ Grok 2025-11-09_10_修复 ]

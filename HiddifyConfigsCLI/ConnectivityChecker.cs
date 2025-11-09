@@ -832,21 +832,21 @@ internal static class ConnectivityChecker
     /// </summary>
     private static Guid ParseOrRandomUuid( string? s )
     {
-        // 【GROK 修复】1. 空值处理
+        // [ GROK 修复 ]1. 空值处理
         if (string.IsNullOrWhiteSpace(s))
         {
             LogHelper.Debug("[UUID] 输入为空，生成随机 UUID");
             return Guid.NewGuid();
         }
 
-        // 【GROK 修复】2. 标准解析（支持所有格式）
+        // [ GROK 修复 ]2. 标准解析（支持所有格式）
         if (Guid.TryParse(s, out var guid))
         {
             LogHelper.Debug($"[UUID] 标准解析成功: {s} → {guid}");
             return guid;
         }
 
-        // 【GROK 修复】3. 宽松解析：去除连字符后按 "N" 格式解析
+        // [ GROK 修复 ]3. 宽松解析：去除连字符后按 "N" 格式解析
         var clean = s.Replace("-", ""); // string.Replace 返回新字符串
         if (clean.Length == 32 && Guid.TryParseExact(clean, "N", out guid))
         {
@@ -854,7 +854,7 @@ internal static class ConnectivityChecker
             return guid;
         }
 
-        // 【GROK 修复】4. 尝试其他格式
+        // [ GROK 修复 ]4. 尝试其他格式
         if (Guid.TryParseExact(s, "D", out guid) ||
             Guid.TryParseExact(s, "B", out guid) ||
             Guid.TryParseExact(s, "P", out guid))
@@ -863,7 +863,7 @@ internal static class ConnectivityChecker
             return guid;
         }
 
-        // 【GROK 修复】5. 最终降级
+        // [ GROK 修复 ]5. 最终降级
         LogHelper.Warn($"[UUID] 非法格式: \"{s}\", 生成随机 UUID");
         return Guid.NewGuid();
     }
@@ -877,7 +877,7 @@ internal static class ConnectivityChecker
         Guid uuid,
         IReadOnlyDictionary<string, string> extra )
     {
-        // 【GROK 修复】using 自动释放 MemoryStream
+        // [ GROK 修复 ] using 自动释放 MemoryStream
         using var ms = new MemoryStream();
 
         // 1. Version
@@ -910,7 +910,7 @@ internal static class ConnectivityChecker
         }
         else if (address.AddressFamily == AddressFamily.InterNetworkV6) // IPv6
         {
-            addrType = 4; // 【GROK 修复】IPv6 = 4
+            addrType = 4; // [ GROK 修复 ]IPv6 = 4
             addrBytes = address.GetAddressBytes(); // 16 字节
         }
         else // 域名
