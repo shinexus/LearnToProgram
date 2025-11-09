@@ -42,6 +42,7 @@
 
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities.Encoders;
+using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -240,7 +241,7 @@ internal static class ConnectivityChecker
                     if (ipv4List.Length > 0)
                     {
                         resolved = ipv4List[0];
-                        LogHelper.Debug($"[DNS 解析成功] {host} → IPv4: {resolved}");
+                        // LogHelper.Debug($"[DNS 解析成功] {host} → IPv4: {resolved}");
                     }
                 }
                 catch (OperationCanceledException) { /* 超时由外层统一处理 */ }
@@ -258,7 +259,7 @@ internal static class ConnectivityChecker
                         if (ipv6List.Length > 0)
                         {
                             resolved = ipv6List[0];
-                            LogHelper.Debug($"[DNS 解析成功] {host} → IPv6: {resolved}");
+                            // LogHelper.Debug($"[DNS 解析成功] {host} → IPv6: {resolved}");
                         }
                     }
                     catch (OperationCanceledException) { /* 超时由外层统一处理 */ }
@@ -820,35 +821,107 @@ internal static class ConnectivityChecker
 
     #region Helper Utilities
 
-    private static Guid ParseOrRandomUuid( string s )
-        => Guid.TryParse(s, out var g) ? g : Guid.NewGuid();
-
-    private static byte[] BuildVlessHeader( NodeInfo node, IPAddress address,
-        Guid uuid, IReadOnlyDictionary<string, string> extra )
+    /// <summary>
+    /// 安全解析 UUID，非法或空时生成随机 UUID 并记录日志
+    /// </summary>
+    /// <summary>
+    /// 安全解析 UUID，非法或空时生成随机 UUID 并记录日志
+    /// </summary>
+    /// <summary>
+    /// 安全解析 UUID，非法或空时生成随机 UUID 并记录日志
+    /// </summary>
+    private static Guid ParseOrRandomUuid( string? s )
     {
-        var ms = new MemoryStream();
-        ms.WriteByte(0);                                   // ver
-        ms.Write(uuid.ToByteArray());                     // uuid
-        ms.WriteByte(0);                                   // opt
-        ms.WriteByte(0);                                   // cmd = connect
-
-        var portB = BitConverter.GetBytes((ushort)node.Port);
-        if (BitConverter.IsLittleEndian) Array.Reverse(portB);
-        ms.Write(portB);                                   // port
-
-        // ---------- addr_type & addr ----------
-        byte addrType = 0;
-        byte[] addrBytes = [];
-
-        if (IPAddress.TryParse(node.Host, out _))
+        // 【GROK 修复】1. 空值处理
+        if (string.IsNullOrWhiteSpace(s))
         {
-            addrType = address.AddressFamily == AddressFamily.InterNetwork ? (byte)1 : (byte)3;
-            addrBytes = address.GetAddressBytes();
+            LogHelper.Debug("[UUID] 输入为空，生成随机 UUID");
+            return Guid.NewGuid();
         }
-        else
+
+        // 【GROK 修复】2. 标准解析（支持所有格式）
+        if (Guid.TryParse(s, out var guid))
         {
-            var hostB = Encoding.UTF8.GetBytes(node.Host);
-            if (hostB.Length > 255) hostB = hostB.Take(255).ToArray();
+            LogHelper.Debug($"[UUID] 标准解析成功: {s} → {guid}");
+            return guid;
+        }
+
+        // 【GROK 修复】3. 宽松解析：去除连字符后按 "N" 格式解析
+        var clean = s.Replace("-", ""); // string.Replace 返回新字符串
+        if (clean.Length == 32 && Guid.TryParseExact(clean, "N", out guid))
+        {
+            LogHelper.Debug($"[UUID] 宽松解析成功 (N): {s} → {guid}");
+            return guid;
+        }
+
+        // 【GROK 修复】4. 尝试其他格式
+        if (Guid.TryParseExact(s, "D", out guid) ||
+            Guid.TryParseExact(s, "B", out guid) ||
+            Guid.TryParseExact(s, "P", out guid))
+        {
+            LogHelper.Debug($"[UUID] 宽松解析成功 (B/D/P): {s} → {guid}");
+            return guid;
+        }
+
+        // 【GROK 修复】5. 最终降级
+        LogHelper.Warn($"[UUID] 非法格式: \"{s}\", 生成随机 UUID");
+        return Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// 构建 VLESS 协议头部（网络字节序，大端）
+    /// </summary>
+    private static byte[] BuildVlessHeader(
+        NodeInfo node,
+        IPAddress address,
+        Guid uuid,
+        IReadOnlyDictionary<string, string> extra )
+    {
+        // 【GROK 修复】using 自动释放 MemoryStream
+        using var ms = new MemoryStream();
+
+        // 1. Version
+        ms.WriteByte(0); // ver = 0
+
+        // 2. UUID (大端序，.NET 8 原生支持)
+        var uuidBytes = uuid.ToByteArrayBigEndian(); // .NET 8: 大端序
+                                                     // 若项目 < .NET 8，可用：
+                                                     // var uuidBytes = uuid.ToByteArray(); if (BitConverter.IsLittleEndian) Array.Reverse(uuidBytes);
+        ms.Write(uuidBytes);
+
+        // 3. Opt + Cmd
+        ms.WriteByte(0); // opt
+        ms.WriteByte(0); // cmd = CONNECT
+
+        // 4. Port (网络字节序 = 大端)
+        var portB = BitConverter.GetBytes((ushort)node.Port);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(portB); // 小端机器 → 转为大端
+        ms.Write(portB);
+
+        // 5. Address Type + Address
+        byte addrType;
+        byte[] addrBytes;
+
+        if (address.AddressFamily == AddressFamily.InterNetwork) // IPv4
+        {
+            addrType = 1;
+            addrBytes = address.GetAddressBytes(); // 4 字节
+        }
+        else if (address.AddressFamily == AddressFamily.InterNetworkV6) // IPv6
+        {
+            addrType = 4; // 【GROK 修复】IPv6 = 4
+            addrBytes = address.GetAddressBytes(); // 16 字节
+        }
+        else // 域名
+        {
+            var hostStr = node.Host;
+            var hostB = Encoding.UTF8.GetBytes(hostStr);
+            if (hostB.Length > 255)
+            {
+                LogHelper.Warn($"[VLESS Header] Host 过长 ({hostB.Length} > 255)，截断: {hostStr}");
+                hostB = hostB.Take(255).ToArray();
+            }
             addrType = 2;
             addrBytes = new byte[1 + hostB.Length];
             addrBytes[0] = (byte)hostB.Length;
@@ -857,6 +930,7 @@ internal static class ConnectivityChecker
 
         ms.WriteByte(addrType);
         ms.Write(addrBytes);
+
         return ms.ToArray();
     }
 
