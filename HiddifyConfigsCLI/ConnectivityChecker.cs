@@ -118,7 +118,7 @@ internal static class ConnectivityChecker
                 }
 
                 // ── 握手开始日志 ──
-                LogHelper.Debug($"[正在测试协议握手] {node.Type}://{node.Host}:{node.Port}");
+                LogHelper.Debug($"[正在测试协议握手] {node.Type}://{node.Host}:{node.Port} | UserId={node.UserId}");
 
                 // ── 协议握手（传入已创建的 client） ──
                 result = node.Type switch
@@ -184,7 +184,7 @@ internal static class ConnectivityChecker
             // 其它异常（如网络错误、TLS 错误）
             catch (Exception ex)
             {
-                LogHelper.Error($"[异常] {node.Type}://{node}:{node.Port} | {ex.Message}");
+                LogHelper.Error($"[异常] {node} | Port={node.Port} | UserId={node.UserId} | {ex.Message}");
             }
             finally
             {
@@ -729,16 +729,44 @@ internal static class ConnectivityChecker
     {
         var sw = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
-
-        // 【推荐】using + TcpClient（同步 Dispose 足够）
+                
+        // 必须先 Connect 成功，再 GetStream
         using var client = new TcpClient();
+        try
+        {
+            // 1. 必须 await ConnectAsync
+            await client.ConnectAsync(address, node.Port, cts.Token);
+            client.NoDelay = true;
+        }
+        catch (OperationCanceledException)
+        {
+            LogHelper.Warn($"[Trojan TCP 超时] {node.Host}:{node.Port}");
+            sw.Stop();
+            return (false, null, sw.Elapsed);
+        }
+        catch (SocketException ex)
+        {
+            LogHelper.Warn($"[Trojan TCP 失败] {node.Host}:{node.Port} | {ex.Message}");
+            sw.Stop();
+            return (false, null, sw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Error($"[Trojan TCP 异常] {node.Host}:{node.Port} | {ex.GetType().Name}: {ex.Message}");
+            sw.Stop();
+            return (false, null, sw.Elapsed);
+        }
+
         // 【SslStream 支持 IAsyncDisposable】
         await using var ssl = new SslStream(client.GetStream(), true, ( s, c, ch, e ) => true);
 
+        // 调试信息
+        // LogHelper.Debug($"[Trojan 握手] 连接到 {node.Host}:{node.Port} | UserId={node.UserId}");
+
         try
         {
-            await client.ConnectAsync(address, node.Port, cts.Token);
-            client.NoDelay = true;
+            //await client.ConnectAsync(address, node.Port, cts.Token);
+            //client.NoDelay = true;
 
             var sni = node.Host;
             if (IPAddress.TryParse(sni, out _))
@@ -763,6 +791,9 @@ internal static class ConnectivityChecker
 
             var payload = $"{hex}\r\n";
             var payloadBytes = Encoding.ASCII.GetBytes(payload);
+
+            // 调试信息
+            // LogHelper.Debug($"[Trojan 握手] payload ={payload} ");
 
             await ssl.WriteAsync(payloadBytes, cts.Token);
             await ssl.FlushAsync(cts.Token);
