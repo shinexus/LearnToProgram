@@ -1,0 +1,16 @@
+﻿# .NET
+bin/
+obj/
+*.csproj.user
+
+# Cache
+cache/
+
+# VS
+.vscode/
+*.vspscc
+*.vssscc
+
+# Test output
+tests/output/
+valid_links.txt

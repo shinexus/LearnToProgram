@@ -8,6 +8,7 @@
 //  - CheckHttpInternetAsync()
 // 并统一封装成独立模块。
 
+using HiddifyConfigsCLI.src.Core;
 using System.Buffers;
 using System.Net;
 using System.Net.Sockets;

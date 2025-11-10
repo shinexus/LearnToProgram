@@ -40,9 +40,9 @@
 //   2. ConnectivityChecker 仅负责协议握手与连通性检测，不再直接执行任何出网验证。
 //   3. 保留日志输出、DNS缓存逻辑及并发控制结构。
 
+using HiddifyConfigsCLI.src.Core;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities.Encoders;
-using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -54,7 +54,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
-namespace HiddifyConfigsCLI;
+namespace HiddifyConfigsCLI.src.Checking;
 
 internal static class ConnectivityChecker
 {    
@@ -188,9 +188,6 @@ internal static class ConnectivityChecker
             }
             finally
             {
-                // [ Grok无敌 ] 统一释放资源 + 信号量
-                // try { client.Close(); } catch { /* ignore */ } // 防止句柄泄漏
-
                 result.stream?.Dispose();
                 semaphore.Release(); // 保证并发槽位恢复
 
@@ -342,7 +339,7 @@ internal static class ConnectivityChecker
             // ------------------- TLS / REALITY -------------------
             if (security == "none")
             {
-                LogHelper.Info($"[security=none] {node.Host}:{node.Port} | 跳过 TLS");
+                LogHelper.Info($"[TLS] {node.Type}://{node.Host}:{node.Port} | security={node.Security} 跳过 TLS");
             }
             else if (security == "tls" || security == "reality")
             {
@@ -359,7 +356,7 @@ internal static class ConnectivityChecker
 
                 await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
                 stream = ssl;
-                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | 协商完成");
+                LogHelper.Info($"[TLS] {node.Type}://{node.Host}:{node.Port} | {node.Security} 协商完成");
             }
 
             // ------------------- REALITY（若启用） -------------------
@@ -370,7 +367,7 @@ internal static class ConnectivityChecker
                 var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
                 if (string.IsNullOrEmpty(pk) || string.IsNullOrEmpty(sid))
                 {
-                    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | 缺少 public_key 或 short_id，降级为普通 TLS");
+                    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | public_key={pk} short_id={sid} | 降级为普通 TLS");
                 }
                 else
                 {
@@ -590,14 +587,14 @@ internal static class ConnectivityChecker
     // 3. 读取完整响应头（避免半包）
     // 4. 失败时降级为普通 TCP 握手（兼容性）
     private static async Task<bool> WebSocketHandshakeAsync(
-    Stream stream,
-    string host,
-    string path,
-    string? earlyDataHeaderName,
-    string? earlyDataValue,
-    string? originHeader,
-    bool forceHttp11,
-    CancellationToken ct )
+        Stream stream,
+        string host,
+        string path,
+        string? earlyDataHeaderName,
+        string? earlyDataValue,
+        string? originHeader,
+        bool forceHttp11,
+        CancellationToken ct )
     {
         try
         {
@@ -953,7 +950,7 @@ internal static class ConnectivityChecker
             if (hostB.Length > 255)
             {
                 LogHelper.Warn($"[VLESS Header] Host 过长 ({hostB.Length} > 255)，截断: {hostStr}");
-                hostB = hostB.Take(255).ToArray();
+                hostB = [.. hostB.Take(255)];
             }
             addrType = 2;
             addrBytes = new byte[1 + hostB.Length];
@@ -989,7 +986,7 @@ internal static class ConnectivityChecker
         else if (payload.Length <= ushort.MaxValue)
         {
             header[0] = finAndOpcode;
-            header[1] = (byte)(0x80 | 126);
+            header[1] = 0x80 | 126;
             // 2 bytes length big endian
             var lenBytes = BitConverter.GetBytes((ushort)payload.Length);
             if (BitConverter.IsLittleEndian) Array.Reverse(lenBytes);
@@ -1000,7 +997,7 @@ internal static class ConnectivityChecker
         else
         {
             header[0] = finAndOpcode;
-            header[1] = (byte)(0x80 | 127);
+            header[1] = 0x80 | 127;
             // 8 bytes length big endian
             var lenBytes = BitConverter.GetBytes((ulong)payload.Length);
             if (BitConverter.IsLittleEndian) Array.Reverse(lenBytes);

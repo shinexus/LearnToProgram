@@ -1,0 +1,11 @@
+﻿trojan://telegram-id-privatevpns@13.37.61.95:22222/?security=tls&amp;sni=trojan.burgerip.co.uk&amp;alpn=http%2F1.1&amp;allowInsecure=1&amp;type=tcp&amp;headerType=none#[Bilibili.com]_JimTsui
+trojan://1b57001bd214304027025a740b6cf1ac@153.121.44.99:1328/?security=tls&amp;sni=www.nintendogames.net&amp;allowInsecure=1&amp;type=tcp&amp;headerType=none#[Bilibili.com]_JimTsui
+vless://0b1d29c3-3e4b-48ce-aa81-b8974f6e631f@159.69.220.135:10138/?encryption=none&amp;security=none&amp;type=grpc&amp;authority=&amp;serviceName=%2F%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL-JOIN-%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL-JOIN-%40FAST78_CHANNEL-TEL-%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL-JOIN-%40FAST78_CHANNEL-TEL--%40FAST78_CHANNEL&amp;mode=gun#[Bilibili.com]_JimTsui
+vless://401374e6-df77-41fb-f638-dad8184f175b@185.236.232.159:80/?encryption=none&amp;security=none&amp;type=grpc#[Bilibili.com]_JimTsui
+vless://401374e6-df77-41fb-f638-dad8184f175b@185.236.232.171:80/?encryption=none&amp;security=none&amp;type=grpc#[Bilibili.com]_JimTsui
+vless://401374e6-df77-41fb-f638-dad8184f175b@185.236.232.175:80/?encryption=none&amp;security=none&amp;type=grpc#[Bilibili.com]_JimTsui
+vless://401374e6-df77-41fb-f638-dad8184f175b@185.236.232.248:80/?encryption=none&amp;security=none&amp;type=grpc#[Bilibili.com]_JimTsui
+trojan://BxceQaOe@203.198.122.129:443/?security=tls&amp;allowInsecure=1&amp;type=tcp&amp;headerType=none#[Bilibili.com]_JimTsui
+vless://ddab5550-3938-4aba-943c-f23a08d07dc5@57.128.219.105:443/?encryption=none&amp;security=tls&amp;sni=zula.ir&amp;fp=chrome&amp;allowInsecure=1&amp;type=ws&amp;path=%2Fws#[Bilibili.com]_JimTsui
+vless://2be75101-78cd-4519-9f2c-de286d0815eb@89.106.69.224:19129/?encryption=none&amp;security=none&amp;type=tcp&amp;headerType=none&amp;host=%2F%3FBIA_TELEGRAM%40MARAMBASHI_MARAMBASHI_MARAMBASHI_MARAMBASHI#[Bilibili.com]_JimTsui
+vless://df0680ca-e43c-498d-ed86-8e196eedd012@94.131.122.221:8880/?encryption=none&amp;security=none&amp;type=grpc#[Bilibili.com]_JimTsui
