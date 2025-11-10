@@ -486,3 +486,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/refactor.ps1
 /HiddifyConfigsCLI/teleg_valied.txt
 /HiddifyConfigsCLI/src/Program.cs
+/HiddifyConfigsCLI/.gitignore
