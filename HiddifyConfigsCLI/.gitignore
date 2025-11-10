@@ -457,13 +457,6 @@ FodyWeavers.xsd
 /HysteriaConfigs/HysteriaConfigsForm.resx
 /HysteriaConfigs/HysteriaConfigsProgram.cs
 #
-/HiddifyConfigsCLI/WebSocketRequestBuilder.cs
-/HiddifyConfigsCLI/bin/Debug/net8.0/*test*.txt
-/HiddifyConfigsCLI/one.txt
-/HiddifyConfigsCLI/vless.txt
-/HiddifyConfigsCLI/vless_test
-/HiddifyConfigsCLI/*test*.txt
-/HiddifyConfigsCLI/*teleg*.txt
 /HiddifyConfigsCLI/RegexPatterns.cs
 /HiddifyConfigsCLI/ConnectivityChecker.cs
 /HiddifyConfigsCLI/DoParse.cs
@@ -474,23 +467,14 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/ProtocolParser.cs
 /HiddifyConfigsCLI/ResultProcessor.cs
 /HiddifyConfigsCLI/RunOption.cs
+/HiddifyConfigsCLI/WebSocketRequestBuilder.cs
+/HiddifyConfigsCLI/bin/Debug/net8.0/*test*.txt
+/HiddifyConfigsCLI/one.txt
+/HiddifyConfigsCLI/vless.txt
+/HiddifyConfigsCLI/vless_test
+/HiddifyConfigsCLI/*test*.txt
+/HiddifyConfigsCLI/teleg*.txt
 /HiddifyConfigsCLI/_sourceRaw.txt
 /HiddifyConfigsCLI/_oneTest.txt
 /HiddifyConfigsCLI/*.ps1
-
-# .NET
-bin/
-obj/
-*.csproj.user
-
-# Cache
-cache/
-
-# VS
-.vscode/
-*.vspscc
-*.vssscc
-
-# Test output
-tests/output/
 
