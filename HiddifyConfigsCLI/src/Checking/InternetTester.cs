@@ -100,7 +100,7 @@ internal static class InternetTester
         var requestBytes = Encoding.ASCII.GetBytes(request);
 
         // 调试信息
-        LogHelper.Debug($"[ 正在发送：]{host}:{connectPort} | {request} | {request.Length}");
+        LogHelper.Debug($"[正在发送：]{host}:{connectPort} | {request} | {request.Length}");
 
         try
         {
@@ -142,7 +142,7 @@ internal static class InternetTester
                 var firstLine = response.Split('\n')[0].Trim();
 
                 // 调试信息
-                LogHelper.Debug($"[ 返回响应：]{host} | {response} | {response.Length}");
+                LogHelper.Debug($"[返回响应：]{host} | {response} | {response.Length}");
 
                 var statusCode = firstLine.Split(' ', 3).ElementAtOrDefault(1) ?? "";
                 bool is204 = statusCode == "204";
