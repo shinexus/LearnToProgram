@@ -25,7 +25,8 @@ https://raw.githubusercontent.com/sevcator/5ubscrpt10n/main/protocols/tr.txt
 https://raw.githubusercontent.com/V2RayRoot/V2Root-ConfigPilot/refs/heads/main/output/BestConfigs.txt
 https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt
 https://raw.githubusercontent.com/sakha1370/OpenRay/refs/heads/main/output/all_valid_proxies.txt
-#
+# Telegram
+https://resistalproxy.github.io/V2Ray/server.txt
 # 以下协议暂不支持
 #https://raw.githubusercontent.com/wiki/gfpcom/free-proxy-list/lists/wireguard.txt
 #https://raw.githubusercontent.com/Argh94/Proxy-List/refs/heads/main/WireGuard.txt

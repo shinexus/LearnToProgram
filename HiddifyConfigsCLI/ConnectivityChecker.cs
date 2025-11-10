@@ -69,7 +69,7 @@ internal static class ConnectivityChecker
         // if (nodes.Count == 0) return new List<NodeInfo>();
         if (nodes.Count == 0) return [];
 
-        // 【Grok 新增】--no-check 时跳过所有检测（包括协议握手 + 出网测试）
+        // [Grok 新增] --no-check 时跳过所有检测（包括协议握手 + 出网测试）
         // 直接返回解析后的节点，适用于调试或信任输入源
         if (opts.NoCheck)
         {
@@ -155,7 +155,7 @@ internal static class ConnectivityChecker
                 // VLESS / Trojan 需要 stream
                 if (result.stream == null)
                 {
-                    LogHelper.Warn($"[注意] {node.Type}://{node}:{node.Port} | 握手成功但流为空，跳过出网测试");
+                    LogHelper.Warn($"[注意] {node} | 握手成功但流为空，跳过出网测试");
                     return;
                 }
 
@@ -166,7 +166,7 @@ internal static class ConnectivityChecker
                     internetOk = await InternetTester.CheckInternetAsync(result.stream, opts, cts.Token);
                     if (!internetOk)
                     {
-                        LogHelper.Warn($"[注意] {node.Type}://{node}:{node.Port} | 协议握手通过，但无法出网");
+                        LogHelper.Warn($"[注意] {node} | 协议握手通过，但无法出网");
                         return;
                     }
                 }
@@ -209,7 +209,7 @@ internal static class ConnectivityChecker
 
         var final = validNodes.ToList();
 
-        // 【Grok 新增】最终日志：强调“已通过出网测试”
+        // [Grok 新增] 最终日志：强调“已通过出网测试”
         LogHelper.Info($"连通性检测完成，有效节点 {final.Count} 条（已通过协议握手 + 出网测试）");
 
         return final;
@@ -347,6 +347,7 @@ internal static class ConnectivityChecker
             else if (security == "tls" || security == "reality")
             {
                 // [ GROK 修复 ]SslStream 保留底层流（LeaveInnerStreamOpen = true），防止 Dispose 时关闭 TCP
+                // 一定要在 await socket.ConnectAsync() 之后创建 SslStream，确保连接已建立
                 ssl = new SslStream(client.GetStream(), true, ( s, cert, chain, e ) => true);
 
                 var sslOpts = new SslClientAuthenticationOptions
@@ -600,10 +601,10 @@ internal static class ConnectivityChecker
     {
         try
         {
-            // 【保留原注释】生成符合 RFC 6455 的 Sec-WebSocket-Key（16 字节随机值）
+            // [保留原注释] 生成符合 RFC 6455 的 Sec-WebSocket-Key（16 字节随机值）
             var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 
-            // 【Grok 2025-11-05 重构】使用 List<string> 收集所有 Header 行
+            // [Grok 2025-11-05 重构] 使用 List<string> 收集所有 Header 行
             var requestLines = new List<string>
             {
                 forceHttp11
@@ -616,7 +617,7 @@ internal static class ConnectivityChecker
                 "Sec-WebSocket-Version: 13"
             };
 
-            // 【Grok 2025-11-05 修复】只添加一次 Origin Header
+            // [Grok 2025-11-05 修复] 只添加一次 Origin Header
             if (!string.IsNullOrEmpty(originHeader))
             {
                 requestLines.Add(originHeader);
@@ -625,7 +626,7 @@ internal static class ConnectivityChecker
                 // LogHelper.Debug($"[WS Header 添加] {host}{path} | {originHeader}");
             }
 
-            // 【保留原逻辑】写入 Early-Data Header
+            // [保留原逻辑] 写入 Early-Data Header
             if (!string.IsNullOrEmpty(earlyDataHeaderName) && !string.IsNullOrEmpty(earlyDataValue))
             {
                 requestLines.Add($"{earlyDataHeaderName}: {earlyDataValue}");
@@ -641,7 +642,7 @@ internal static class ConnectivityChecker
                 // LogHelper.Debug($"[WS Header 默认] {host}{path} | Sec-WebSocket-Protocol: {earlyDataValue}");
             }
 
-            // 【Grok 2025-11-05 关键修复】正确结束 HTTP Header
+            // [Grok 2025-11-05 关键修复] 正确结束 HTTP Header
             var requestText = string.Join("\r\n", requestLines) + "\r\n\r\n";
             var requestBytes = Encoding.ASCII.GetBytes(requestText);
 
@@ -651,7 +652,7 @@ internal static class ConnectivityChecker
             await stream.WriteAsync(requestBytes, ct);
             await stream.FlushAsync(ct);
 
-            // 【保留原注释】读取完整响应头（最大 4KB）
+            // [保留原注释] 读取完整响应头（最大 4KB）
             var buffer = new byte[4096];
             var totalRead = 0;
             var headerEnd = -1;
@@ -757,7 +758,8 @@ internal static class ConnectivityChecker
             return (false, null, sw.Elapsed);
         }
 
-        // 【SslStream 支持 IAsyncDisposable】
+        // [SslStream 支持 IAsyncDisposable] 
+        // 一定要在 await client.ConnectAsync() 之后创建 SslStream，确保连接已建立
         await using var ssl = new SslStream(client.GetStream(), true, ( s, c, ch, e ) => true);
 
         // 调试信息
