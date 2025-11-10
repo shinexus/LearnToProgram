@@ -462,6 +462,7 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/*.txt
 /HiddifyConfigsCLI/*.ps1
 /HiddifyConfigsCLI/**/*.cs
+/HiddifyConfigsCLI/**/*test*.txt
 
 
-/HiddifyConfigsCLI/src/Checking/InternetTester.cs
+
