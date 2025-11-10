@@ -481,3 +481,6 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/vless_test
 /HiddifyConfigsCLI/*test*.txt
 /HiddifyConfigsCLI/RegexPatterns.cs
+/HiddifyConfigsCLI/create-telegram.ps1
+/HiddifyConfigsCLI/teleg_valied_01.txt
+/HiddifyConfigsCLI/refactor.ps1
