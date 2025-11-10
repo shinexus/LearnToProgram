@@ -477,4 +477,6 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/_sourceRaw.txt
 /HiddifyConfigsCLI/_oneTest.txt
 /HiddifyConfigsCLI/*.ps1
+HiddifyConfigsCLI/**/*.cs
+/HiddifyConfigsCLI/src/
 
