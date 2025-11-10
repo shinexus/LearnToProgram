@@ -484,3 +484,5 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/create-telegram.ps1
 /HiddifyConfigsCLI/teleg_valied_01.txt
 /HiddifyConfigsCLI/refactor.ps1
+/HiddifyConfigsCLI/teleg_valied.txt
+/HiddifyConfigsCLI/src/Program.cs
