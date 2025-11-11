@@ -258,15 +258,39 @@ internal static class ConnectivityChecker
             var realityEnabled = extra.GetValueOrDefault("reality_enabled") == "true";
             var transportType = extra.GetValueOrDefault("transport_type") ?? "";
             var skipCertVerify = extra.GetValueOrDefault("skip_cert_verify") == "true";
+            var sni = node.HostParam ?? node.Host;
 
             // TLS / REALITY
             if (security == "tls" || security == "reality")
             {
-                ssl = new SslStream(stream, true);
-                var sni = node.HostParam ?? node.Host;
+                // 原代码
+                //ssl = new SslStream(stream, true);                
+                //var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
+                //await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
+                //stream = ssl;
+
+                // 【Grok 升级】不再使用 SslStream.AuthenticateAsClientAsync
+                // 而是：手动发送 Chrome ClientHello → 接收 ServerHello → 再用 SslStream 完成握手
+                bool helloOk = await TlsHelper.TestTlsWithChromeHello(
+                    host: node.Host,
+                    port: node.Port,
+                    sni: sni,
+                    timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
+                );
+
+                if (!helloOk)
+                {
+                    LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败（可能被 CDN 拦截）");
+                    return (false, null, sw.Elapsed);
+                }
+
+                // 【关键】ClientHello 成功后，立即用 SslStream 完成后续握手（密钥协商）
+                ssl = new SslStream(stream, leaveInnerStreamOpen: true);
                 var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
                 await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
-                stream = ssl;
+
+                stream = ssl; // 替换为加密流
+                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | Chrome 指纹握手成功");
             }            
 
             // REALITY 握手（零依赖兜底）
