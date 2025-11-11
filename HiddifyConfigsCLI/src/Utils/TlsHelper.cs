@@ -3,12 +3,12 @@
 //        + Chrome ClientHello 指纹模拟（JA3 匹配）
 // 命名空间：HiddifyConfigsCLI.src.Utils
 // [Grok Rebuild] 2025-11-11：新增 Chrome ClientHello 手动构造，支持 JA3 指纹伪装
+using HiddifyConfigsCLI.src.Logging;
 using System.Net.Security;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
-using System.Net.Sockets;
 using System.Text;
-using HiddifyConfigsCLI.src.Logging;
 
 namespace HiddifyConfigsCLI.src.Utils;
 
@@ -271,7 +271,7 @@ internal static class TlsHelper
     /// <param name="sni">SNI 域名</param>
     /// <param name="timeoutMs">超时毫秒</param>
     /// <returns>true 表示 TLS 握手成功</returns>
-    public static async Task<bool> TestTlsWithChromeHello( string host, int port, string sni, int timeoutMs = 4000 )
+    public static async Task<bool> TestTlsWithChromeHelloAsync( string host, int port, string sni, int timeoutMs = 4000 )
     {
         try
         {
