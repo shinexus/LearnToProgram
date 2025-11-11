@@ -8,6 +8,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Sockets;
 using System.Text;
+using HiddifyConfigsCLI.src.Logging;
 
 namespace HiddifyConfigsCLI.src.Utils;
 
@@ -282,6 +283,9 @@ internal static class TlsHelper
             using var stream = client.GetStream();
             var helloBytes = BuildChromeClientHello(sni);
 
+            // 调试信息
+            LogHelper.Debug($"[helloBytes：]{host}:{port} | sni={sni} | helloBytes[0]={helloBytes[0]}, helloBytes[1]={helloBytes[1]}, helloBytes[2]={helloBytes[2]}, helloBytes[3]={helloBytes[3]}");
+
             // 基于内存重载
             // await stream.WriteAsync(helloBytes, 0, helloBytes.Length);
             await stream.WriteAsync(helloBytes);
@@ -298,6 +302,9 @@ internal static class TlsHelper
                 if (r <= 0) return false;
                 read += r;
             }
+
+            // 调试信息
+            LogHelper.Debug($"[TLS Record：]{host}:{port} | sni={sni} | header[0]={header[0]}, header[1]={header[1]}, header[2]={header[2]}, header[3]={header[3]}");
 
             if (header[0] != 0x16 || header[1] != 0x03) return false; // 不是 TLS Handshake
 

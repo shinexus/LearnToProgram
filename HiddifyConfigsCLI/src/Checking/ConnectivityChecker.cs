@@ -67,6 +67,9 @@ internal static class ConnectivityChecker
     /// </summary>
     public static async Task<List<NodeInfo>> CheckAsync( List<NodeInfo> nodes, RunOptions opts )
     {
+        // 用于 log 分组排序 -------------------------------------------------------------        
+        // log 分组排序 完成 -------------------------------------------------------------
+
         if (nodes.Count == 0) return [];
         if (opts.NoCheck)
         {
