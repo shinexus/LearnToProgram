@@ -467,3 +467,7 @@ FodyWeavers.xsd
 
 
 
+/HiddifyConfigsCLI/tests/one.txt
+/HiddifyConfigsCLI/tests/test.txt
+/HiddifyConfigsCLI/tests/vless.txt
+/HiddifyConfigsCLI/tests/vless_test.txt
