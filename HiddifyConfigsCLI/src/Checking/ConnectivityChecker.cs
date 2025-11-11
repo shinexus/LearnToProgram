@@ -269,7 +269,7 @@ internal static class ConnectivityChecker
                 //await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
                 //stream = ssl;
 
-                // 【Grok 升级】不再使用 SslStream.AuthenticateAsClientAsync
+                // [Grok 升级] 不再使用 SslStream.AuthenticateAsClientAsync
                 // 而是：手动发送 Chrome ClientHello → 接收 ServerHello → 再用 SslStream 完成握手
                 bool helloOk = await TlsHelper.TestTlsWithChromeHello(
                     host: node.Host,
@@ -284,7 +284,7 @@ internal static class ConnectivityChecker
                     return (false, null, sw.Elapsed);
                 }
 
-                // 【关键】ClientHello 成功后，立即用 SslStream 完成后续握手（密钥协商）
+                // [关键] ClientHello 成功后，立即用 SslStream 完成后续握手（密钥协商）
                 ssl = new SslStream(stream, leaveInnerStreamOpen: true);
                 var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
                 await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
@@ -415,7 +415,8 @@ internal static class ConnectivityChecker
         var extra = node.ExtraParams ?? new Dictionary<string, string>();
         var skipCertVerify = CertHelper.GetSkipCertVerify(extra);
         var sw = Stopwatch.StartNew();
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));        
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
+        var sni = node.HostParam ?? node.Host;
 
         try
         {            
@@ -424,8 +425,21 @@ internal static class ConnectivityChecker
             await socket.ConnectAsync(new IPEndPoint(address, node.Port), cts.Token);
             var stream = new NetworkStream(socket, ownsSocket: true);
 
-            await using var ssl = new SslStream(stream, true);
-            var sni = node.HostParam ?? node.Host;
+            // Chrome ClientHello 指纹握手（Trojan 必用 TLS）
+            bool helloOk = await TlsHelper.TestTlsWithChromeHello(
+            host: node.Host,
+            port: node.Port,
+            sni: sni,
+            timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
+            );
+
+            if (!helloOk)
+            {
+                LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | Chrome TLS 握手失败（CDN 拦截？）");
+                return (false, null, sw.Elapsed);
+            }
+
+            var ssl = new SslStream(stream, true);            
             var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
             await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token);
 
@@ -451,27 +465,214 @@ internal static class ConnectivityChecker
     }
 
     /// <summary>
-    /// 检测 Hysteria2 协议握手（UDP 可达性）
+    /// [Hysteria2 完整握手检测] （IPv6 完全兼容）
+    /// 流程：
+    /// 1. UDP 可达性测试（显式 Socket + SocketAsyncEventArgs）
+    /// 2. 发送 QUIC Initial 包（嵌入 Chrome ClientHello）
+    /// 3. 接收并验证服务器响应（Version Negotiation / Initial）
     /// </summary>
     private static async Task<(bool success, Stream? stream, TimeSpan latency)> CheckHysteria2HandshakeAsync(
         NodeInfo node, IPAddress address, int timeoutSec )
     {
         var sw = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
+
         try
         {
-            using var udp = new UdpClient();
-            udp.Connect(address, node.Port);
-            
-            await udp.SendAsync("PING"u8.ToArray(), cts.Token);
-            
-            var recv = await udp.ReceiveAsync(cts.Token);
+            var sni = node.HostParam ?? node.Host;
+            var port = node.Port;
+            var endpoint = new IPEndPoint(address, port);
+            string addrType = address.AddressFamily == AddressFamily.InterNetworkV6 ? "IPv6" : "IPv4";
+
+            LogHelper.Info($"[Hysteria2] {node.Host}:{port} | 开始检测，地址类型: {addrType}");
+
+            // ==============================================================
+            // [1. UDP 可达性测试] 显式 Socket + .NET 8 API
+            // ==============================================================
+            using var udpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            udpSocket.SendTimeout = udpSocket.ReceiveTimeout = timeoutSec * 1000;
+
+            // --- 发送 UDP Ping ---
+            var pingData = new byte[] { 0x00 };
+            var pingMemory = new ReadOnlyMemory<byte>(pingData);
+            var pingSent = DateTimeOffset.UtcNow;
+
+            try
+            {
+                int sent = await udpSocket.SendToAsync(pingMemory, SocketFlags.None, endpoint, cts.Token);
+                if (sent == 0)
+                {
+                    LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | UDP 发送 0 字节");
+                    return (false, null, sw.Elapsed);
+                }
+            }
+            catch (SocketException ex)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | UDP 发送失败 ({addrType}): {ex.Message}");
+                return (false, null, sw.Elapsed);
+            }
+
+            // --- 接收 UDP 响应 ---
+            var receiveBuffer = new byte[1024];
+            var receiveArgs = new SocketAsyncEventArgs();
+            receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
+            receiveArgs.RemoteEndPoint = endpoint;
+
+            var receiveTcs = new TaskCompletionSource<int>();
+            receiveArgs.Completed += ( s, e ) =>
+            {
+                if (e.SocketError == SocketError.Success && e.BytesTransferred > 0)
+                    receiveTcs.SetResult(e.BytesTransferred);
+                else
+                    receiveTcs.SetException(new SocketException((int)e.SocketError));
+            };
+
+            bool pending = udpSocket.ReceiveFromAsync(receiveArgs);
+            if (!pending)
+            {
+                // 立即完成
+                if (receiveArgs.SocketError != SocketError.Success)
+                    throw new SocketException((int)receiveArgs.SocketError);
+                receiveTcs.SetResult(receiveArgs.BytesTransferred);
+            }
+
+            var timeoutTask = Task.Delay(timeoutSec * 1000, cts.Token);
+            var completed = await Task.WhenAny(receiveTcs.Task, timeoutTask);
+
+            if (completed == timeoutTask)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | UDP 接收超时 ({addrType})");
+                return (false, null, sw.Elapsed);
+            }
+
+            int received;
+            try
+            {
+                received = await receiveTcs.Task;
+            }
+            catch (SocketException ex)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | UDP 接收错误: {ex.Message}");
+                return (false, null, sw.Elapsed);
+            }
+
+            if (received <= 0)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | UDP 接收 0 字节");
+                return (false, null, sw.Elapsed);
+            }
+
+            var udpLatency = DateTimeOffset.UtcNow - pingSent;
+            LogHelper.Info($"[Hysteria2] {node.Host}:{port} | UDP 可达，延迟 {udpLatency.TotalMilliseconds:F1}ms ({addrType})");
+
+            // ==============================================================
+            // [2. 构造并发送 QUIC Initial 包（含 Chrome ClientHello）] 
+            // ==============================================================
+            var quicInitial = BuildQuicInitialPacket(sni, out _);
+            var quicMemory = new ReadOnlyMemory<byte>(quicInitial);
+            var quicSent = DateTimeOffset.UtcNow;
+
+            try
+            {
+                int quicSentBytes = await udpSocket.SendToAsync(quicMemory, SocketFlags.None, endpoint, cts.Token);
+                if (quicSentBytes == 0)
+                {
+                    LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC 发送失败");
+                    return (false, null, sw.Elapsed);
+                }
+            }
+            catch (SocketException ex)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC 发送失败: {ex.Message}");
+                return (false, null, sw.Elapsed);
+            }
+
+            // --- 接收 QUIC 响应 ---
+            var quicBuffer = new byte[2048];
+            var quicArgs = new SocketAsyncEventArgs();
+            quicArgs.SetBuffer(quicBuffer, 0, quicBuffer.Length);
+            quicArgs.RemoteEndPoint = endpoint;
+
+            var quicTcs = new TaskCompletionSource<byte[]>();
+            quicArgs.Completed += ( s, e ) =>
+            {
+                if (e.SocketError == SocketError.Success && e.BytesTransferred > 0)
+                    quicTcs.SetResult(e.Buffer.AsSpan(0, e.BytesTransferred).ToArray());
+                else
+                    quicTcs.SetException(new SocketException((int)e.SocketError));
+            };
+
+            bool quicPending = udpSocket.ReceiveFromAsync(quicArgs);
+            if (!quicPending)
+            {
+                if (quicArgs.SocketError != SocketError.Success)
+                    throw new SocketException((int)quicArgs.SocketError);
+                quicTcs.SetResult(quicArgs.Buffer.AsSpan(0, quicArgs.BytesTransferred).ToArray());
+            }
+
+            var quicTimeout = Task.Delay(3000, cts.Token);
+            var quicCompleted = await Task.WhenAny(quicTcs.Task, quicTimeout);
+            if (quicCompleted == quicTimeout)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC Initial 超时 ({addrType})");
+                return (false, null, sw.Elapsed);
+            }
+
+            byte[] quicResponse;
+            try
+            {
+                quicResponse = await quicTcs.Task;
+            }
+            catch (SocketException ex)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC 接收错误: {ex.Message}");
+                return (false, null, sw.Elapsed);
+            }
+
+            // ==============================================================
+            // [3. 验证 QUIC 响应] 
+            // ==============================================================
+            if (quicResponse.Length < 8)
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC 响应过短 ({quicResponse.Length} 字节)");
+                return (false, null, sw.Elapsed);
+            }
+
+            byte header = quicResponse[0];
+            if ((header & 0x80) == 0) // 短包头
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | QUIC 短包头（非 Initial）");
+                return (false, null, sw.Elapsed);
+            }
+
+            uint version = BitConverter.ToUInt32(quicResponse.AsSpan(1, 4));
+            if (version == 0)
+            {
+                LogHelper.Info($"[Hysteria2] {node.Host}:{port} | 收到 Version Negotiation ({addrType})");
+            }
+            else if (version == 0x1 || version == 0xff00001d) // QUIC v1 / Hysteria2
+            {
+                LogHelper.Info($"[Hysteria2] {node.Host}:{port} | QUIC Initial 成功，版本 0x{version:X8} ({addrType})");
+            }
+            else
+            {
+                LogHelper.Warn($"[Hysteria2] {node.Host}:{port} | 不支持的 QUIC 版本 0x{version:X8}");
+                return (false, null, sw.Elapsed);
+            }
+
             sw.Stop();
-            return recv.Buffer.Length > 0 ? (true, null, sw.Elapsed) : (false, null, sw.Elapsed);
+            return (true, null, sw.Elapsed);
         }
-        catch
+        catch (Exception ex) when (ex is SocketException or OperationCanceledException)
         {
             sw.Stop();
+            LogHelper.Warn($"[Hysteria2] {node.Host}:{node.Port} | 网络异常: {ex.Message}");
+            return (false, null, sw.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            LogHelper.Error($"[Hysteria2] {node.Host}:{node.Port} | 未知错误: {ex}");
             return (false, null, sw.Elapsed);
         }
     }
@@ -531,6 +732,55 @@ internal static class ConnectivityChecker
         ms.Write(addrBytes);
         return ms.ToArray();
     }
+
+    /// <summary>
+    /// 构造 QUIC Initial 包（嵌入 Chrome ClientHello）
+    /// </summary>
+    private static byte[] BuildQuicInitialPacket( string sni, out byte[] connectionId )
+    {
+        connectionId = new byte[8];
+        Random.Shared.NextBytes(connectionId);
+
+        var clientHello = TlsHelper.BuildChromeClientHello(sni);
+
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+
+        // 长包头
+        writer.Write((byte)0xC0);
+        writer.Write((uint)0x1);
+        writer.Write((byte)((connectionId.Length << 4) | 0));
+        writer.Write(connectionId);
+        writer.Write((byte)0); // Token Len
+
+        long lenPos = ms.Position;
+        writer.Write((byte)0); // Length 占位
+
+        writer.Write((byte)0x00); // Packet Number
+        writer.Write((byte)0x06); // CRYPTO Frame
+        WriteVarint(writer, 0);   // Offset
+        WriteVarint(writer, (ulong)clientHello.Length);
+        writer.Write(clientHello);
+
+        // 回填 Length
+        long end = ms.Position;
+        ulong pktLen = (ulong)(end - lenPos - 1);
+        ms.Position = lenPos;
+        WriteVarint(writer, pktLen);
+        ms.Position = end;
+
+        return ms.ToArray();
+    }
+
+    private static void WriteVarint( BinaryWriter w, ulong value )
+    {
+        while (value >= 0x80)
+        {
+            w.Write((byte)(value | 0x80));
+            value >>= 7;
+        }
+        w.Write((byte)value);
+    }    
 
     #endregion
 }

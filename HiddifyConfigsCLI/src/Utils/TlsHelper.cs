@@ -270,7 +270,7 @@ internal static class TlsHelper
     /// <param name="sni">SNI 域名</param>
     /// <param name="timeoutMs">超时毫秒</param>
     /// <returns>true 表示 TLS 握手成功</returns>
-    public static async Task<bool> TestTlsWithChromeHello( string host, int port, string sni, int timeoutMs = 3000 )
+    public static async Task<bool> TestTlsWithChromeHello( string host, int port, string sni, int timeoutMs = 4000 )
     {
         try
         {
