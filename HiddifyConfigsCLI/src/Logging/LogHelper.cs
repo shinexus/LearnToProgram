@@ -1,18 +1,19 @@
 ﻿// LogHelper.cs
 // 负责：统一日志输出（控制台 + 文件轮转）
-// 命名空间：HiddifyConfigsCLI
-
+// 命名空间：HiddifyConfigsCLI.src.Logging
+// [Grok 修复] 2025-11-11：修复日志输出逻辑，符合 --verbose / --log 设计
 using System;
 using System.IO;
 using System.Text;
 
-namespace HiddifyConfigsCLI;
+namespace HiddifyConfigsCLI.src.Logging;
 
 internal static class LogHelper
 {
     private static readonly object _lock = new();
     private static StreamWriter? _logWriter;
-    private static bool _verbose;
+    private static bool _logToFile = false;   // 由 --log 控制
+    private static bool _verbose = false;     // 由 --verbose 控制
 
     private const long MaxFileSize = 1 * 1024 * 1024; // 1MB
     private const int MaxRetainedFiles = 5;
@@ -21,13 +22,14 @@ internal static class LogHelper
     /// <summary>
     /// 初始化日志系统
     /// </summary>
-    /// <param name="enableLog">是否写入文件</param>
-    /// <param name="verbose">是否启用详细模式（控制台输出 DEBUG）</param>
-    public static void Init( bool enableLog, bool verbose )
+    /// <param name="logToFile">是否写入文件（--log）</param>
+    /// <param name="verbose">是否启用详细模式（--verbose）</param>
+    public static void Init( bool logToFile, bool verbose )
     {
+        _logToFile = logToFile;
         _verbose = verbose;
 
-        if (!enableLog) return;
+        if (!_logToFile) return;
 
         var logPath = Path.Combine(AppContext.BaseDirectory, LogFileName);
         RotateIfNeeded(logPath);
@@ -52,13 +54,11 @@ internal static class LogHelper
     private static void RotateIfNeeded( string path )
     {
         if (!File.Exists(path)) return;
-
         var info = new FileInfo(path);
         if (info.Length < MaxFileSize) return;
 
         try
         {
-            // 归档：log.5 → 删除，log.4 → log.5，...，log → log.1
             for (int i = MaxRetainedFiles - 1; i >= 1; i--)
             {
                 var oldPath = $"{path}.{i}";
@@ -75,24 +75,18 @@ internal static class LogHelper
     }
 
     // ================================
-    // 公共日志方法
+    // 公共日志方法（逻辑修复）
     // ================================
-
-    public static void Info( string msg ) => Write("INFO", msg);
-    public static void Warn( string msg ) => Write("WARN", msg);
-    public static void Error( string msg, Exception? ex = null ) => Write("ERROR", msg, ex);        
-    public static void Verbose( string msg ) => Write("VERBOSE", msg);
-    public static void Debug( string msg )
-    {
-        if (_verbose)
-            Write("DEBUG", msg);
-    }
+    public static void Info( string msg ) => Write("INFO", msg, shouldConsole: _verbose);
+    public static void Warn( string msg ) => Write("WARN", msg, shouldConsole: _verbose);
+    public static void Error( string msg, Exception? ex = null ) => Write("ERROR", msg, ex, shouldConsole: true); // Error 始终输出控制台
+    public static void Verbose( string msg ) => Write("VERBOSE", msg, shouldConsole: _verbose);
+    public static void Debug( string msg ) => Write("DEBUG", msg, shouldConsole: _verbose);
 
     // ================================
-    // 内部写入逻辑
+    // 内部写入逻辑（核心修复）
     // ================================
-
-    private static void Write( string level, string msg, Exception? ex = null )
+    private static void Write( string level, string msg, Exception? ex = null, bool shouldConsole = false )
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var line = $"[{timestamp}] [{level}] {msg}";
@@ -101,17 +95,23 @@ internal static class LogHelper
 
         lock (_lock)
         {
-            // 始终输出到控制台（除非是 DEBUG 且未启用 verbose）
-            if (level != "DEBUG" || _verbose)
+            // [控制台输出逻辑] 
+            if (shouldConsole || level == "ERROR")
+            {
                 Console.WriteLine(line);
-
-            try
-            {
-                _logWriter?.WriteLine(line);
             }
-            catch
+
+            // [文件输出逻辑] 仅由 _logToFile 控制
+            if (_logToFile)
             {
-                // 防止日志写入失败导致程序崩溃
+                try
+                {
+                    _logWriter?.WriteLine(line);
+                }
+                catch
+                {
+                    // 防止崩溃
+                }
             }
         }
     }

@@ -41,6 +41,7 @@
 //   3. 保留日志输出、DNS缓存逻辑及并发控制结构。
 
 using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using HiddifyConfigsCLI.src.Utils;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Utilities.Encoders;

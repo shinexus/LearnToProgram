@@ -1,4 +1,5 @@
 ﻿using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using System.Net;
 using System.Text.RegularExpressions;
 

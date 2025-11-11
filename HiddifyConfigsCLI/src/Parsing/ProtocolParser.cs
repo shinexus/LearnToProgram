@@ -6,6 +6,8 @@
 //   - 仅负责 URI → 字典 基础解析
 //   - ws-opts / grpc-opts / reality 等嵌套 JSON 由 JsonOptsParser 解析
 //   - 所有注释已清理、补充、统一为中文详尽说明
+using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using System.Net;
 using System.Web;
 
@@ -76,7 +78,7 @@ internal static class ProtocolParser
         var transportType = query.GetValueOrDefault("type")?.ToLowerInvariant() ?? "";
         query["transport_type"] = transportType;
 
-        // 6. 【关键】JSON 嵌套字段外包解析
+        // 6. [关键] JSON 嵌套字段外包解析
         if (transportType == "ws") JsonOptsParser.ParseWsOpts(query);
         else if (transportType == "grpc") JsonOptsParser.ParseGrpcOpts(query);
         JsonOptsParser.ParseReality(query); // Reality 全局解析
@@ -176,19 +178,60 @@ internal static class ProtocolParser
     }
     #endregion
 
-    #region 其他协议（简洁实现）
+    #region 其他协议
     /// <summary>
-    /// 解析 Hysteria2 协议链接
+    /// [Hysteria2 协议解析器] （完整字段映射）
+    /// 支持标准格式：hysteria2://password@host:port/?sni=...&insecure=1
     /// </summary>
-    private static NodeInfo ParseHysteria2( Uri uri ) => NodeInfo.Create(
-        OriginalLink: uri.ToString(),
-        Type: "hysteria2",
-        Host: uri.Host,
-        Port: uri.Port > 0 ? uri.Port : 443,
-        HostParam: ParseQuery(uri.Query).GetValueOrDefault("sni"),
-        Security: "tls",
-        ExtraParams: ParseQuery(uri.Query)
-    );
+    private static NodeInfo ParseHysteria2( Uri uri )
+    {
+        var query = ParseQuery(uri.Query);
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 443;
+        var hostParam = query.GetValueOrDefault("sni", uri.Host); // 默认回退 host
+        var password = uri.UserInfo; // 密码在 UserInfo 中
+        var security = "tls"; // Hysteria2 固定为 TLS
+
+        // [ExtraParams] 构造（只读字典）
+        var extra = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in query)
+            extra[kv.Key] = kv.Value;
+
+        // [跳过证书验证] 
+        bool skipCert = query.TryGetValue("insecure", out var val) &&
+                        (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase)) ||
+                        query.TryGetValue("skip-cert-verify", out val) &&
+                        (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        if (skipCert)
+            extra["skip_cert_verify"] = "true";
+
+        // [混淆支持] 
+        if (query.TryGetValue("obfs", out var obfs) && !string.IsNullOrEmpty(obfs))
+        {
+            extra["obfs"] = obfs;
+            if (query.TryGetValue("obfs-password", out var obfsPass))
+                extra["obfs_password"] = obfsPass;
+        }
+
+        // [传输类型] 
+        if (query.TryGetValue("transport", out var transport) && !string.IsNullOrEmpty(transport))
+            extra["transport_type"] = transport;
+
+        // [只读 ExtraParams] 
+        var readOnlyExtra = extra.AsReadOnly(); // .NET 8+ 推荐
+        
+        return NodeInfo.Create(
+            OriginalLink: uri.ToString(),
+            Type: "hysteria2",
+            Host: host,
+            Port: port,
+            HostParam: hostParam,
+            Password: password,
+            Security: security,
+            ExtraParams: readOnlyExtra
+        );
+    }
 
     /// <summary>
     /// 解析 Tuic 协议链接

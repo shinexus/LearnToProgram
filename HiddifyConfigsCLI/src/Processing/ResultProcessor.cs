@@ -1,6 +1,8 @@
 ﻿// ResultProcessor.cs
 // 负责：去重 + 排序（增强去重键，支持多种排序策略）
 // 命名空间：HiddifyConfigsCLI
+using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;

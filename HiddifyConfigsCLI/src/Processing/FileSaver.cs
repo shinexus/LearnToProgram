@@ -9,6 +9,7 @@
 // - [新增功能] 支持 --info 参数：统一替换每个链接的 # 后备注为指定内容（无 # 时追加）
 // 作者：Grok (xAI) | 2025-11-08
 using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;

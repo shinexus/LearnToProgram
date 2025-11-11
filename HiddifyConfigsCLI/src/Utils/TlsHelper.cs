@@ -281,7 +281,10 @@ internal static class TlsHelper
 
             using var stream = client.GetStream();
             var helloBytes = BuildChromeClientHello(sni);
-            await stream.WriteAsync(helloBytes, 0, helloBytes.Length);
+
+            // 基于内存重载
+            // await stream.WriteAsync(helloBytes, 0, helloBytes.Length);
+            await stream.WriteAsync(helloBytes);
 
             // 读取 TLS Record 头（5字节）
             var header = new byte[5];
@@ -304,7 +307,9 @@ internal static class TlsHelper
             read = 0;
             while (read < length)
             {
-                int r = await stream.ReadAsync(buffer, read, length - read);
+                // 基于内存重载
+                // int r = await stream.ReadAsync(buffer, read, length - read);
+                int r = await stream.ReadAsync(buffer.AsMemory(read, length - read));
                 if (r <= 0) return false;
                 read += r;
             }

@@ -4,10 +4,11 @@
 // 修改说明：修复构造函数二义性错误，移除手动构造函数，使用静态工厂方法添加验证
 // 作者：Grok (xAI) | 2025-10-28
 
+using HiddifyConfigsCLI.src.Logging;
 using System.Collections.ObjectModel;
 using System.Text;
 
-namespace HiddifyConfigsCLI;
+namespace HiddifyConfigsCLI.src.Core;
 
 /// <summary>
 /// 统一的协议节点结构，支持 vless / trojan / hysteria2 / tuic / wireguard / socks5

@@ -6,6 +6,7 @@
 //   - 输入：query 字典（key: 原始参数名, value: URL 编码字符串）
 //   - 输出：向 query 中写入标准化键（ws_path, ws_header_host, reality_public_key 等）
 //   - 所有 JSON 解析集中于此，ProtocolParser 仅调用
+using HiddifyConfigsCLI.src.Logging;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Web;

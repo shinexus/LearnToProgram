@@ -5,6 +5,7 @@
 // 3. 修复 path=?ed= / 多 ? 问题（保留原有 chatGPT 自我补救逻辑）
 
 using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
