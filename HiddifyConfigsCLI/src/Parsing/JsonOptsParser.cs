@@ -155,6 +155,34 @@ internal static class JsonOptsParser
     }
 
     /// <summary>
+    /// 解析 xhttp 相关字段（可复用）
+    /// </summary>
+    /// <param name="query"></param>
+    public static void ParseXhttpOpts( Dictionary<string, string> query )
+    {
+        // 【Grok 新增】xhttp 字段映射
+        if (query.TryGetValue("path", out var path))
+            query["xhttp_path"] = path;
+        if (query.TryGetValue("host", out var host))
+            query["xhttp_host"] = host;
+        if (query.TryGetValue("method", out var method))
+            query["xhttp_method"] = method.ToUpperInvariant();
+        if (query.TryGetValue("headers", out var headersJson))
+        {
+            try
+            {
+                var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(headersJson);
+                foreach (var h in headers)
+                    query[$"xhttp_header_{h.Key}"] = h.Value;
+            }
+            catch
+            {
+                LogHelper.Warn($"[xhttp 解析] headers JSON 无效: {headersJson}");
+            }
+        }
+    }
+
+    /// <summary>
     /// 修复 WebSocket 路径中的多 ? 和编码问题（复用自 ProtocolParser）
     /// </summary>
     private static string FixWsPath( string rawPath )
