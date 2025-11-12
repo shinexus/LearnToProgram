@@ -470,3 +470,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/tests/vless_test.txt
 /HiddifyConfigsCLI/src/Utils/CertHelper.cs
 /HiddifyConfigsCLI/src/Utils/TlsHelper.cs
+/HiddifyConfigsCLI/src/Parsing/ProtocolParser.cs
