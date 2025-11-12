@@ -124,10 +124,10 @@ public record NodeInfo(
         var sb = new StringBuilder();
         sb.Append($"[{Type.ToUpper()}] {Host}:{Port}");
 
-        if (!string.IsNullOrEmpty(HostParam)) sb.Append($" | SNI/Peer: {HostParam}");
-        if (!string.IsNullOrEmpty(Encryption)) sb.Append($" | ENC: {Encryption}");
-        if (!string.IsNullOrEmpty(Security)) sb.Append($" | SEC: {Security}");
-        if (!string.IsNullOrEmpty(UserId)) sb.Append($" | UID: {UserId}");
+        if (!string.IsNullOrEmpty(HostParam))   sb.Append($" | SNI/Peer: {HostParam}");
+        if (!string.IsNullOrEmpty(Encryption))  sb.Append($" | ENC: {Encryption}");
+        if (!string.IsNullOrEmpty(Security))    sb.Append($" | SEC: {Security}");
+        if (!string.IsNullOrEmpty(UserId))      sb.Append($" | UID: {UserId}");
 
         // [Grok 修复] 安全隐藏密码（避免 Substring 越界）
         if (!string.IsNullOrEmpty(Password))
