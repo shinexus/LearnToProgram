@@ -3,7 +3,6 @@
 // 命名空间：HiddifyConfigsCLI
 // 修改说明：修复构造函数二义性错误，移除手动构造函数，使用静态工厂方法添加验证
 // 作者：Grok (xAI) | 2025-10-28
-
 using HiddifyConfigsCLI.src.Logging;
 using System.Collections.ObjectModel;
 using System.Text;
@@ -35,14 +34,14 @@ public record NodeInfo(
     string? HostParam = null,
     string? Encryption = null,
     string? Security = null,
-    string? UserId = null,              // 支持 Tuic/WireGuard/SOCKS5 用户标识
-    string? Password = null,            // Tuic/SOCKS5 密码
-    string? PrivateKey = null,          // WireGuard 私钥
-    string? PublicKey = null,           // WireGuard 公钥
+    string? UserId = null,
+    string? Password = null,
+    string? PrivateKey = null,
+    string? PublicKey = null,
     IReadOnlyDictionary<string, string>? ExtraParams = null,
     TimeSpan? Latency = null )
 {
-    // 确保 ExtraParams 不可变
+    // [Grok 优化] 复用空字典，避免重复创建
     private static readonly IReadOnlyDictionary<string, string> EmptyParams =
         new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
@@ -50,21 +49,12 @@ public record NodeInfo(
     /// 静态工厂方法：创建 NodeInfo 实例并进行验证
     /// 确保 Host 非空且 Port 在有效范围
     /// </summary>
-    /// <param name="OriginalLink">原始链接字符串</param>
-    /// <param name="Type">协议类型</param>
-    /// <param name="Host">目标主机</param>
-    /// <param name="Port">目标端口</param>
-    /// <param name="HostParam">SNI/Peer 参数</param>
-    /// <param name="Encryption">加密方式</param>
-    /// <param name="Security">安全层</param>
-    /// <param name="UserId">用户标识</param>
-    /// <param name="Password">密码</param>
-    /// <param name="PrivateKey">WireGuard 私钥</param>
-    /// <param name="PublicKey">WireGuard 公钥</param>
-    /// <param name="ExtraParams">额外参数字典</param>
-    /// <param name="latency">连接延迟</param>
     /// <returns>验证通过的 NodeInfo 实例</returns>
     /// <exception cref="ArgumentException">当 Host 为空或 Port 无效时抛出</exception>
+    /// <remarks>
+    /// [Grok 修复] 不再返回 null！改为抛出异常或返回默认无效节点
+    /// 工厂方法应保证返回有效实例，避免调用方空引用检查
+    /// </remarks>
     public static NodeInfo Create(
         string OriginalLink,
         string Type,
@@ -80,20 +70,15 @@ public record NodeInfo(
         IReadOnlyDictionary<string, string>? ExtraParams = null,
         TimeSpan? latency = null )
     {
+        // [Grok 修复] Host 为空 → 抛出异常（调用方应提前过滤）
         if (string.IsNullOrWhiteSpace(Host))
-        {
-            LogHelper.Debug($"[节点丢弃] Host 为空 → {OriginalLink}");
-            return null;
-        }
+            throw new ArgumentException($"Host 不能为空: {OriginalLink}", nameof(Host));
 
-        // 验证 Port：必须在 1-65535 之间
+        // [Grok 修复] Port 无效 → 抛出异常
         if (Port < 1 || Port > 65535)
-        {
-            LogHelper.Debug($"[节点丢弃] Port 无效 ({Port}) → {OriginalLink}");
-            return null;
-        }
+            throw new ArgumentException($"Port 必须在 1-65535 之间: {Port}", nameof(Port));
 
-        // 确保 ExtraParams 不可变
+        // [Grok 优化] 安全处理 ExtraParams
         var safeParams = ExtraParams switch
         {
             null => EmptyParams,
@@ -138,33 +123,36 @@ public record NodeInfo(
     {
         var sb = new StringBuilder();
         sb.Append($"[{Type.ToUpper()}] {Host}:{Port}");
+
         if (!string.IsNullOrEmpty(HostParam)) sb.Append($" | SNI/Peer: {HostParam}");
         if (!string.IsNullOrEmpty(Encryption)) sb.Append($" | ENC: {Encryption}");
         if (!string.IsNullOrEmpty(Security)) sb.Append($" | SEC: {Security}");
         if (!string.IsNullOrEmpty(UserId)) sb.Append($" | UID: {UserId}");
+
+        // [Grok 修复] 安全隐藏密码（避免 Substring 越界）
         if (!string.IsNullOrEmpty(Password))
         {
-            // sb.Append($" | PWD: {Password.Substring(0, 3)}***"); // 部分隐藏密码
-            // 使用丢弃方法避免可能的异常
-            _ = sb.Append($" | PWD: {Password.Substring(0, 3)}***"); // 部分隐藏密码
+            string masked = Password.Length >= 3 ? Password[..3] + "***" : "***";
+            sb.Append($" | PWD: {masked}");
         }
 
+        // [Grok 修复] 安全隐藏私钥
         if (!string.IsNullOrEmpty(PrivateKey))
         {
-            // sb.Append($" | PRIV: {PrivateKey.Substring(0, 8)}***"); // 部分隐藏私钥
-            _ = sb.Append($" | PRIV: {PrivateKey.Substring(0, 8)}***"); // 部分隐藏私钥
+            string masked = PrivateKey.Length >= 8 ? PrivateKey[..8] + "***" : "***";
+            sb.Append($" | PRIV: {masked}");
         }
 
+        // [Grok 修复] 安全隐藏公钥
         if (!string.IsNullOrEmpty(PublicKey))
         {
-            // sb.Append($" | PUB: {PublicKey.Substring(0, 8)}***"); // 部分隐藏公钥
-            _ = sb.Append($" | PUB: {PublicKey.Substring(0, 8)}***"); // 部分隐藏公钥
+            string masked = PublicKey.Length >= 8 ? PublicKey[..8] + "***" : "***";
+            sb.Append($" | PUB: {masked}");
         }
 
-        if (Latency != null)
+        if (Latency.HasValue)
         {
-            // sb.Append($" | LATENCY: {Latency.Value.TotalMilliseconds:F0}ms");
-            _ = sb.Append($" | LATENCY: {Latency.Value.TotalMilliseconds:F0}ms");
+            sb.Append($" | LATENCY: {Latency.Value.TotalMilliseconds:F0}ms");
         }
 
         return sb.ToString();

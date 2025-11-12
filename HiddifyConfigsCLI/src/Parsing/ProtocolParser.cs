@@ -1,11 +1,11 @@
 ﻿// ProtocolParser.cs
 // 负责：从 vless://、trojan://、hysteria2:// 等协议链接中解析结构化字段
 // 命名空间：HiddifyConfigsCLI.src.Parsing
-// [Grok Rebuild] 2025-11-10_06：精简主流程，JSON 解析外包至 JsonOptsParser
+// [Grok Rebuild] 2025-11-12：全提前验证，零 try-catch，性能极致
 // 说明：
-//   - 仅负责 URI → 字典 基础解析
-//   - ws-opts / grpc-opts / reality 等嵌套 JSON 由 JsonOptsParser 解析
-//   - 所有注释已清理、补充、统一为中文详尽说明
+//   - 所有 NodeInfo.Create 前验证参数合法性
+//   - 非法字段直接丢弃 + 详细日志
+//   - JSON 嵌套字段外包至 JsonOptsParser
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System.Net;
@@ -52,24 +52,38 @@ internal static class ProtocolParser
     /// <summary>
     /// 解析 VLESS 协议链接
     /// 支持：Reality、XTLS-Vision、WS/gRPC、skip-cert-verify、early-data 等
+    /// 【Grok 优化】所有字段提前验证，无 try-catch
     /// </summary>
-    private static NodeInfo ParseVless( Uri uri )
+    private static NodeInfo? ParseVless( Uri uri )
     {
-        // 1. 基础字段解析
         var query = ParseQuery(uri.Query ?? "");
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 443;
 
+        // 【Grok 验证】Host 不能为空
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            LogHelper.Debug($"[VLESS 节点丢弃] Host 为空: {uri}");
+            return null;
+        }
+
+        // 【Grok 验证】Port 范围
+        if (port < 1 || port > 65535)
+        {
+            LogHelper.Debug($"[VLESS 节点丢弃] Port 非法: {port}");
+            return null;
+        }
+
         // 2. SNI / Peer 优先级解析
         string? hostParam = null;
-        if (query.TryGetValue("sni", out var sni)) hostParam = sni;
-        else if (query.TryGetValue("peer", out var peer)) hostParam = peer;
+        if (query.TryGetValue("sni", out var sni) && IsValidHost(sni)) hostParam = sni;
+        else if (query.TryGetValue("peer", out var peer) && IsValidHost(peer)) hostParam = peer;
 
         // 3. 加密与安全策略
         var encryption = query.GetValueOrDefault("encryption") ?? "none";
         var security = (query.GetValueOrDefault("security") ?? "none").ToLowerInvariant();
 
-        // 4. skip-cert-verify 解析（兼容 allowInsecure=1）
+        // 4. skip-cert-verify 解析
         var skipCertVerify = query.GetValueOrDefault("allowInsecure") == "1" ||
                              query.GetValueOrDefault("skip-cert-verify") == "true";
         query["skip_cert_verify"] = skipCertVerify.ToString().ToLowerInvariant();
@@ -78,10 +92,10 @@ internal static class ProtocolParser
         var transportType = query.GetValueOrDefault("type")?.ToLowerInvariant() ?? "";
         query["transport_type"] = transportType;
 
-        // 6. [关键] JSON 嵌套字段外包解析
+        // 6. JSON 嵌套字段外包解析
         if (transportType == "ws") JsonOptsParser.ParseWsOpts(query);
         else if (transportType == "grpc") JsonOptsParser.ParseGrpcOpts(query);
-        JsonOptsParser.ParseReality(query); // Reality 全局解析
+        JsonOptsParser.ParseReality(query);
 
         // 7. Flow 与 TLS 状态
         var flow = query.GetValueOrDefault("flow") ?? "";
@@ -114,12 +128,20 @@ internal static class ProtocolParser
     /// <summary>
     /// 解析 Trojan 协议链接
     /// 兼容：密码错误格式、SNI 兜底（www.cloudflare.com）、WS Host 复用
+    /// 【Grok 优化】提前验证 UserId/Password，无 try-catch
     /// </summary>
-    private static NodeInfo ParseTrojan( Uri uri )
+    private static NodeInfo? ParseTrojan( Uri uri )
     {
         var host = uri.Host;
         var port = uri.Port;
         var query = ParseQuery(uri.Query);
+
+        // 【Grok 验证】Host 和 Port
+        if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
+        {
+            LogHelper.Debug($"[Trojan 节点丢弃] Host 或 Port 非法: {host}:{port}");
+            return null;
+        }
 
         // 1. 用户名与密码解析
         string? userId = null, password = null;
@@ -129,7 +151,7 @@ internal static class ProtocolParser
             userId = parts[0];
             password = parts.Length > 1 ? parts[1] : null;
 
-            // 修复：密码误含端口（如 :12345@host:12345）
+            // 修复：密码误含端口
             if (int.TryParse(password, out var parsedPort) && parsedPort == port)
             {
                 LogHelper.Warn($"[Trojan 解析] 检测到密码包含端口 {parsedPort}，已修正为 null");
@@ -137,76 +159,93 @@ internal static class ProtocolParser
             }
         }
 
+        // 【Grok 修复】提前验证凭据
+        if (!IsValidCredential(userId))
+        {
+            LogHelper.Debug($"[Trojan 节点丢弃] UserId 无效: {userId}");
+            return null;
+        }
+        if (!IsValidCredential(password))
+        {
+            LogHelper.Debug($"[Trojan 节点丢弃] Password 无效: {password}");
+            return null;
+        }
+
         // 2. SNI 优先级：sni > peer > ws_host > 兜底
         string? hostParam = null;
-        if (query.TryGetValue("sni", out var sni)) hostParam = sni;
-        else if (query.TryGetValue("peer", out var peer)) hostParam = peer;
-        else if (query.TryGetValue("host", out var wsHost) && !IPAddress.TryParse(wsHost, out _))
+        if (query.TryGetValue("sni", out var sni) && IsValidHost(sni)) hostParam = sni;
+        else if (query.TryGetValue("peer", out var peer) && IsValidHost(peer)) hostParam = peer;
+        else if (query.TryGetValue("host", out var wsHost) && IsValidHost(wsHost))
         {
             hostParam = wsHost;
             LogHelper.Info($"[Trojan 解析] 使用 WS host 作为 SNI: {wsHost}");
         }
 
-        // 3. 兜底 SNI（防止 HandshakeFailure）
-        if (string.IsNullOrEmpty(hostParam) || IPAddress.TryParse(hostParam, out _))
+        // 3. 兜底 SNI
+        if (string.IsNullOrEmpty(hostParam) || !IsValidHost(hostParam))
         {
             hostParam = "www.cloudflare.com";
             LogHelper.Verbose($"[Trojan 解析] SNI 兜底为: {hostParam}");
         }
 
         var extraParams = query.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            return NodeInfo.Create(
-                OriginalLink: uri.ToString(),
-                Type: "trojan",
-                Host: host,
-                Port: port,
-                HostParam: hostParam,
-                Encryption: "none",
-                Security: "tls",
-                UserId: userId,
-                Password: password,
-                ExtraParams: extraParams
-            );
-        }
-        catch (ArgumentException ex)
-        {
-            LogHelper.Debug($"[Trojan 节点丢弃] 参数无效: {ex.Message}");
-            return null;
-        }
+
+        return NodeInfo.Create(
+            OriginalLink: uri.ToString(),
+            Type: "trojan",
+            Host: host,
+            Port: port,
+            HostParam: hostParam,
+            Encryption: "none",
+            Security: "tls",
+            UserId: userId,
+            Password: password,
+            ExtraParams: extraParams
+        );
     }
     #endregion
 
     #region 其他协议
     /// <summary>
     /// [Hysteria2 协议解析器] （完整字段映射）
-    /// 支持标准格式：hysteria2://password@host:port/?sni=...&insecure=1
+    /// 【Grok 优化】提前验证 password
     /// </summary>
-    private static NodeInfo ParseHysteria2( Uri uri )
+    private static NodeInfo? ParseHysteria2( Uri uri )
     {
         var query = ParseQuery(uri.Query);
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 443;
-        var hostParam = query.GetValueOrDefault("sni", uri.Host); // 默认回退 host
-        var password = uri.UserInfo; // 密码在 UserInfo 中
-        var security = "tls"; // Hysteria2 固定为 TLS
+        var password = uri.UserInfo;
 
-        // [ExtraParams] 构造（只读字典）
+        // 【Grok 验证】
+        if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
+        {
+            LogHelper.Debug($"[Hysteria2 节点丢弃] Host 或 Port 非法: {host}:{port}");
+            return null;
+        }
+        if (!IsValidCredential(password))
+        {
+            LogHelper.Debug($"[Hysteria2 节点丢弃] Password 无效: {password}");
+            return null;
+        }
+
+        var hostParam = query.GetValueOrDefault("sni", uri.Host);
+        if (!IsValidHost(hostParam))
+        {
+            LogHelper.Debug($"[Hysteria2 节点丢弃] SNI 无效: {hostParam}");
+            return null;
+        }
+
         var extra = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in query)
             extra[kv.Key] = kv.Value;
 
-        // [跳过证书验证] 
         bool skipCert = query.TryGetValue("insecure", out var val) &&
                         (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase)) ||
                         query.TryGetValue("skip-cert-verify", out val) &&
                         (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase));
+        if (skipCert) extra["skip_cert_verify"] = "true";
 
-        if (skipCert)
-            extra["skip_cert_verify"] = "true";
-
-        // [混淆支持] 
         if (query.TryGetValue("obfs", out var obfs) && !string.IsNullOrEmpty(obfs))
         {
             extra["obfs"] = obfs;
@@ -214,13 +253,11 @@ internal static class ProtocolParser
                 extra["obfs_password"] = obfsPass;
         }
 
-        // [传输类型] 
         if (query.TryGetValue("transport", out var transport) && !string.IsNullOrEmpty(transport))
             extra["transport_type"] = transport;
 
-        // [只读 ExtraParams] 
-        var readOnlyExtra = extra.AsReadOnly(); // .NET 8+ 推荐
-        
+        var readOnlyExtra = extra.ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+
         return NodeInfo.Create(
             OriginalLink: uri.ToString(),
             Type: "hysteria2",
@@ -228,24 +265,40 @@ internal static class ProtocolParser
             Port: port,
             HostParam: hostParam,
             Password: password,
-            Security: security,
+            Security: "tls",
             ExtraParams: readOnlyExtra
         );
     }
 
     /// <summary>
     /// 解析 Tuic 协议链接
+    /// 【Grok 优化】提前验证
     /// </summary>
-    private static NodeInfo ParseTuic( Uri uri )
+    private static NodeInfo? ParseTuic( Uri uri )
     {
+        if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
+        {
+            LogHelper.Debug($"[Tuic 节点丢弃] Host 或 Port 非法: {uri.Host}:{uri.Port}");
+            return null;
+        }
+
         var userInfo = uri.UserInfo.Split(':', 2);
+        var userId = userInfo.Length > 0 ? userInfo[0] : null;
+        var password = userInfo.Length > 1 ? userInfo[1] : null;
+
+        if (!IsValidCredential(userId) || !IsValidCredential(password))
+        {
+            LogHelper.Debug($"[Tuic 节点丢弃] 凭据无效");
+            return null;
+        }
+
         return NodeInfo.Create(
             OriginalLink: uri.ToString(),
             Type: "tuic",
             Host: uri.Host,
             Port: uri.Port,
-            UserId: userInfo.Length > 0 ? userInfo[0] : null,
-            Password: userInfo.Length > 1 ? userInfo[1] : null,
+            UserId: userId,
+            Password: password,
             ExtraParams: ParseQuery(uri.Query)
         );
     }
@@ -253,38 +306,75 @@ internal static class ProtocolParser
     /// <summary>
     /// 解析 WireGuard 协议链接
     /// </summary>
-    private static NodeInfo ParseWireGuard( Uri uri ) => NodeInfo.Create(
-        OriginalLink: uri.ToString(),
-        Type: "wireguard",
-        Host: uri.Host,
-        Port: uri.Port,
-        PrivateKey: uri.UserInfo,
-        PublicKey: ParseQuery(uri.Query).GetValueOrDefault("publickey"),
-        ExtraParams: ParseQuery(uri.Query)
-    );
+    private static NodeInfo? ParseWireGuard( Uri uri )
+    {
+        if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
+            return null;
+
+        var privateKey = uri.UserInfo;
+        if (!IsValidCredential(privateKey))
+            return null;
+
+        return NodeInfo.Create(
+            OriginalLink: uri.ToString(),
+            Type: "wireguard",
+            Host: uri.Host,
+            Port: uri.Port,
+            PrivateKey: privateKey,
+            PublicKey: ParseQuery(uri.Query).GetValueOrDefault("publickey"),
+            ExtraParams: ParseQuery(uri.Query)
+        );
+    }
 
     /// <summary>
     /// 解析 SOCKS5 协议链接
     /// </summary>
-    private static NodeInfo ParseSocks5( Uri uri )
+    private static NodeInfo? ParseSocks5( Uri uri )
     {
+        if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
+            return null;
+
         var userInfo = uri.UserInfo.Split(':', 2);
+        var userId = userInfo.Length > 0 ? userInfo[0] : null;
+        var password = userInfo.Length > 1 ? userInfo[1] : null;
+
         return NodeInfo.Create(
             OriginalLink: uri.ToString(),
             Type: "socks5",
             Host: uri.Host,
             Port: uri.Port,
-            UserId: userInfo.Length > 0 ? userInfo[0] : null,
-            Password: userInfo.Length > 1 ? userInfo[1] : null,
+            UserId: userId,
+            Password: password,
             ExtraParams: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         );
+    }
+    #endregion
+
+    #region 验证工具
+    /// <summary>
+    /// 验证凭据是否合法（非空、非纯空格、长度 ≤ 256）
+    /// </summary>
+    private static bool IsValidCredential( string? value )
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Length <= 256;
+    }
+
+    /// <summary>
+    /// 验证 Host/SNI 是否合法（非空、非纯IP、长度合理）
+    /// </summary>
+    private static bool IsValidHost( string? value )
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 253)
+            return false;
+        if (IPAddress.TryParse(value, out _))
+            return false; // 禁止纯IP作为SNI
+        return true;
     }
     #endregion
 
     #region 查询参数解析
     /// <summary>
     /// 解析 URL 查询字符串为不区分大小写的字典
-    /// 支持：+ 转空格、URL 解码、重复键取最后一个
     /// </summary>
     private static Dictionary<string, string> ParseQuery( string query )
     {
@@ -298,7 +388,7 @@ internal static class ProtocolParser
             if (parts.Length != 2) continue;
             var key = Uri.UnescapeDataString(parts[0]);
             var value = Uri.UnescapeDataString(parts[1]);
-            dict[key] = value; // 重复键覆盖
+            dict[key] = value;
         }
         return dict;
     }
