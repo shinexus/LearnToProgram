@@ -2,6 +2,7 @@
 using HiddifyConfigsCLI.src.Logging;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace HiddifyConfigsCLI.src.Sources.Telegram;
 
