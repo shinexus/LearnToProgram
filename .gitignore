@@ -471,3 +471,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/src/Utils/CertHelper.cs
 /HiddifyConfigsCLI/src/Utils/TlsHelper.cs
 /HiddifyConfigsCLI/src/Parsing/ProtocolParser.cs
+/HiddifyConfigsCLI/src/Core/GuidExtensions.cs
