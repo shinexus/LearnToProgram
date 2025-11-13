@@ -41,7 +41,7 @@ public record NodeInfo(
     IReadOnlyDictionary<string, string>? ExtraParams = null,
     TimeSpan? Latency = null )
 {
-    // [Grok 优化] 复用空字典，避免重复创建
+    // 复用空字典，避免重复创建
     private static readonly IReadOnlyDictionary<string, string> EmptyParams =
         new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
@@ -52,7 +52,7 @@ public record NodeInfo(
     /// <returns>验证通过的 NodeInfo 实例</returns>
     /// <exception cref="ArgumentException">当 Host 为空或 Port 无效时抛出</exception>
     /// <remarks>
-    /// [Grok 修复] 不再返回 null！改为抛出异常或返回默认无效节点
+    /// 不再返回 null！改为抛出异常或返回默认无效节点
     /// 工厂方法应保证返回有效实例，避免调用方空引用检查
     /// </remarks>
     public static NodeInfo Create(
@@ -70,15 +70,15 @@ public record NodeInfo(
         IReadOnlyDictionary<string, string>? ExtraParams = null,
         TimeSpan? latency = null )
     {
-        // [Grok 修复] Host 为空 → 抛出异常（调用方应提前过滤）
+        // Host 为空 → 抛出异常（调用方应提前过滤）
         if (string.IsNullOrWhiteSpace(Host))
             throw new ArgumentException($"Host 不能为空: {OriginalLink}", nameof(Host));
 
-        // [Grok 修复] Port 无效 → 抛出异常
+        // Port 无效 → 抛出异常
         if (Port < 1 || Port > 65535)
             throw new ArgumentException($"Port 必须在 1-65535 之间: {Port}", nameof(Port));
 
-        // [Grok 优化] 安全处理 ExtraParams
+        // 安全处理 ExtraParams
         var safeParams = ExtraParams switch
         {
             null => EmptyParams,
@@ -129,21 +129,21 @@ public record NodeInfo(
         if (!string.IsNullOrEmpty(Security))    sb.Append($" | SEC: {Security}");
         if (!string.IsNullOrEmpty(UserId))      sb.Append($" | UID: {UserId}");
 
-        // [Grok 修复] 安全隐藏密码（避免 Substring 越界）
+        // 安全隐藏密码（避免 Substring 越界）
         if (!string.IsNullOrEmpty(Password))
         {
             string masked = Password.Length >= 3 ? Password[..3] + "***" : "***";
             sb.Append($" | PWD: {masked}");
         }
 
-        // [Grok 修复] 安全隐藏私钥
+        // 安全隐藏私钥
         if (!string.IsNullOrEmpty(PrivateKey))
         {
             string masked = PrivateKey.Length >= 8 ? PrivateKey[..8] + "***" : "***";
             sb.Append($" | PRIV: {masked}");
         }
 
-        // [Grok 修复] 安全隐藏公钥
+        // 安全隐藏公钥
         if (!string.IsNullOrEmpty(PublicKey))
         {
             string masked = PublicKey.Length >= 8 ? PublicKey[..8] + "***" : "***";

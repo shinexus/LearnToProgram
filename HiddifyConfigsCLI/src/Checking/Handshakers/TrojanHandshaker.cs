@@ -60,7 +60,17 @@ internal static class TrojanHandshaker
 
             // TLS 配置（Cert 验证策略由 CertHelper 和 TlsHelper 决定）
             var skipCertVerify = CertHelper.GetSkipCertVerify(node.ExtraParams); // 请确保 ExtraParams 的约定正确
-            var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
+
+            // 从 ExtraParams 读取 alpn（可能是单个协议或多个以逗号分隔）
+            List<string>? alpnList = null;
+            if (node.ExtraParams != null && node.ExtraParams.TryGetValue("alpn", out var alpnRaw) && !string.IsNullOrWhiteSpace(alpnRaw))
+            {
+                // 支持 "http/1.1" 或 "h2" 或 "http/1.1,h2"
+                alpnList = alpnRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            }
+
+            // 传入 CreateSslOptions
+            var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify, alpnList);
 
             // TLS 认证（注意：AuthenticateAsClientAsync 会在失败时抛出 AuthenticationException）
             await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token).ConfigureAwait(false);
