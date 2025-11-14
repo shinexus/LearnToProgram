@@ -45,6 +45,9 @@ internal static class JsonOptsParser
     //──────────────────────────────────────────────────────────────
     private static void ExtractJsonElement( string prefix, JsonElement element, Dictionary<string, string> query )
     {
+        // 调试信息
+        LogHelper.Debug($"[ExtractJsonElement] Prefix: '{prefix}', ValueKind: {element.ValueKind}");
+
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:

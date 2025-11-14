@@ -31,6 +31,9 @@ internal static class DoParse
             {
                 inputContent = Base64ProtocolDecoder.DecodeWholeBase64(inputContent);
                 LogHelper.Info(" └─ 文件整体 Base64 解码成功");
+
+                // 调试信息
+                LogHelper.Debug($"解码预览:\n{inputContent}\n");
             }
             catch (Exception ex)
             {
