@@ -1,216 +1,184 @@
 ﻿// JsonOptsParser.cs
-// 负责：解析 ws-opts、grpc-opts、reality 等 JSON 嵌套字段
+// 负责：解析 ws-opts、grpc-opts、reality、utls、quic 等 JSON 嵌套字段
+// 负责：解析 JSON 字符串配置（URL 参数中的 JSON 或完整 JSON 行）
 // 命名空间：HiddifyConfigsCLI.src.Parsing
-// [Grok Rebuild] 2025-11-10_06：独立工具类，零耦合，可单元测试
 // 说明：
-//   - 输入：query 字典（key: 原始参数名, value: URL 编码字符串）
-//   - 输出：向 query 中写入标准化键（ws_path, ws_header_host, reality_public_key 等）
-//   - 所有 JSON 解析集中于此，ProtocolParser 仅调用
+//   - 输入：Dictionary<string,string> query（协议解析阶段临时字典）
+//   - 输出：向 query 写入标准化键（ws_path, grpc_service, utls_fingerprint 等）
+//   - 仅负责“字段展开”，不负责 NodeInfo 的创建
+//   - ExtraParams 的实际落地由 NodeInfo 决定
+// [ChatGPT Rebuild] 2025-11-14
+
+using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Web;
 
 namespace HiddifyConfigsCLI.src.Parsing;
 
-/// <summary>
-/// JSON 嵌套字段解析器（ws-opts / grpc-opts / reality）
-/// </summary>
 internal static class JsonOptsParser
 {
-    /// <summary>
-    /// 解析 ws-opts JSON 字段
-    /// 示例：?ws-opts={"path":"/ws","headers":{"Host":"example.com"},"maxEarlyData":2048}
-    /// </summary>
-    /// <param name="query">查询参数字典（可读写）</param>
+    //──────────────────────────────────────────────────────────────
+    // 入口函数：解析 JSON（来自 ?json=xxx 或整行 JSON 配置）
+    //──────────────────────────────────────────────────────────────
+    public static void ParseJsonConfig( string json, Dictionary<string, string> query )
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            ExtractJsonElement("", doc.RootElement, query);
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Debug($"[JSON 配置解析失败] {ex.Message} | 内容: {json}");
+        }
+    }
+
+    //──────────────────────────────────────────────────────────────
+    // JSON 递归提取：将所有字段扁平化写入 query（嵌套字段自动展开）
+    // 示例：{ "tls": { "enabled": true, "fingerprint": "chrome" } }
+    // 展开为：
+    //   tls_enabled = true
+    //   tls_fingerprint = chrome
+    //──────────────────────────────────────────────────────────────
+    private static void ExtractJsonElement( string prefix, JsonElement element, Dictionary<string, string> query )
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var prop in element.EnumerateObject())
+                {
+                    string childKey = string.IsNullOrEmpty(prefix)
+                        ? prop.Name
+                        : $"{prefix}_{prop.Name}";
+
+                    ExtractJsonElement(childKey, prop.Value, query);
+                }
+                break;
+
+            case JsonValueKind.Array:
+                // 对数组直接序列化为 JSON 字符串存入 ExtraParams
+                query[prefix] = element.ToString();
+                break;
+
+            case JsonValueKind.String:
+                query[prefix] = element.GetString() ?? "";
+                break;
+
+            case JsonValueKind.Number:
+                query[prefix] = element.GetRawText();
+                break;
+
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                query[prefix] = element.GetBoolean() ? "true" : "false";
+                break;
+
+            case JsonValueKind.Null:
+                break;
+        }
+    }
+
+    //──────────────────────────────────────────────────────────────
+    // 子模块：WS 配置解析
+    // 说明：将 ws_opts.xxx 标准化为 ws_path 等字段
+    //──────────────────────────────────────────────────────────────
     public static void ParseWsOpts( Dictionary<string, string> query )
     {
-        // 【Grok 2025-11-10 说明】ws-opts 可能被编码为 %7B...%7D
-        var wsOptsJson = query.GetValueOrDefault("ws-opts")
-                         ?? query.GetValueOrDefault("ws_opts");
+        if (query.TryGetValue("ws_path", out var p))
+            query["transport"] = "ws";
 
-        if (string.IsNullOrEmpty(wsOptsJson)) return;
-
-        try
-        {
-            // 【Grok 优化】先 URL 解码，再解析 JSON
-            var decoded = HttpUtility.UrlDecode(wsOptsJson);
-            if (string.IsNullOrEmpty(decoded)) return;
-
-            var json = JsonNode.Parse(decoded,
-                documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true })?.AsObject();
-            if (json == null) return;
-
-            // 1. 解析 path
-            var path = json["path"]?.ToString() ?? "/";
-            path = FixWsPath(path); // 修复多 ? 和编码问题
-            query["ws_path"] = path;
-
-            // 2. 解析 headers
-            var headers = json["headers"]?.AsObject();
-            if (headers != null)
-            {
-                foreach (var kvp in headers)
-                {
-                    var key = kvp.Key.Trim();
-                    if (string.IsNullOrEmpty(key)) continue;
-                    var value = kvp.Value?.ToString() ?? "";
-                    // 标准化键：ws_header_host, ws_header_x-custom
-                    query[$"ws_header_{key.ToLowerInvariant()}"] = value;
-                }
-            }
-
-            // 3. 解析 early-data
-            var maxEarlyData = json["maxEarlyData"]?.ToString()
-                              ?? json["max_early_data"]?.ToString();
-            if (!string.IsNullOrEmpty(maxEarlyData))
-            {
-                // 提取纯数字
-                var match = RegexPatterns.DigitRegex.Match(maxEarlyData);
-                query["early_data"] = match.Success ? match.Value : maxEarlyData;
-            }
-
-            // 4. 解析 earlyDataHeaderName
-            var headerName = json["earlyDataHeaderName"]?.ToString()
-                            ?? json["early_data_header_name"]?.ToString();
-            if (!string.IsNullOrEmpty(headerName))
-            {
-                query["early_data_header_name"] = headerName;
-            }
-            else if (!string.IsNullOrEmpty(query.GetValueOrDefault("early_data")))
-            {
-                // 兜底：Clash Meta 默认
-                query["early_data_header_name"] = "Sec-WebSocket-Protocol";
-            }
-        }
-        catch (Exception ex)
-        {
-            LogHelper.Debug($"[WS-OPTS JSON 解析失败] 原始: {wsOptsJson} | 错误: {ex.Message}");
-        }
+        if (query.TryGetValue("ws_headers_Host", out var host))
+            query["ws_header_host"] = host;
     }
 
-    /// <summary>
-    /// 解析 grpc-opts JSON 字段
-    /// 示例：?grpc-opts={"grpc-service-name":"gun"}
-    /// </summary>
-    /// <param name="query">查询参数字典（可读写）</param>
+    //──────────────────────────────────────────────────────────────
+    // 子模块：gRPC 配置解析（统一标准化字段）
+    //──────────────────────────────────────────────────────────────
     public static void ParseGrpcOpts( Dictionary<string, string> query )
     {
-        var grpcOptsJson = query.GetValueOrDefault("grpc-opts")
-                           ?? query.GetValueOrDefault("grpc_opts");
+        if (query.TryGetValue("grpc_serviceName", out var svc))
+            query["grpc_service"] = svc;
 
-        if (string.IsNullOrEmpty(grpcOptsJson)) return;
-
-        try
-        {
-            var decoded = HttpUtility.UrlDecode(grpcOptsJson);
-            if (string.IsNullOrEmpty(decoded)) return;
-
-            var json = JsonNode.Parse(decoded,
-                documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true })?.AsObject();
-            if (json == null) return;
-
-            // 优先级：grpc-service-name > serviceName > servicename
-            var serviceName = json["grpc-service-name"]?.ToString()
-                             ?? json["serviceName"]?.ToString()
-                             ?? json["servicename"]?.ToString()
-                             ?? "";
-            query["grpc_service_name"] = serviceName;
-
-            // 未来扩展：其他 grpc-opts 字段
-        }
-        catch (Exception ex)
-        {
-            LogHelper.Debug($"[GRPC-OPTS JSON 解析失败] 原始: {grpcOptsJson} | 错误: {ex.Message}");
-        }
+        if (query.TryGetValue("grpc_authority", out var authority))
+            query["grpc_authority"] = authority;
     }
 
-    /// <summary>
-    /// 解析 reality JSON 字段（可复用）
-    /// 示例：?reality={"public_key":"xxx","short_id":"abc"}
-    /// </summary>
-    /// <param name="query">查询参数字典（可读写）</param>
-    public static void ParseReality( Dictionary<string, string> query )
-    {
-        var realityJsonStr = query.GetValueOrDefault("reality");
-        if (string.IsNullOrEmpty(realityJsonStr)) return;
-
-        try
-        {
-            var decoded = HttpUtility.UrlDecode(realityJsonStr);
-            if (string.IsNullOrEmpty(decoded)) return;
-
-            var json = JsonNode.Parse(decoded,
-                documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true })?.AsObject();
-            if (json == null) return;
-
-            query["reality_public_key"] = json["public_key"]?.ToString() ?? "";
-            query["reality_short_id"] = json["short_id"]?.ToString() ?? "";
-            // 可扩展：spiderX, fingerprint 等
-        }
-        catch (Exception ex)
-        {
-            LogHelper.Debug($"[REALITY JSON 解析失败] 原始: {realityJsonStr} | 错误: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 解析 xhttp 相关字段（可复用）
-    /// </summary>
-    /// <param name="query"></param>
+    //──────────────────────────────────────────────────────────────
+    // 子模块：XHTTP 配置解析
+    //──────────────────────────────────────────────────────────────
     public static void ParseXhttpOpts( Dictionary<string, string> query )
     {
-        // 【Grok 新增】xhttp 字段映射
-        if (query.TryGetValue("path", out var path))
-            query["xhttp_path"] = path;
-        if (query.TryGetValue("host", out var host))
-            query["xhttp_host"] = host;
-        if (query.TryGetValue("method", out var method))
-            query["xhttp_method"] = method.ToUpperInvariant();
-        if (query.TryGetValue("headers", out var headersJson))
-        {
-            try
-            {
-                var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(headersJson);
-                foreach (var h in headers)
-                    query[$"xhttp_header_{h.Key}"] = h.Value;
-            }
-            catch
-            {
-                LogHelper.Warn($"[xhttp 解析] headers JSON 无效: {headersJson}");
-            }
-        }
+        if (query.TryGetValue("xhttp_headers", out var h))
+            query["xhttp_headers"] = h;
+    }
+
+    //──────────────────────────────────────────────────────────────
+    // 子模块：Reality 解析（只判断是否存在 reality 字段）
+    // 说明：具体字段如 public_key、short_id 已在 ExtractJsonElement 中展开
+    //──────────────────────────────────────────────────────────────
+    public static void ParseReality( Dictionary<string, string> query )
+    {
+        if (query.Keys.Any(k => k.StartsWith("reality_", StringComparison.OrdinalIgnoreCase)))
+            query["reality_enabled"] = "true";
     }
 
     /// <summary>
-    /// 修复 WebSocket 路径中的多 ? 和编码问题（复用自 ProtocolParser）
+    /// 解析单行 JSON 配置并返回 NodeInfo
     /// </summary>
-    private static string FixWsPath( string rawPath )
+    /// <param name="jsonLine">完整 JSON 配置行</param>
+    /// <returns>成功返回 NodeInfo，失败返回 null</returns>
+    public static NodeInfo? ParseJsonLine( string jsonLine )
     {
-        if (string.IsNullOrEmpty(rawPath)) return "/";
+        if (string.IsNullOrWhiteSpace(jsonLine))
+            return null;
 
-        // 1. 多 ? → &
-        var qCount = rawPath.Count(c => c == '?');
-        if (qCount > 1)
+        try
         {
-            var firstQ = rawPath.IndexOf('?');
-            var prefix = rawPath[..(firstQ + 1)];
-            var suffix = rawPath[(firstQ + 1)..].Replace('?', '&');
-            rawPath = prefix + suffix;
+            // 临时 query 字典，用于字段扁平化
+            var query = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            ParseJsonConfig(jsonLine, query);
+
+            // 提取 NodeInfo 主字段
+            query.TryGetValue("type", out var type);
+            query.TryGetValue("host", out var host);
+            int port = query.TryGetValue("port", out var portStr) && int.TryParse(portStr, out var p) ? p : 0;
+            query.TryGetValue("userId", out var userId);
+            query.TryGetValue("password", out var password);
+
+            if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
+                return null;
+
+            // 剩余字段都作为 ExtraParams
+            var extraParams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in query)
+            {
+                if (kv.Key.Equals("type", StringComparison.OrdinalIgnoreCase) ||
+                    kv.Key.Equals("host", StringComparison.OrdinalIgnoreCase) ||
+                    kv.Key.Equals("port", StringComparison.OrdinalIgnoreCase) ||
+                    kv.Key.Equals("userId", StringComparison.OrdinalIgnoreCase) ||
+                    kv.Key.Equals("password", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                extraParams[kv.Key] = kv.Value;
+            }
+
+            return NodeInfo.Create(
+                OriginalLink: jsonLine,
+                Type: type!,
+                Host: host!,
+                Port: port,
+                UserId: userId,
+                Password: password,
+                ExtraParams: extraParams
+            );
         }
-
-        // 2. 分离 path 和 query，编码 path 主体
-        var parts = rawPath.Split('?', 2);
-        var pathBody = parts[0];
-        var queryPart = parts.Length > 1 ? parts[1] : "";
-
-        if (!string.IsNullOrEmpty(pathBody) && pathBody != "/")
+        catch (Exception ex)
         {
-            var firstChar = pathBody[0] == '/' ? "/" : "";
-            var toEncode = firstChar == "/" ? pathBody[1..] : pathBody;
-            pathBody = firstChar + Uri.EscapeDataString(toEncode);
+            LogHelper.Debug($"[ParseJsonLine 失败] {ex.Message} | 内容: {jsonLine}");
+            return null;
         }
-
-        return string.IsNullOrEmpty(queryPart) ? pathBody : $"{pathBody}?{queryPart}";
     }
 }

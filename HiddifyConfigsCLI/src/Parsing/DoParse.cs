@@ -49,7 +49,7 @@ internal static class DoParse
         if (isRemoteInput)
         {
             var sourceUrls = inputContent
-                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(l => l.Trim())
                 .Where(l => !string.IsNullOrEmpty(l) &&
                             !IsCommentLine(l) &&
@@ -83,7 +83,7 @@ internal static class DoParse
             allLinks.AddRange(extracted);
         }
 
-        return [.. allLinks.Distinct()];
+        return allLinks.Distinct().ToList();
     }
 
     // -----------------------------------------------------------------
@@ -92,7 +92,7 @@ internal static class DoParse
     private static List<string> ExtractLinksFromText( string text )
     {
         var links = new List<string>();
-        var lines = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
         bool inBlockComment = false;
 
         foreach (var rawLine in lines)
@@ -105,19 +105,19 @@ internal static class DoParse
                 if (line.Contains("*/"))
                 {
                     inBlockComment = false;
-                    line = line.Split(["*/"], 2, StringSplitOptions.None)[0];
+                    line = line.Split(new[] { "*/" }, 2, StringSplitOptions.None)[0];
                 }
                 else continue;
             }
             else if (line.Contains("/*") && line.Contains("*/"))
             {
-                var parts = line.Split(["/*"], 2, StringSplitOptions.None);
+                var parts = line.Split(new[] { "/*" }, 2, StringSplitOptions.None);
                 line = parts[0];
                 if (parts.Length > 1 && parts[1].Contains("*/")) continue;
             }
             else if (line.Contains("/*"))
             {
-                var parts = line.Split(["/*"], 2, StringSplitOptions.None);
+                var parts = line.Split(new[] { "/*" }, 2, StringSplitOptions.None);
                 line = parts[0];
                 inBlockComment = true;
             }
@@ -131,6 +131,7 @@ internal static class DoParse
                 RegexPatterns.Base64LineRegex.IsMatch(line))
                 continue;
 
+            // 处理路径、查询字符串参数
             if (RegexPatterns.PathHasQEdRegex.IsMatch(line) ||
                 RegexPatterns.PathMultiQueryRegex.IsMatch(line))
             {
@@ -171,6 +172,7 @@ internal static class DoParse
                     });
             }
 
+            // 匹配链接
             var matches = LinkRegex.Matches(line);
             foreach (Match m in matches)
                 links.Add(m.Value);

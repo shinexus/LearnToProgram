@@ -9,7 +9,8 @@
       "HiddifyConfigsCLI/1.0.0": {
         "dependencies": {
           "BouncyCastle.Cryptography": "2.4.0",
-          "CommandLineParser": "2.9.1"
+          "CommandLineParser": "2.9.1",
+          "YamlDotNet": "16.3.0"
         },
         "runtime": {
           "HiddifyConfigsCLI.dll": {}
@@ -28,6 +29,14 @@
           "lib/netstandard2.0/CommandLine.dll": {
             "assemblyVersion": "2.9.1.0",
             "fileVersion": "2.9.1.0"
+          }
+        }
+      },
+      "YamlDotNet/16.3.0": {
+        "runtime": {
+          "lib/net8.0/YamlDotNet.dll": {
+            "assemblyVersion": "16.0.0.0",
+            "fileVersion": "16.3.0.0"
           }
         }
       }
@@ -52,6 +61,13 @@
       "sha512": "sha512-OE0sl1/sQ37bjVsPKKtwQlWDgqaxWgtme3xZz7JssWUzg5JpMIyHgCTY9MVMxOg48fJ1AgGT3tgdH5m/kQ5xhA==",
       "path": "commandlineparser/2.9.1",
       "hashPath": "commandlineparser.2.9.1.nupkg.sha512"
+    },
+    "YamlDotNet/16.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA==",
+      "path": "yamldotnet/16.3.0",
+      "hashPath": "yamldotnet.16.3.0.nupkg.sha512"
     }
   }
 }
