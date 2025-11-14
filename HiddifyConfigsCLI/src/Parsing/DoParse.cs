@@ -154,7 +154,15 @@ internal static class DoParse
 
             var matches = LinkRegex.Matches(line);
             foreach (Match m in matches)
-                links.Add(m.Value);
+            {
+                var rawLink = m.Value;
+
+                // 【新增：Base64 包裹协议自动解码】
+                // 同步方法中调用 .Result 是安全的，因为内部无 await/线程切换
+                var decoded = Base64ProtocolDecoder.TryDecodeIfNeededAsync(rawLink).Result;
+
+                links.Add(decoded);
+            }
         }
 
         return links;
