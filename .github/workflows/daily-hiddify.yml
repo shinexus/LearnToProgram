@@ -26,7 +26,7 @@ jobs:
         timeout-minutes: 70
         run: |
           # ---- 关键：切换到 exe 所在目录 ----
-          $exeDir = "HiddifyConfigsCLI/bin/Debug/net8.0"
+          $exeDir = "HiddifyConfigsCLI/bin/Debug/net9.0"
           Set-Location $exeDir
 
           # ---- 打印当前目录（确认切换成功）----
@@ -63,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== 生成的文件（位于 exe 目录）==="
-          Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net8.0" -Filter "valid_links*" | Format-Table Name, FullName, Length
+          Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*" | Format-Table Name, FullName, Length
 
       # -------------------------------------------------
       - name: 4. 上传产物（精确路径）
@@ -71,7 +71,7 @@ jobs:
         if: always()
         with:
           name: valid-links
-          path: HiddifyConfigsCLI/bin/Debug/net8.0/valid_links*.txt
+          path: HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
           retention-days: 7
           if-no-files-found: warn
 
@@ -84,7 +84,7 @@ jobs:
           git config pull.rebase false
           git pull origin master --no-edit
           
-          $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net8.0" -Filter "valid_links*.txt"
+          $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*.txt"
           if ($files.Count -eq 0) { Write-Host "没有文件可提交"; exit 0 }
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
