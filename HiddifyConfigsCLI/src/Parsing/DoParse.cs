@@ -16,12 +16,27 @@ internal static class DoParse
     // -----------------------------------------------------------------
     public static async Task<List<string>> DownloadAndExtractAsync( RunOptions opts )
     {
-        // 【Grok 修复】防御性检查
+        // 防御性检查
         if (opts == null) throw new ArgumentNullException(nameof(opts));
         if (string.IsNullOrWhiteSpace(opts.Input))
             throw new ArgumentException("输入路径不能为空", nameof(opts.Input));
 
         var inputContent = await DownloadInputAsync(opts);
+
+        // 整体 Base64 检测与解码
+        if (Base64ProtocolDecoder.IsWholeBase64(inputContent))
+        {
+            LogHelper.Info("检测到输入文件为 Base64 编码格式，正在整体解码...");
+            try
+            {
+                inputContent = Base64ProtocolDecoder.DecodeWholeBase64(inputContent);
+                LogHelper.Info(" └─ 文件整体 Base64 解码成功");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Warn($"整体 Base64 解码失败（跳过整体解码）：{ex.Message}");
+            }
+        }
 
         // [关键] 判断输入是远程 URL 还是本地文件
         bool isRemoteInput = Uri.TryCreate(opts.Input, UriKind.Absolute, out var inputUri) &&
@@ -107,6 +122,10 @@ internal static class DoParse
                 inBlockComment = true;
             }
 
+            // ---------- 新增 解码 Base64 编码行 ----------
+            line = Base64ProtocolDecoder.TryDecode(line);
+
+            // 正常流程
             if (string.IsNullOrWhiteSpace(line) ||
                 RegexPatterns.CommentOrEmptyRegex.IsMatch(line) ||
                 RegexPatterns.Base64LineRegex.IsMatch(line))
@@ -154,15 +173,7 @@ internal static class DoParse
 
             var matches = LinkRegex.Matches(line);
             foreach (Match m in matches)
-            {
-                var rawLink = m.Value;
-
-                // 【新增：Base64 包裹协议自动解码】
-                // 同步方法中调用 .Result 是安全的，因为内部无 await/线程切换
-                var decoded = Base64ProtocolDecoder.TryDecodeIfNeededAsync(rawLink).Result;
-
-                links.Add(decoded);
-            }
+                links.Add(m.Value);
         }
 
         return links;
@@ -205,7 +216,7 @@ internal static class DoParse
     {
         var handler = new HttpClientHandler();
 
-        // 【Grok 修复】统一代理配置，消除重复 + 安全解析
+        // 统一代理配置，消除重复 + 安全解析
         if (!string.IsNullOrWhiteSpace(opts.Proxy))
         {
             var parts = opts.Proxy.Split(':');
