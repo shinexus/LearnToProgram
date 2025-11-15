@@ -1,165 +1,326 @@
 ﻿// ProtocolParser.cs
-// 负责：从 vless://、trojan://、hysteria2:// 等协议链接或 JSON/YAML 配置中解析结构化字段
+// 负责：从 vless://、trojan://、hysteria2:// 等协议链接中解析结构化字段
 // 命名空间：HiddifyConfigsCLI.src.Parsing
-// [Grok Rebuild] 2025-11-14：统一入口，JSON/YAML 也走 ProtocolParser，最终生成 NodeInfo
+// [Grok Rebuild] 2025-11-12：全提前验证，零 try-catch，性能极致
+// [ChatGPT Rebuild] Phase 3：自动识别 JSON/YAML/URL Query 并分发解析器
+// 说明：
+//   - 所有 NodeInfo.Create 前验证参数合法性
+//   - 非法字段直接丢弃 + 详细日志
+//   - JSON 嵌套字段外包至 JsonOptsParser，YAML 外包至 YmlOptsParser
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
+using HiddifyConfigsCLI.src.Parsing;
 using System.ComponentModel;
+using System.IO;
 using System.Net;
 using System.Web;
-using System.Text.Json;
 
 namespace HiddifyConfigsCLI.src.Parsing;
 
 /// <summary>
-/// 协议链接解析器：将 vless://、trojan:// 等链接或 JSON/YAML 转为 NodeInfo 结构
+/// 协议链接解析器：将 vless://、trojan:// 等链接转为 NodeInfo 结构
+/// 本文件为 Phase3 重建版：
+///  - 自动识别整行 JSON/YAML 并交给对应解析器（JsonOptsParser / YmlOptsParser）
+///  - 对 URL 查询中嵌入 JSON/YAML 的情况进行解码并展开字段
+///  - 返回 NodeInfo?（与现有检测链路兼容）
+/// 修改处已用中文注释标注说明
 /// </summary>
 internal static class ProtocolParser
 {
     /// <summary>
-    /// 解析任意协议或配置为 NodeInfo 结构
+    /// 解析任意协议链接或整行配置为 NodeInfo 结构
+    /// 支持输入形式：
+    ///  - 完整协议 URL（如 vless://...）
+    ///  - 整行 JSON（以 { 开头并以 } 结尾）
+    ///  - 整行 YAML（以 --- 或 key: 开头等，做简单检测）
     /// </summary>
-    /// <param name="line">完整协议链接（如 vless://...）或 JSON/YAML 行</param>
+    /// <param name="lineOrLink">链接或整行配置文本</param>
     /// <returns>成功返回 NodeInfo，失败返回 null</returns>
-    public static NodeInfo? Parse( string line )
+    public static NodeInfoBase? Parse( string lineOrLink )
     {
-        if (string.IsNullOrWhiteSpace(line)) return null;
+        if (string.IsNullOrWhiteSpace(lineOrLink))
+            return null;
 
-        // ---------- 检测是否为 JSON/YAML 格式 ----------
-        if (line.TrimStart().StartsWith("{") && line.TrimEnd().EndsWith("}"))
+        var trimmed = lineOrLink.Trim();
+
+        // --------------------------
+        // 1) 自动识别：整行 JSON
+        // --------------------------
+        // 【修改说明】新增对整行 JSON 的检测：如果整行是 JSON，就直接交给 JsonOptsParser.ParseJsonLine 处理。
+        //            ParseJsonLine 会把 JSON 展开为字段并创建 NodeInfo（之前我们已实现该方法）
+        if (trimmed.StartsWith("{") && trimmed.EndsWith("}"))
         {
-            // JSON 格式 → 委托给 JsonOptsParser
-            return JsonOptsParser.ParseJsonLine(line);
+            // 直接委托 JSON 行解析器；解析器负责详细日志与字段校验
+            LogHelper.Verbose("[ProtocolParser] 识别到整行 JSON，交由 JsonOptsParser 解析");
+            try
+            {
+                return JsonOptsParser.ParseJsonLine(trimmed);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug($"[ProtocolParser] Json 行解析失败: {ex.Message}");
+                return null;
+            }
         }
 
-        if (line.TrimStart().StartsWith("---") || line.TrimStart().StartsWith("- "))
+        // --------------------------
+        // 2) 自动识别：整行 YAML（简单启发式）
+        // --------------------------
+        // 【修改说明】YAML 的识别为启发式：以 "---" 开头，或包含 ":" 且有换行、或以 "type:" 开头等
+        if (trimmed.StartsWith("---") || trimmed.StartsWith("type:") || (trimmed.Contains("\n") && trimmed.Contains(":")))
         {
-            // YAML 格式 → 委托给 YmlOptsParser
-            return YmlOptsParser.ParseYmlLine(line);
+            LogHelper.Verbose("[ProtocolParser] 识别到整行 YAML，交由 YmlOptsParser 解析");
+            try
+            {
+                return YmlOptsParser.ParseYmlLine(trimmed);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug($"[ProtocolParser] YAML 行解析失败: {ex.Message}");
+                return null;
+            }
         }
 
-        // ---------- 普通协议链接处理 ----------
+        // --------------------------
+        // 3) 常规 URL 情况（如 vless://、trojan://、...）
+        // --------------------------
+        // 如果它是一个 URL（包含 scheme://），尝试用 Uri 解析（大部分链接为此类）
         try
         {
-            var uri = new Uri(line, UriKind.Absolute);
-            var scheme = uri.Scheme.ToLowerInvariant();
-
-            return scheme switch
+            // 如果是像 "vless://..." 或 "trojan://..." 的标准协议链接
+            if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Scheme))
             {
-                "vless"     => ParseVless(uri),
-                "trojan"    => ParseTrojan(uri),
-                "hysteria2" => ParseHysteria2(uri),
-                "tuic"      => ParseTuic(uri),
-                "wireguard" => ParseWireGuard(uri),
-                "socks5"    => ParseSocks5(uri),
-                _ => null
-            };
+                var scheme = uri.Scheme.ToLowerInvariant();
+
+                // 特殊处理：Query 内可能包含 json=... / yaml=... 的情形
+                // 如果包含 json= 则把 json 解码并交给 JsonOptsParser 展开后再继续解析（在 ParseVless / ParseTrojan 中使用）
+                // 为兼容性我们把 ParseQuery 结果传到各个 ParseXxx 中，ParseXxx 内部会调用 JsonOptsParser / YmlOptsParser
+
+                /**
+                 * return scheme switch
+                {
+                    "vless" => ParseVless(uri),
+                    "trojan" => ParseTrojan(uri),
+                    "hysteria2" => ParseHysteria2(uri),
+                    "tuic" => ParseTuic(uri),
+                    "wireguard" => ParseWireGuard(uri),
+                    "socks5" => ParseSocks5(uri),
+                    // 若是未识别的 scheme，则尝试把 Query 当作 JSON/YAML 或以 http(s) 开头的远程配置
+                    _ =>
+                    {
+                        LogHelper.Debug($"[ProtocolParser] 未知 scheme: {scheme}，已跳过");
+                        return null;
+                    }
+                };
+                 * 
+                 */
+                return scheme switch
+                {
+                    "vless" => ParseVless(uri),
+                    "trojan" => ParseTrojan(uri),
+                    "hysteria2" => ParseHysteria2(uri),
+                    "tuic" => ParseTuic(uri),
+                    "wireguard" => ParseWireGuard(uri),
+                    "socks5" => ParseSocks5(uri),
+                    _ => HandleUnknownScheme(scheme) // 调用处理未知 scheme 的函数
+                };
+
+            }
+            else
+            {
+                // 既不是整行 JSON/YAML，也不能作为绝对 Uri 解析 —— 可能是裸的 base64 / vless://base64 等（DoParse 应该已处理）
+                LogHelper.Debug($"[ProtocolParser] 非 URL 且非 JSON/YAML 行，跳过: {trimmed[..Math.Min(80, trimmed.Length)]}...");
+                return null;
+            }
         }
-        catch (Exception ex) when (ex is UriFormatException or InvalidOperationException)
+        catch (Exception ex)
         {
-            LogHelper.Debug($"[协议解析] 链接格式错误，已跳过: {line} | 错误: {ex.Message}");
+            LogHelper.Debug($"[ProtocolParser] 解析失败: {ex.Message}");
             return null;
         }
     }
 
-    #region VLESS 解析
-    private static NodeInfo? ParseVless( Uri uri )
+    // 单独处理未知 scheme 的函数
+    private static NodeInfoBase? HandleUnknownScheme( string scheme )
     {
+        LogHelper.Debug($"[ProtocolParser] 未知 scheme: {scheme}，已跳过");
+        return null; // 返回 null，避免多行大括号
+    }
+
+    // ============================================================
+    // 以下为各协议解析实现（基于你之前的 ParseVless/ParseTrojan 等）
+    // 修改说明：内部会调用 ParseQuery(uri.Query)，并额外处理 query 中嵌入的 json= / yaml= 字段（解码并展开）
+    // ============================================================
+
+    #region VLESS 解析
+    private static NodeInfoBase? ParseVless( Uri uri )
+    {
+        // 解析 query（含 HTML / 双重 URL 解码）
         var query = ParseQuery(uri.Query ?? "");
+
+        // ------------ 新增：如果 query 中有 json 或 yaml 字段，则展开并合并到 query 中 --------------
+        // 例如 ?json=%7B%22tls%22%3A%7B%22serverName%22%3A%22google.com%22%7D%7D
+        if (query.TryGetValue("json", out var jsonRaw) && !string.IsNullOrWhiteSpace(jsonRaw))
+        {
+            // JsonOptsParser 会把嵌套字段扁平化写回 query（覆盖或新增键）
+            JsonOptsParser.ParseJsonConfig(jsonRaw, query);
+        }
+        if (query.TryGetValue("yaml", out var yamlRaw) && !string.IsNullOrWhiteSpace(yamlRaw))
+        {
+            YmlOptsParser.ParseYamlConfig(yamlRaw, query);
+        }
+
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 443;
 
+        // Host 不能为空
         if (string.IsNullOrWhiteSpace(host))
         {
             LogHelper.Debug($"[VLESS 节点丢弃] Host 为空: {uri}");
             return null;
         }
 
+        // Port 范围
         if (port < 1 || port > 65535)
         {
             LogHelper.Debug($"[VLESS 节点丢弃] Port 非法: {port}");
             return null;
         }
 
+        // 2. SNI / Peer 优先级解析
         string? hostParam = null;
         if (query.TryGetValue("sni", out var sni) && IsValidHost(sni)) hostParam = sni;
         else if (query.TryGetValue("peer", out var peer) && IsValidHost(peer)) hostParam = peer;
 
+        // 3. 加密与安全策略
         var encryption = query.GetValueOrDefault("encryption") ?? "none";
         var security = (query.GetValueOrDefault("security") ?? "none").ToLowerInvariant();
 
+        // 4. skip-cert-verify 解析（统一键名 skip_cert_verify）
         var skipCertVerify = query.GetValueOrDefault("allowInsecure") == "1" ||
                              query.GetValueOrDefault("skip-cert-verify") == "true";
         query["skip_cert_verify"] = skipCertVerify.ToString().ToLowerInvariant();
 
-        var transportType = query.GetValueOrDefault("type")?.ToLowerInvariant() ?? "";
+        // 5. 传输类型识别（兼容 type / transport）
+        var transportType = query.GetValueOrDefault("type")?.ToLowerInvariant()
+                            ?? query.GetValueOrDefault("transport")?.ToLowerInvariant() ?? "";
         query["transport_type"] = transportType;
 
-        // ---------- JSON 嵌套字段解析，保持兼容性 ----------
+        // 6. JSON/YAML 嵌套字段外包解析（如果 transport 类型提示需要）
         if (transportType == "ws") JsonOptsParser.ParseWsOpts(query);
         else if (transportType == "grpc") JsonOptsParser.ParseGrpcOpts(query);
         else if (transportType == "xhttp") JsonOptsParser.ParseXhttpOpts(query);
+        // Reality JSON 展开（如果存在嵌套 reality 对象）
         JsonOptsParser.ParseReality(query);
 
+        // pbk 解析（Base64 公钥场景）
         if (query.TryGetValue("pbk", out var pbk) && !string.IsNullOrEmpty(pbk))
         {
             query["pbk"] = pbk;
             query["reality_enabled"] = "true";
         }
 
+        // spx（伪装路径）
         var spx = query.GetValueOrDefault("spx") ?? "";
         query["spx"] = spx;
 
+        // 7. Flow 与 TLS 状态
         var flow = query.GetValueOrDefault("flow") ?? "";
         query["flow"] = flow;
 
         var isTls = security == "tls" || query.GetValueOrDefault("tls") == "tls";
         var isReality = security == "reality" || query.GetValueOrDefault("tls") == "reality" ||
-                        query.ContainsKey("pbk");
+                        query.ContainsKey("pbk") || query.ContainsKey("reality_public_key") || query.ContainsKey("reality_short_id");
 
         query["tls_enabled"] = (isTls || isReality).ToString().ToLowerInvariant();
         query["reality_enabled"] = isReality.ToString().ToLowerInvariant();
 
-        var fp = query.GetValueOrDefault("fp") ?? query.GetValueOrDefault("fingerprint") ?? "";
-        query["utls_fingerprint"] = fp;
+        // 8. uTLS 指纹（多种可能键名）
+        var fp = query.GetValueOrDefault("fp")
+                 ?? query.GetValueOrDefault("fingerprint")
+                 ?? query.GetValueOrDefault("utls.fingerprint")
+                 ?? query.GetValueOrDefault("utls_fingerprint")
+                 ?? "";
+        if (!string.IsNullOrEmpty(fp))
+            query["utls_fingerprint"] = fp;
 
+        // 9. 规范化一些已知安全参数（确保它们保留在 ExtraParams）
+        //    例如 early_data_header_name, packet_encoding, grpc.service, ws.max_early_data 等
+        //    （这里只做键名映射，实际使用由 Handshaker 侧读取）
+        if (query.TryGetValue("early_data_header_name", out var edh) && !string.IsNullOrEmpty(edh))
+            query["early_data_header_name"] = edh;
+        if (query.TryGetValue("packet_encoding", out var pe) && !string.IsNullOrEmpty(pe))
+            query["packet_encoding"] = pe;
+        if (query.TryGetValue("grpc.service", out var gsvc) && !string.IsNullOrEmpty(gsvc))
+            query["grpc_service"] = gsvc;
+        if (query.TryGetValue("ws.max_early_data", out var med) && !string.IsNullOrEmpty(med))
+            query["ws_max_early_data"] = med;
+
+        // 最后把 query 转成只读字典并创建 NodeInfo（与之前行为一致）
         var readOnlyExtra = query.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
-        return NodeInfo.Create(
-            OriginalLink: uri.ToString(),
-            Type: "vless",
-            Host: host,
-            Port: port,
-            HostParam: hostParam,
-            Encryption: encryption,
-            Security: security,
-            ExtraParams: readOnlyExtra
-        );
+        return new VlessNode
+        {
+            //──────────────────────────────
+            // 公共字段
+            //──────────────────────────────
+            OriginalLink = uri.ToString(),  // Vless 原始链接
+            Type = "vless",
+            Host = host,
+            Port = port,
+
+            //──────────────────────────────
+            // TLS / Reality / uTLS
+            //──────────────────────────────
+            Security = security,  // 保留独立字段
+            HostParam = hostParam, // 保留独立字段
+            Fingerprint = query.GetValueOrDefault("utls_fingerprint"),
+            Alpn = query.TryGetValue("alpn", out var alpn) ? alpn : null,
+            PublicKey = query.GetValueOrDefault("reality_public_key"),
+            ShortId = query.GetValueOrDefault("reality_short_id"),
+            SpiderX = spx,
+
+            //──────────────────────────────
+            // 用户字段
+            //──────────────────────────────
+            UserId = query.GetValueOrDefault("userId") ?? "",
+            Flow = flow,  // 保留独立字段
+
+            //──────────────────────────────
+            // WS / gRPC / HTTP2 / TCP
+            //──────────────────────────────
+            Path = query.GetValueOrDefault("ws_path"),
+            HostHeader = query.GetValueOrDefault("ws_header_host"),
+            MaxEarlyData = query.TryGetValue("ws_max_early_data", out var medStr) && int.TryParse(medStr, out var medVal) ? medVal : null,
+            EarlyDataHeaderName = query.GetValueOrDefault("early_data_header_name"),
+            GrpcServiceName = query.GetValueOrDefault("grpc_service"),
+
+            //──────────────────────────────
+            // QUIC / Packet Encoding
+            //──────────────────────────────
+            QuicSecurity = query.GetValueOrDefault("quic_security"),
+            QuicKey = query.GetValueOrDefault("quic_key"),
+
+            //──────────────────────────────
+            // 扩展字段
+            //──────────────────────────────
+            ExtraParams = readOnlyExtra
+
+        };
     }
     #endregion
 
     #region Trojan 解析
-    /// <summary>
-    /// 解析 Trojan 协议链接
-    /// 兼容：密码错误格式、SNI 兜底（www.cloudflare.com）、WS Host 复用
-    /// 提前验证 UserId/Password，无 try-catch
-    /// </summary>
-    private static NodeInfo? ParseTrojan( Uri uri )
+    private static NodeInfoBase? ParseTrojan( Uri uri )
     {
-        // --------------- 局部帮助函数：安全解码（HTML -> URL，最多两次 URL 解码） ---------------
+        // 局部 SafeDecode 保留（同你之前的实现）
         static string SafeDecode( string? raw )
         {
             if (string.IsNullOrEmpty(raw)) return string.Empty;
-
-            // 1) HTML 解码，处理 &amp; 等实体
             var htmlDecoded = System.Net.WebUtility.HtmlDecode(raw);
-
-            // 2) 一次 URL 解码（防御式）
             string once;
             try { once = Uri.UnescapeDataString(htmlDecoded); }
             catch { once = htmlDecoded; }
-
-            // 3) 若仍包含 '%'，尝试第二次解码（兼容双重编码，如 %253c -> %3c -> <）
             if (once.Contains('%'))
             {
                 try
@@ -167,16 +328,11 @@ internal static class ProtocolParser
                     var twice = Uri.UnescapeDataString(once);
                     if (!string.IsNullOrEmpty(twice)) return twice;
                 }
-                catch
-                {
-                    // 忽略二次解码失败，返回一次解码结果
-                }
+                catch { }
             }
-
             return once;
         }
 
-        // --------------- 基本 Host/Port 校验 ---------------
         var host = uri.Host;
         var port = uri.Port;
 
@@ -186,22 +342,20 @@ internal static class ProtocolParser
             return null;
         }
 
-        // --------------- 解析并解码 query（防止 &amp; 以及编码问题） ---------------
-        // uri.Query 包含开头的 '?'，SafeDecode 会处理 HTML 实体与 URL 编码
+        // 解析并解码 query
         var decodedQueryString = SafeDecode(uri.Query ?? string.Empty);
-        // 你的项目里应该已有 ParseQuery(string) 方法：它将 ?a=b&c=d 解析为字典
         var query = ParseQuery(decodedQueryString);
 
-        // --------------- 用户名与密码解析（兼容 password-only 与 user:password） ---------------
+        // 若 query 中嵌入 json/yaml，则展开合并
+        if (query.TryGetValue("json", out var jr) && !string.IsNullOrEmpty(jr)) JsonOptsParser.ParseJsonConfig(jr, query);
+        if (query.TryGetValue("yaml", out var yr) && !string.IsNullOrEmpty(yr)) YmlOptsParser.ParseYamlConfig(yr, query);
+
+        // 用户凭据解析（userinfo）
         string? userId = null;
         string? password = null;
-
         if (!string.IsNullOrEmpty(uri.UserInfo))
         {
-            // 先解码 userinfo（可能是双重编码或包含 HTML 实体）
             var decodedUserInfo = SafeDecode(uri.UserInfo);
-
-            // 如果包含 ':' 且左右都不为空，认为是 user:password 格式；否则把整个字段当作 password（更兼容常见 trojan 链接）
             if (decodedUserInfo.Contains(':'))
             {
                 var parts = decodedUserInfo.Split(new[] { ':' }, 2);
@@ -212,33 +366,26 @@ internal static class ProtocolParser
                 }
                 else
                 {
-                    // 例如 ":password" 或 "user:"，当作 password 处理
                     userId = null;
                     password = decodedUserInfo;
                 }
             }
             else
             {
-                // 常见写法：trojan://PASSWORD@host:port
                 userId = null;
                 password = decodedUserInfo;
             }
 
-            // 防御性过滤：若 password 明显是被屏蔽/占位符（如包含表情或注明来源），则视为无效
             if (!string.IsNullOrEmpty(password))
             {
                 var p = password;
-                if (p.Contains("🔒") || p.IndexOf("By ", StringComparison.OrdinalIgnoreCase) >= 0
-                    || p.IndexOf("EbraSha", StringComparison.OrdinalIgnoreCase) >= 0
-                    || p.IndexOf("ByEbraSha", StringComparison.OrdinalIgnoreCase) >= 0
-                    || string.IsNullOrWhiteSpace(p))
+                if (p.Contains("🔒") || p.IndexOf("By ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     LogHelper.Warn($"[Trojan 解析] 检测到被屏蔽/占位的密码（或非法占位符），已忽略: {host}:{port}");
                     password = null;
                 }
             }
 
-            // 修复：密码误含端口（仅当 password 完全为数字字符串且等于端口时才修复）
             if (!string.IsNullOrEmpty(password) && int.TryParse(password, out var parsedPort) && parsedPort == port)
             {
                 LogHelper.Warn($"[Trojan 解析] 检测到密码包含端口 {parsedPort}，已修正为 null");
@@ -246,10 +393,6 @@ internal static class ProtocolParser
             }
         }
 
-        // --------------- 提前验证凭据逻辑（调整后） ---------------
-        // 说明：
-        //  - userId 在 Trojan 场景中并不总是提供，因此仅在存在时才校验其合法性
-        //  - password 对 Trojan 是必须的：若缺失/非法则丢弃该节点
         if (!string.IsNullOrEmpty(userId))
         {
             if (!IsValidCredential(userId))
@@ -270,24 +413,18 @@ internal static class ProtocolParser
             return null;
         }
 
-        // --------------- SNI 优先级处理：sni > peer > ws host > 兜底 ---------------
+        // SNI 优先级：sni > peer > host（ws host）
         string? hostParam = null;
-
-        // 从 query 中安全读取并解码 sni/peer/host（注意一些源会把 sni 填为占位符）
         static string? GetQueryDecoded( Dictionary<string, string> q, string key )
         {
             if (q.TryGetValue(key, out var v)) return string.IsNullOrEmpty(v) ? null : v;
             return null;
         }
-
-        // 读取并判断是否为被屏蔽占位（如果是则忽略）
         string? TryUseSni( string? raw )
         {
             if (string.IsNullOrEmpty(raw)) return null;
             var decoded = SafeDecode(raw);
-            // 若包含明显的占位/注记文本，认为被屏蔽
-            if (decoded.Contains("🔒") || decoded.IndexOf("By ", StringComparison.OrdinalIgnoreCase) >= 0
-                || decoded.IndexOf("EbraSha", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (decoded.Contains("🔒") || decoded.IndexOf("By ", StringComparison.OrdinalIgnoreCase) >= 0)
                 return null;
             return decoded;
         }
@@ -304,7 +441,6 @@ internal static class ProtocolParser
             if (!string.IsNullOrEmpty(peerDecoded) && IsValidHost(peerDecoded)) hostParam = peerDecoded;
         }
 
-        // WebSocket 场景下常用 host 参数来作为 Host header / SNI 的替代
         if (string.IsNullOrEmpty(hostParam) && query.TryGetValue("host", out var wsHostRaw))
         {
             var wsHostDecoded = TryUseSni(wsHostRaw);
@@ -315,15 +451,13 @@ internal static class ProtocolParser
             }
         }
 
-        // 兜底 SNI（如果都没有合适的），使用一个常见的可用值以增大通过率（可根据策略调整）
         if (string.IsNullOrEmpty(hostParam) || !IsValidHost(hostParam))
         {
             hostParam = "www.cloudflare.com";
             LogHelper.Verbose($"[Trojan 解析] SNI 兜底为: {hostParam}");
         }
 
-        // --------------- 处理 ExtraParams：把解码后的 query 放入 ExtraParams（包含 alpn 等） ---------------
-        // 先把 query 里的键值全部解码并整理为不区分大小写的字典
+        // safeQuery：解码后并归一化到字典
         var safeQuery = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var kvp in query)
         {
@@ -332,59 +466,79 @@ internal static class ProtocolParser
             var v = SafeDecode(kvp.Value);
             if (!string.IsNullOrEmpty(k))
             {
-                // 覆盖策略：后来的同名参数覆盖前面（合理）
                 safeQuery[k] = v;
             }
         }
 
-        // 如果存在 alpn 且为 URL 编码形式（例如 http%2F1.1），SafeDecode 已处理为 "http/1.1"
-        if (safeQuery.TryGetValue("alpn", out var alpnVal) && !string.IsNullOrWhiteSpace(alpnVal))
-        {
-            LogHelper.Info($"[Trojan 解析] ALPN 设置为: {alpnVal} for {host}:{port}");
-            // 保持在 ExtraParams 里，后续在 TlsHelper.CreateSslOptions 中会读取并设置
-        }
-
-        // 把最终的 safeQuery（解码后的）作为 ExtraParams，NodeInfo.Create 会做只读处理
+        // 最终 ExtraParams
         var extraParams = safeQuery.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
-        // --------------- 构造并返回 NodeInfo（使用静态工厂以保证验证） ---------------
         try
         {
-            return NodeInfo.Create(
-                OriginalLink: uri.ToString(),
-                Type: "trojan",
-                Host: host,
-                Port: port,
-                HostParam: hostParam,
-                Encryption: "none",
-                Security: "tls",
-                UserId: userId,
-                Password: password,
-                ExtraParams: extraParams
-            );
+            return new TrojanNode
+            {
+                OriginalLink = uri.ToString(),      // Trojan 原始链接
+                Type = "trojan",                    // 协议类型
+                Host = host,                        // 主机地址
+                Port = port,                        // 端口号
+                HostParam = hostParam,              // SNI / Peer（可选）
+                Encryption = "none",                // 加密方式（设置为 "none"）
+                Security = "tls",                   // 安全协议（默认为 "tls"）
+                UserId = userId ?? "",              // 用户标识（可能为空）
+                Password = password ?? "",          // 密码（可能为空）
+                                                    // 这里的 ExtraParams 用于存储其他查询参数，提供更多自定义支持
+                ExtraParams = extraParams,          // 额外的参数集合
+                Fingerprint = query.GetValueOrDefault("fingerprint"),  // utls_fingerprint（可选）
+                Alpn = query.GetValueOrDefault("alpn"), // ALPN 协议（可选）
+                Path = query.GetValueOrDefault("path"), // WebSocket 路径（可选）
+                HostHeader = query.GetValueOrDefault("ws_host"), // WebSocket HostHeader（可选）
+                MaxEarlyData = query.TryGetValue("ws_max_early_data", out var med) && int.TryParse(med, out var maxData) ? maxData : null, // 最大提前数据（可选）
+                EarlyDataHeaderName = query.GetValueOrDefault("early_data_header_name"), // HTTP 早期数据头名称（可选）
+                GrpcServiceName = query.GetValueOrDefault("grpc_service"), // gRPC 服务名称（可选）
+                PacketEncoding = query.GetValueOrDefault("packet_encoding") // 数据包编码（可选）
+            };
         }
         catch (ArgumentException ex)
         {
-            // 如果 NodeInfo.Create 因 Host/Port 等抛异常，则记录并返回 null
             LogHelper.Debug($"[Trojan 解析] NodeInfo 创建失败: {ex.Message} | 原链: {uri}");
             return null;
         }
     }
     #endregion
 
-    #region 其他协议
+
+    #region Hysteria2 解析（完整修复版）
     /// <summary>
-    /// [Hysteria2 协议解析器] （完整字段映射）
-    /// 提前验证 password
+    /// 解析 hysteria2:// 协议链接
+    /// 支持：query 中嵌入 json= / yaml=、insecure/skip-cert-verify、obfs、带宽限制等
     /// </summary>
-    private static NodeInfo? ParseHysteria2( Uri uri )
+    private static NodeInfoBase? ParseHysteria2( Uri uri )
     {
-        var query = ParseQuery(uri.Query);
+        // [Grok 修复_2025-11-15_005] 
+        // 目标：零字段重复、强类型优先、ExtraParams 仅存未知字段
+        // 流程：1. 解析 query → 2. 展开 json/yaml → 3. 提取强类型字段并移除 → 4. 剩余进 ExtraParams
+
+        // --------------------- 1. 基础解析 ---------------------
+        var query = ParseQuery(uri.Query ?? "");
+
+        // --------------------- 2. 展开嵌套 JSON/YAML ---------------------
+        // 支持 ?json={...} 或 ?yaml=... 嵌入完整配置
+        if (query.TryGetValue("json", out var jsonRaw) && !string.IsNullOrWhiteSpace(jsonRaw))
+        {
+            JsonOptsParser.ParseJsonConfig(jsonRaw, query);
+            query.Remove("json"); // 展开后移除原字段
+        }
+        if (query.TryGetValue("yaml", out var yamlRaw) && !string.IsNullOrWhiteSpace(yamlRaw))
+        {
+            YmlOptsParser.ParseYamlConfig(yamlRaw, query);
+            query.Remove("yaml");
+        }
+
         var host = uri.Host;
         var port = uri.Port > 0 ? uri.Port : 443;
         var password = uri.UserInfo;
 
-        // 
+        // --------------------- 3. 基础校验 ---------------------
         if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
         {
             LogHelper.Debug($"[Hysteria2 节点丢弃] Host 或 Port 非法: {host}:{port}");
@@ -392,56 +546,157 @@ internal static class ProtocolParser
         }
         if (!IsValidCredential(password))
         {
-            LogHelper.Debug($"[Hysteria2 节点丢弃] Password 无效: {password}");
+            LogHelper.Debug($"[Hysteria2 节点丢弃] Password 无效或缺失: {password}");
             return null;
         }
 
-        var hostParam = query.GetValueOrDefault("sni", uri.Host);
-        if (!IsValidHost(hostParam))
+        // --------------------- 4. SNI 提取（优先 sni > host） ---------------------
+        string? hostParam = null;
+        if (query.TryGetValue("sni", out var sniVal) && IsValidHost(sniVal))
         {
-            LogHelper.Debug($"[Hysteria2 节点丢弃] SNI 无效: {hostParam}");
-            return null;
+            hostParam = sniVal;
+            query.Remove("sni");
+        }
+        else
+        {
+            hostParam = host; // 兜底使用 Host
         }
 
+        // --------------------- 5. 强类型字段提取（并从 query 移除） ---------------------
         var extra = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in query)
-            extra[kv.Key] = kv.Value;
 
-        bool skipCert = query.TryGetValue("insecure", out var val) &&
-                        (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase)) ||
-                        query.TryGetValue("skip-cert-verify", out val) &&
-                        (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase));
-        if (skipCert) extra["skip_cert_verify"] = "true";
-
-        if (query.TryGetValue("obfs", out var obfs) && !string.IsNullOrEmpty(obfs))
+        // Obfs
+        string? obfs = null;
+        if (query.TryGetValue("obfs", out var obfsVal) && !string.IsNullOrWhiteSpace(obfsVal))
         {
-            extra["obfs"] = obfs;
-            if (query.TryGetValue("obfs-password", out var obfsPass))
-                extra["obfs_password"] = obfsPass;
+            obfs = obfsVal;
+            query.Remove("obfs");
+        }
+        string? obfsPassword = null;
+        if (query.TryGetValue("obfs-password", out var opVal) && !string.IsNullOrWhiteSpace(opVal))
+        {
+            obfsPassword = opVal;
+            query.Remove("obfs-password");
         }
 
-        if (query.TryGetValue("transport", out var transport) && !string.IsNullOrEmpty(transport))
-            extra["transport_type"] = transport;
+        // 带宽限制
+        int? upMbps = null;
+        if (query.TryGetValue("up_mbps", out var upStr) && int.TryParse(upStr, out var up))
+        {
+            upMbps = up;
+            query.Remove("up_mbps");
+        }
+        int? downMbps = null;
+        if (query.TryGetValue("down_mbps", out var downStr) && int.TryParse(downStr, out var down))
+        {
+            downMbps = down;
+            query.Remove("down_mbps");
+        }
 
-        var readOnlyExtra = extra.ToDictionary(k => k.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+        // 禁用 UDP
+        bool? disableUdp = null;
+        if (query.TryGetValue("disable_udp", out var duStr) &&
+            (duStr == "1" || duStr.Equals("true", StringComparison.OrdinalIgnoreCase)))
+        {
+            disableUdp = true;
+            query.Remove("disable_udp");
+        }
 
-        return NodeInfo.Create(
-            OriginalLink: uri.ToString(),
-            Type: "hysteria2",
-            Host: host,
-            Port: port,
-            HostParam: hostParam,
-            Password: password,
-            Security: "tls",
-            ExtraParams: readOnlyExtra
-        );
+        // ALPN
+        string? alpn = null;
+        if (query.TryGetValue("alpn", out var alpnVal) && !string.IsNullOrWhiteSpace(alpnVal))
+        {
+            alpn = alpnVal;
+            query.Remove("alpn");
+        }
+
+        // uTLS 指纹
+        string? fingerprint = null;
+        if (query.TryGetValue("fingerprint", out var fpVal) && !string.IsNullOrWhiteSpace(fpVal))
+        {
+            fingerprint = fpVal;
+            query.Remove("fingerprint");
+        }
+
+        // 跳过证书验证
+        bool skipCertVerify = false;
+        if (query.TryGetValue("insecure", out var insecureVal) &&
+            (insecureVal == "1" || insecureVal.Equals("true", StringComparison.OrdinalIgnoreCase)))
+        {
+            skipCertVerify = true;
+            query.Remove("insecure");
+        }
+        if (query.TryGetValue("skip-cert-verify", out var scvVal) &&
+            (scvVal == "1" || scvVal.Equals("true", StringComparison.OrdinalIgnoreCase)))
+        {
+            skipCertVerify = true;
+            query.Remove("skip-cert-verify");
+        }
+
+        // 传输类型
+        string? transportType = "udp";
+        if (query.TryGetValue("transport", out var transVal) && !string.IsNullOrWhiteSpace(transVal))
+        {
+            transportType = transVal;
+            query.Remove("transport");
+        }
+
+        // --------------------- 6. 剩余字段进入 ExtraParams ---------------------
+        foreach (var kvp in query)
+        {
+            if (!string.IsNullOrEmpty(kvp.Key))
+            {
+                extra[kvp.Key] = kvp.Value;
+            }
+        }
+
+        // --------------------- 7. 创建节点（强类型 + 扩展） ---------------------
+        try
+        {
+            return new Hysteria2Node
+            {
+                // ── 基类字段 ──
+                OriginalLink = uri.ToString(),
+                Type = "hysteria2",
+                Host = host,
+                Port = port,
+                Remark = string.Empty,
+                Transport = transportType ?? "udp",
+
+                // ── 认证 ──
+                Password = password,
+
+                // ── TLS ──
+                HostParam = hostParam, // SNI
+                SkipCertVerify = skipCertVerify,
+                Alpn = alpn,
+                Fingerprint = fingerprint,
+
+                // ── 混淌 ──
+                Obfs = obfs,
+                ObfsPassword = obfsPassword,
+
+                // ── 带宽 ──
+                UpMbps = upMbps,
+                DownMbps = downMbps,
+
+                // ── 传输控制 ──
+                DisableUdp = disableUdp,
+
+                // ── 扩展字段（仅未知）──
+                ExtraParams = extra
+            };
+        }
+        catch (Exception ex) when (ex is ArgumentException || ex is NullReferenceException)
+        {
+            LogHelper.Debug($"[Hysteria2 解析] 创建节点失败: {ex.Message} | 原链: {uri}");
+            return null;
+        }
     }
+    #endregion
 
-    /// <summary>
-    /// 解析 Tuic 协议链接
-    /// 提前验证
-    /// </summary>
-    private static NodeInfo? ParseTuic( Uri uri )
+    #region 其它协议（保留原实现风格，做少量增强）
+    private static NodeInfoBase? ParseTuic( Uri uri )
     {
         if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
         {
@@ -459,21 +714,19 @@ internal static class ProtocolParser
             return null;
         }
 
-        return NodeInfo.Create(
-            OriginalLink: uri.ToString(),
-            Type: "tuic",
-            Host: uri.Host,
-            Port: uri.Port,
-            UserId: userId,
-            Password: password,
-            ExtraParams: ParseQuery(uri.Query)
-        );
+        return new TuicNode
+        {
+            OriginalLink = uri.ToString(),
+            Type = "tuic",
+            Host = uri.Host,
+            Port = uri.Port,
+            UserId = userId,
+            Password = password,
+            ExtraParams = ParseQuery(uri.Query)
+        };
     }
 
-    /// <summary>
-    /// 解析 WireGuard 协议链接
-    /// </summary>
-    private static NodeInfo? ParseWireGuard( Uri uri )
+    private static NodeInfoBase? ParseWireGuard( Uri uri )
     {
         if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
             return null;
@@ -482,21 +735,19 @@ internal static class ProtocolParser
         if (!IsValidCredential(privateKey))
             return null;
 
-        return NodeInfo.Create(
-            OriginalLink: uri.ToString(),
-            Type: "wireguard",
-            Host: uri.Host,
-            Port: uri.Port,
-            PrivateKey: privateKey,
-            PublicKey: ParseQuery(uri.Query).GetValueOrDefault("publickey"),
-            ExtraParams: ParseQuery(uri.Query)
-        );
+        return new WireguardNode
+        {
+            OriginalLink = uri.ToString(),
+            Type = "wireguard",
+            Host = uri.Host,
+            Port = uri.Port,
+            PrivateKey = privateKey,
+            PublicKey = ParseQuery(uri.Query).GetValueOrDefault("publickey"),
+            ExtraParams = ParseQuery(uri.Query)
+        };
     }
 
-    /// <summary>
-    /// 解析 SOCKS5 协议链接
-    /// </summary>
-    private static NodeInfo? ParseSocks5( Uri uri )
+    private static NodeInfoBase? ParseSocks5( Uri uri )
     {
         if (string.IsNullOrWhiteSpace(uri.Host) || uri.Port < 1 || uri.Port > 65535)
             return null;
@@ -505,44 +756,32 @@ internal static class ProtocolParser
         var userId = userInfo.Length > 0 ? userInfo[0] : null;
         var password = userInfo.Length > 1 ? userInfo[1] : null;
 
-        return NodeInfo.Create(
-            OriginalLink: uri.ToString(),
-            Type: "socks5",
-            Host: uri.Host,
-            Port: uri.Port,
-            UserId: userId,
-            Password: password,
-            ExtraParams: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        );
+        return new Socks5Node
+        {
+            OriginalLink = uri.ToString(),
+            Type = "socks5",
+            Host = uri.Host,
+            Port = uri.Port,
+            Username = userId,
+            Password = password,
+            ExtraParams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        };
     }
     #endregion
 
-    #region 验证工具
-    /// <summary>
-    /// 验证凭据是否合法（非空、非纯空格、长度 ≤ 256）
-    /// </summary>
+    #region 验证工具（复用/保留）
     private static bool IsValidCredential( string? value )
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Length <= 256;
-    }
+        => !string.IsNullOrWhiteSpace(value) && value.Length <= 256;
 
-    /// <summary>
-    /// 验证 Host/SNI 是否合法（非空、非纯IP、长度合理）
-    /// </summary>
     private static bool IsValidHost( string? value )
     {
-        if (string.IsNullOrWhiteSpace(value) || value.Length > 253)
-            return false;
-        if (IPAddress.TryParse(value, out _))
-            return false; // 禁止纯IP作为SNI
+        if (string.IsNullOrWhiteSpace(value) || value.Length > 253) return false;
+        if (IPAddress.TryParse(value, out _)) return false; // 禁止纯 IP 作为 SNI
         return true;
     }
     #endregion
 
-    #region 查询参数解析
-    /// <summary>
-    /// 解析 URL 查询字符串为不区分大小写的字典
-    /// </summary>
+    #region 查询参数解析（复用原 ParseQuery，保持 HTML + 双重 URL 解码）
     private static Dictionary<string, string> ParseQuery( string query )
     {
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -564,14 +803,22 @@ internal static class ProtocolParser
                 catch { once = htmlDecoded; }
                 if (once.Contains('%'))
                 {
-                    try { var twice = Uri.UnescapeDataString(once); if (!string.IsNullOrEmpty(twice)) return twice; } catch { }
+                    try
+                    {
+                        var twice = Uri.UnescapeDataString(once);
+                        if (!string.IsNullOrEmpty(twice)) return twice;
+                    }
+                    catch { }
                 }
                 return once;
             }
 
             var key = SafeDecode(parts[0]);
             var value = SafeDecode(parts[1]);
-            if (!string.IsNullOrEmpty(key)) dict[key] = value;
+            if (!string.IsNullOrEmpty(key))
+            {
+                dict[key] = value;
+            }
         }
 
         return dict;
