@@ -22,7 +22,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
         /// 返回值签名保持与其他协议一致：(bool success, TimeSpan latency, Stream? stream)
         /// </summary>
         public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
-            HiddifyConfigsCLI.src.Core.NodeInfo node,
+            Hysteria2Node node,
             IPAddress address,
             int timeoutSec,
             RunOptions opts // 可扩展参数结构，包含 REALITY/JA3 等配置

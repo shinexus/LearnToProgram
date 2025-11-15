@@ -23,7 +23,8 @@ internal static class TrojanHandshaker
     /// 返回值：success, latency, stream（若 success 且希望继续用连接则返回 SslStream；调用者在最终使用完后必须 Dispose）
     /// </summary>
     public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
-        NodeInfo node,
+        // NodeInfo node,
+        TrojanNode node,
         IPAddress address,
         int timeoutSec,
         RunOptions opts )

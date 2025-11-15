@@ -30,7 +30,7 @@ internal static class FileSaver
     /// <param name="nodes">已排序的最终节点列表</param>
     /// <param name="opts">运行配置（输出路径、最大行数、最大分段数、InfoTag）</param>
     /// <returns>任务对象</returns>
-    public static async Task SaveAsync( List<NodeInfo> nodes, RunOptions opts )
+    public static async Task SaveAsync( List<NodeInfoBase> nodes, RunOptions opts )
     {
         // 【日志】记录传入的输出路径，便于调试
         LogHelper.Info($"传入的输出路径: {opts.Output ?? "<null>"}");

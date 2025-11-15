@@ -14,7 +14,7 @@ internal static class ConnectivityChecker
     /// 优化：连接池复用、动态超时、批量 DNS 解析
     /// 协议握手成功后，自动进行出网测试（除非 --no-check）
     /// </summary>
-    public static async Task<List<NodeInfo>> CheckAsync( List<NodeInfo> nodes, RunOptions opts )
+    public static async Task<List<NodeInfoBase>> CheckAsync( List<NodeInfoBase> nodes, RunOptions opts )
     {
         // 【Grok 提炼】主入口极简，仅做参数校验与委托
         if (nodes.Count == 0) return [];

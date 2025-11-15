@@ -19,7 +19,8 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers;
 internal static class VlessHandshaker
 {
     public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
-        NodeInfo node,
+        // NodeInfo node,
+        VlessNode node,
         IPAddress address,
         int timeoutSec,
         RunOptions opts )
@@ -39,7 +40,7 @@ internal static class VlessHandshaker
             var extra = node.ExtraParams ?? new Dictionary<string, string>();
 
             // 主字段
-            var uuidStr         = extra.GetValueOrDefault("id") ?? node.Password ?? "";
+            var uuidStr         = extra.GetValueOrDefault("id") ?? node.UserId ?? "";
             var security        = extra.GetValueOrDefault("security") ?? "tls";
             var transportType   = extra.GetValueOrDefault("transport_type") ?? "";
             var skipCertVerify  = extra.GetValueOrDefault("skip_cert_verify") == "true";
@@ -112,7 +113,7 @@ internal static class VlessHandshaker
             }
 
             // 默认 TCP (VLESS 直连)
-            var uuid = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.Password ?? "");
+            var uuid = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.UserId ?? "");
             var header = BuildVlessHeader(node, address, uuid, extra); // 修改点：保证全部 ExtraParams 都用于构建 Header
             await stream!.WriteAsync(header, cts.Token);
             await stream.FlushAsync(cts.Token);
@@ -145,7 +146,7 @@ internal static class VlessHandshaker
 
     // ====== 辅助方法：保证 ExtraParams 全部使用 ======
     private static byte[] BuildVlessHeader(
-        HiddifyConfigsCLI.src.Core.NodeInfo node,
+        VlessNode node,
         IPAddress address,
         Guid uuid,
         IReadOnlyDictionary<string, string> extra )
@@ -207,7 +208,7 @@ internal static class VlessHandshaker
         => Guid.TryParse(s, out var id) ? id : Guid.NewGuid();
 
     private static async Task<(bool, TimeSpan, Stream?)> HandleXHttpAsync(
-        HiddifyConfigsCLI.src.Core.NodeInfo node, IPAddress address, int timeoutSec,
+        HiddifyConfigsCLI.src.Core.VlessNode node, IPAddress address, int timeoutSec,
         IReadOnlyDictionary<string, string> extra, bool skipCertVerify,
         Stopwatch sw, CancellationTokenSource cts )
     {
@@ -238,7 +239,7 @@ internal static class VlessHandshaker
         var request = new HttpRequestMessage(new HttpMethod(xhttpMethod), requestUri);
         request.Headers.Host = xhttpHost;
 
-        var uuidXHTTP = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.Password ?? "");
+        var uuidXHTTP = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.UserId ?? "");
         var vlessHeader = BuildVlessHeader(node, address, uuidXHTTP, extra);
         request.Content = new ByteArrayContent(vlessHeader);
 
@@ -278,7 +279,7 @@ internal static class VlessHandshaker
     /// WebSocket 处理（保证全部 ExtraParams 使用）
     /// </summary>
     private static async Task HandleWebSocketAsync(
-        HiddifyConfigsCLI.src.Core.NodeInfo node,
+        HiddifyConfigsCLI.src.Core.VlessNode node,
         Stream stream,
         IReadOnlyDictionary<string, string> extra,
         string transportType,
@@ -347,7 +348,7 @@ internal static class VlessHandshaker
     /// gRPC 处理（保证全部 ExtraParams 使用）
     /// </summary>
     private static async Task<(bool, TimeSpan, Stream?)> HandleGrpcAsync(
-        HiddifyConfigsCLI.src.Core.NodeInfo node,
+        HiddifyConfigsCLI.src.Core.VlessNode node,
         IPAddress address,
         IReadOnlyDictionary<string, string> extra,
         string security,
@@ -374,7 +375,7 @@ internal static class VlessHandshaker
             }.Uri;
 
             // 构造 VLESS 头部 payload
-            var uuidgRPC = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.Password ?? "");
+            var uuidgRPC = ParseOrRandomUuid(extra.GetValueOrDefault("id") ?? node.UserId ?? "");
             byte[] grpcPayload = new byte[5]; // 前缀长度 5
             using var content = new ByteArrayContent(grpcPayload);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/grpc");

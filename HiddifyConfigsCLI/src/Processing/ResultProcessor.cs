@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace HiddifyConfigsCLI;
+namespace HiddifyConfigsCLI.src.Processing;
 
 internal static class ResultProcessor
 {
@@ -17,10 +17,10 @@ internal static class ResultProcessor
     /// <param name="nodes">待处理的节点列表</param>
     /// <param name="sortBy">排序依据：latency / host / type</param>
     /// <returns>处理后的有序节点列表</returns>
-    public static List<NodeInfo> Process( List<NodeInfo> nodes, string sortBy )
+    public static List<NodeInfoBase> Process( List<NodeInfoBase> nodes, string sortBy )
     {
         if (nodes.Count == 0)
-            return new List<NodeInfo>();
+            return new List<NodeInfoBase>();
 
         // 【修改】增强去重键：不再依赖 DedupKey，而是动态构建全面唯一标识
         // 键组成：{Type}://{Host}:{Port}[/uid:{UserId}][/pwd:{PasswordHash}][/priv:{PrivateKeyHash}]
