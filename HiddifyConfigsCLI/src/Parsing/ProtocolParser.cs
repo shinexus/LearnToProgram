@@ -159,10 +159,8 @@ internal static class ProtocolParser
         var query = ParseQuery(uri.Query ?? "");
 
         // ------------ 新增：如果 query 中有 json 或 yaml 字段，则展开并合并到 query 中 --------------
-        // 例如 ?json=%7B%22tls%22%3A%7B%22serverName%22%3A%22google.com%22%7D%7D
         if (query.TryGetValue("json", out var jsonRaw) && !string.IsNullOrWhiteSpace(jsonRaw))
         {
-            // JsonOptsParser 会把嵌套字段扁平化写回 query（覆盖或新增键）
             JsonOptsParser.ParseJsonConfig(jsonRaw, query);
         }
         if (query.TryGetValue("yaml", out var yamlRaw) && !string.IsNullOrWhiteSpace(yamlRaw))
@@ -179,12 +177,39 @@ internal static class ProtocolParser
             LogHelper.Debug($"[VLESS 节点丢弃] Host 为空: {uri}");
             return null;
         }
-
         // Port 范围
         if (port < 1 || port > 65535)
         {
             LogHelper.Debug($"[VLESS 节点丢弃] Port 非法: {port}");
             return null;
+        }
+
+        // [Grok 修复_2025-11-16_005] 提取 uri.UserInfo 中的 UUID
+        string userId = "";
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            var parts = uri.UserInfo.Split('@');
+            userId = parts[0]; // 第一个 @ 前为 UUID
+            if (!Guid.TryParse(userId, out _))
+            {
+                LogHelper.Warn($"[VLESS] UUID 格式错误: {userId} | 链接: {uri}");
+                userId = "";
+            }
+        }
+
+        // 备选 UUID：query["id"] 或 query["userId"]
+        if (string.IsNullOrEmpty(userId))
+        {
+            userId = query.GetValueOrDefault("id") ?? query.GetValueOrDefault("userId") ?? "";
+        }
+
+        // [Grok 修复] 提取 #remark
+        string remark = uri.Fragment.TrimStart('#');
+        if (string.IsNullOrEmpty(remark) && uri.UserInfo.Contains('@'))
+        {
+            // 兼容 vless://UUID@remark@host:port
+            var parts = uri.UserInfo.Split('@');
+            if (parts.Length > 1) remark = parts[1];
         }
 
         // 2. SNI / Peer 优先级解析
@@ -196,46 +221,41 @@ internal static class ProtocolParser
         var encryption = query.GetValueOrDefault("encryption") ?? "none";
         var security = (query.GetValueOrDefault("security") ?? "none").ToLowerInvariant();
 
-        // 4. skip-cert-verify 解析（统一键名 skip_cert_verify）
+        // 4. skip-cert-verify 解析
         var skipCertVerify = query.GetValueOrDefault("allowInsecure") == "1" ||
                              query.GetValueOrDefault("skip-cert-verify") == "true";
         query["skip_cert_verify"] = skipCertVerify.ToString().ToLowerInvariant();
 
-        // 5. 传输类型识别（兼容 type / transport）
+        // 5. 传输类型识别
         var transportType = query.GetValueOrDefault("type")?.ToLowerInvariant()
                             ?? query.GetValueOrDefault("transport")?.ToLowerInvariant() ?? "";
         query["transport_type"] = transportType;
 
-        // 6. JSON/YAML 嵌套字段外包解析（如果 transport 类型提示需要）
+        // 6. JSON/YAML 嵌套字段外包解析
         if (transportType == "ws") JsonOptsParser.ParseWsOpts(query);
         else if (transportType == "grpc") JsonOptsParser.ParseGrpcOpts(query);
         else if (transportType == "xhttp") JsonOptsParser.ParseXhttpOpts(query);
-        // Reality JSON 展开（如果存在嵌套 reality 对象）
+
         JsonOptsParser.ParseReality(query);
 
-        // pbk 解析（Base64 公钥场景）
         if (query.TryGetValue("pbk", out var pbk) && !string.IsNullOrEmpty(pbk))
         {
             query["pbk"] = pbk;
             query["reality_enabled"] = "true";
         }
 
-        // spx（伪装路径）
         var spx = query.GetValueOrDefault("spx") ?? "";
         query["spx"] = spx;
 
-        // 7. Flow 与 TLS 状态
         var flow = query.GetValueOrDefault("flow") ?? "";
         query["flow"] = flow;
 
         var isTls = security == "tls" || query.GetValueOrDefault("tls") == "tls";
         var isReality = security == "reality" || query.GetValueOrDefault("tls") == "reality" ||
                         query.ContainsKey("pbk") || query.ContainsKey("reality_public_key") || query.ContainsKey("reality_short_id");
-
         query["tls_enabled"] = (isTls || isReality).ToString().ToLowerInvariant();
         query["reality_enabled"] = isReality.ToString().ToLowerInvariant();
 
-        // 8. uTLS 指纹（多种可能键名）
         var fp = query.GetValueOrDefault("fp")
                  ?? query.GetValueOrDefault("fingerprint")
                  ?? query.GetValueOrDefault("utls.fingerprint")
@@ -244,9 +264,7 @@ internal static class ProtocolParser
         if (!string.IsNullOrEmpty(fp))
             query["utls_fingerprint"] = fp;
 
-        // 9. 规范化一些已知安全参数（确保它们保留在 ExtraParams）
-        //    例如 early_data_header_name, packet_encoding, grpc.service, ws.max_early_data 等
-        //    （这里只做键名映射，实际使用由 Handshaker 侧读取）
+        // 9. 规范化安全参数
         if (query.TryGetValue("early_data_header_name", out var edh) && !string.IsNullOrEmpty(edh))
             query["early_data_header_name"] = edh;
         if (query.TryGetValue("packet_encoding", out var pe) && !string.IsNullOrEmpty(pe))
@@ -256,56 +274,42 @@ internal static class ProtocolParser
         if (query.TryGetValue("ws.max_early_data", out var med) && !string.IsNullOrEmpty(med))
             query["ws_max_early_data"] = med;
 
-        // 最后把 query 转成只读字典并创建 NodeInfo（与之前行为一致）
+        // 增强 VLESS 字段映射
+        if (query.TryGetValue("transport_path", out var path) && !string.IsNullOrEmpty(path))
+            query["ws_path"] = Uri.UnescapeDataString(path);
+        if (query.TryGetValue("transport_headers_Host", out var wsHost) && !string.IsNullOrEmpty(wsHost))
+            query["ws_header_host"] = wsHost;
+        if (query.TryGetValue("transport_early_data_header_name", out var edhn) && !string.IsNullOrEmpty(edhn))
+            query["early_data_header_name"] = edhn;
+        if (query.TryGetValue("tls_utls_fingerprint", out var utlsFp) && !string.IsNullOrEmpty(utlsFp))
+            query["fingerprint"] = utlsFp;
+
         var readOnlyExtra = query.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
         return new VlessNode
         {
-            //──────────────────────────────
-            // 公共字段
-            //──────────────────────────────
-            OriginalLink = uri.ToString(),  // Vless 原始链接
+            OriginalLink = uri.ToString(),
             Type = "vless",
             Host = host,
             Port = port,
-
-            //──────────────────────────────
-            // TLS / Reality / uTLS
-            //──────────────────────────────
-            Security = security,  // 保留独立字段
-            HostParam = hostParam, // 保留独立字段
+            Remark = remark, // [Grok 新增] 从 # 或 UserInfo 提取
+            Security = security,
+            HostParam = hostParam ?? host,
             Fingerprint = query.GetValueOrDefault("utls_fingerprint"),
             Alpn = query.TryGetValue("alpn", out var alpn) ? alpn : null,
             PublicKey = query.GetValueOrDefault("reality_public_key"),
             ShortId = query.GetValueOrDefault("reality_short_id"),
             SpiderX = spx,
-
-            //──────────────────────────────
-            // 用户字段
-            //──────────────────────────────
-            UserId = query.GetValueOrDefault("userId") ?? "",
-            Flow = flow,  // 保留独立字段
-
-            //──────────────────────────────
-            // WS / gRPC / HTTP2 / TCP
-            //──────────────────────────────
+            UserId = userId, // [Grok 修复] 优先 uri.UserInfo
+            Flow = flow,
             Path = query.GetValueOrDefault("ws_path"),
             HostHeader = query.GetValueOrDefault("ws_header_host"),
             MaxEarlyData = query.TryGetValue("ws_max_early_data", out var medStr) && int.TryParse(medStr, out var medVal) ? medVal : null,
             EarlyDataHeaderName = query.GetValueOrDefault("early_data_header_name"),
             GrpcServiceName = query.GetValueOrDefault("grpc_service"),
-
-            //──────────────────────────────
-            // QUIC / Packet Encoding
-            //──────────────────────────────
             QuicSecurity = query.GetValueOrDefault("quic_security"),
             QuicKey = query.GetValueOrDefault("quic_key"),
-
-            //──────────────────────────────
-            // 扩展字段
-            //──────────────────────────────
             ExtraParams = readOnlyExtra
-
         };
     }
     #endregion
