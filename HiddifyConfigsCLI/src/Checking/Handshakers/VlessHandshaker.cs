@@ -46,11 +46,8 @@ internal static class VlessHandshaker
         {
             // ====== 阶段1：建立 TCP 连接 ======
             var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
-
-            // 设置超时
-            socket.SendTimeout = timeoutSec * 2000;
-            socket.ReceiveTimeout = timeoutSec * 2000;
-
+            socket.SendTimeout = timeoutSec * 1000;  // [Grok 修复] 单位 ms
+            socket.ReceiveTimeout = timeoutSec * 1000;
             await socket.ConnectAsync(new IPEndPoint(address, node.Port), cts.Token).ConfigureAwait(false);
             baseStream = new NetworkStream(socket, ownsSocket: true);
             LogHelper.Debug($"[VLESS-阶段1] {node.Host}:{node.Port} | TCP Connect 成功");
@@ -63,10 +60,12 @@ internal static class VlessHandshaker
                 LogHelper.Warn($"[VLESS] {node.Host}:{node.Port} | 缺失 UUID");
                 return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
             }
+
             var security = extra.GetValueOrDefault("security") ?? "tls";
             var transportType = extra.GetValueOrDefault("transport_type") ?? "";
             var skipCertVerify = extra.GetValueOrDefault("skip_cert_verify") == "true";
             var sni = node.HostParam ?? node.Host;
+            string effectiveSni = node.Host;
 
             // REALITY 启用条件
             var realityEnabled = string.Equals(extra.GetValueOrDefault("reality_enabled"), "true", StringComparison.OrdinalIgnoreCase)
@@ -74,17 +73,18 @@ internal static class VlessHandshaker
 
             // ====== 阶段3：TLS / REALITY 握手 ======
             Stream? stream = baseStream;
+
             if (security is "tls" or "reality")
             {
-                LogHelper.Debug($"[VLESS-阶段3] {node.Host}:{node.Port} | 开始 TLS (SNI={sni}, skipCert={skipCertVerify})");
+                LogHelper.Debug($"[VLESS-阶段3] {node.Host}:{node.Port} | 开始 TLS (原始 SNI={sni}, skipCert={skipCertVerify})");
 
-                // [Grok 修复_2025-11-17_004] Chrome ClientHello 前预验证 SNI（REALITY 常见失败点）
-                var effectiveSni = sni;
+                // ---------- 1. 计算 effectiveSni ----------
+                // var effectiveSni = sni;
+
                 if (security == "reality" && !string.IsNullOrEmpty(sni))
                 {
                     LogHelper.Debug($"[VLESS-TLS-SNI] {node.Host}:{node.Port} | REALITY 模式，预验证 SNI={sni}");
 
-                    // [Grok 修复_2025-11-17_013] 动态生成 fallback（仅一次）
                     var hostParts = node.Host.Split('.');
                     var fallbackSnis = new List<string> { node.Host };
 
@@ -101,7 +101,6 @@ internal static class VlessHandshaker
 
                     LogHelper.Verbose($"[VLESS-TLS-SNI] {node.Host}:{node.Port} | 动态 fallback SNIs: {string.Join(", ", fallbackSnis)}");
 
-                    // [Grok 关键修复] 仅顺序测试，匹配即停（删除 Task.WhenAll）
                     foreach (var f in fallbackSnis)
                     {
                         var match = await TlsHelper.PreValidateSniAsync(node.Host, node.Port, f, 2000, skipCertVerify).ConfigureAwait(false);
@@ -111,11 +110,10 @@ internal static class VlessHandshaker
                         {
                             effectiveSni = f.StartsWith("*.") ? node.Host : f;
                             LogHelper.Info($"[VLESS-TLS-SNI] {node.Host}:{node.Port} | 匹配成功，停止测试 → 使用 effectiveSni={effectiveSni}");
-                            break;  // 立即停止
+                            break;
                         }
                     }
 
-                    // 兜底
                     if (effectiveSni == sni)
                     {
                         effectiveSni = node.Host;
@@ -124,43 +122,44 @@ internal static class VlessHandshaker
                 }
                 else
                 {
-                    // 非 REALITY，默认 effectiveSni = sni 或 node.Host
+                    // 两种写法逻辑相同
+                    // effectiveSni = string.IsNullOrEmpty(sni) ? node.Host : sni;
                     effectiveSni = !string.IsNullOrEmpty(sni) ? sni : node.Host;
+                    LogHelper.Debug($"[VLESS-阶段3] {node.Host}:{node.Port} | 非 REALITY，使用 SNI={effectiveSni}");
                 }
-                // Chrome ClientHello 测试
-                //bool helloOk = await TlsHelper.TestTlsWithChromeHelloAsync(
-                //    node.Host, node.Port, sni,
-                //    timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
-                //).ConfigureAwait(false);
-                // [Grok 修复_2025-11-17_011] 关键：统一使用 effectiveSni
-                LogHelper.Debug($"[VLESS-阶段3] {node.Host}:{node.Port} | 最终使用 SNI={effectiveSni}");
 
-                // Chrome Hello 测试
+                // ---------- 2. Chrome ClientHello ----------
                 bool helloOk = await TlsHelper.TestTlsWithChromeHelloAsync(
-                    node.Host, node.Port, effectiveSni,  // ← 使用 effectiveSni
+                    node.Host, node.Port, effectiveSni,
                     timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
                 ).ConfigureAwait(false);
+
                 if (!helloOk)
                 {
-                    LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败");
+                    LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={effectiveSni})");
                     return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
                 }
-                var ssl = new SslStream(stream, leaveInnerStreamOpen: true);
-                var sslOpts = TlsHelper.CreateSslOptions(sni, skipCertVerify);
 
-                // [Grok 修复_2025-11-17_004] 增强 ALPN：h2,http/1.1（Chrome 标准）
+                // ---------- 3. 正式 SSL 握手 ----------
+                var ssl = new SslStream(stream, leaveInnerStreamOpen: true);
+                var sslOpts = TlsHelper.CreateSslOptions(effectiveSni, skipCertVerify);  // [Grok 修复_2025-11-17_018] 使用 effectiveSni
+
                 sslOpts.EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13;
-                sslOpts.ApplicationProtocols = new List<SslApplicationProtocol> { SslApplicationProtocol.Http2, SslApplicationProtocol.Http11 };
+                sslOpts.ApplicationProtocols = new List<SslApplicationProtocol>
+                {
+                    SslApplicationProtocol.Http2,
+                    SslApplicationProtocol.Http11
+                };
 
                 await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token).ConfigureAwait(false);
                 stream = ssl;
-                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | Chrome 指纹握手成功");
+                LogHelper.Info($"[TLS] {node.Host}:{node.Port} | Chrome 指纹握手成功 (SNI={effectiveSni})");
             }
 
-            // REALITY 握手
+            // ====== 阶段3R：REALITY 握手 ======
             if (realityEnabled && security == "reality")
             {
-                LogHelper.Debug($"[VLESS-阶段3R] {node.Host}:{node.Port} | 开始 REALITY (spx={extra.GetValueOrDefault("spx")})");
+                LogHelper.Debug($"[VLESS-阶段3R] {node.Host}:{node.Port} | 开始 REALITY");
 
                 var spx = extra.GetValueOrDefault("spx") ?? "/";
                 var pk = extra.GetValueOrDefault("reality_public_key") ?? "";
@@ -168,83 +167,77 @@ internal static class VlessHandshaker
                 var pbk = extra.GetValueOrDefault("pbk") ?? "";
                 var activePk = !string.IsNullOrEmpty(pk) ? pk : pbk;
 
-                //if (!string.IsNullOrEmpty(activePk) && !string.IsNullOrEmpty(sid))
-                //{
-                //    var ok = await RealityHelper.RealityHandshakeAsync(stream!, sid, activePk, spx, cts.Token).ConfigureAwait(false);
-                //    if (ok)
-                //        LogHelper.Info($"[REALITY] {node.Host}:{node.Port} | 握手成功");
-                //    else
-                //        return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
-                //}
-                //else
-                //{
-                //    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | 缺少 pk/pbk 或 sid 参数");
-                //    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
-                //}
-
-                // 预验证 key（Base64 + 长度）
                 if (string.IsNullOrEmpty(activePk) || !IsValidBase64(activePk) || activePk.Length < 32)
                 {
                     LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY public_key 无效 (len={activePk?.Length ?? 0})");
-                    return Task.FromResult<(bool success, TimeSpan latency, Stream? stream)>((false, sw.Elapsed, null)).Result;
+                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
                 }
                 if (string.IsNullOrEmpty(sid) || sid.Length > 16)
                 {
                     LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY short_id 无效 (len={sid?.Length ?? 0})");
-                    return Task.FromResult<(bool success, TimeSpan latency, Stream? stream)>((false, sw.Elapsed, null)).Result;
+                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
                 }
 
                 var ok = await RealityHelper.RealityHandshakeAsync(stream!, sid, activePk, spx, cts.Token).ConfigureAwait(false);
-
                 if (ok)
                     LogHelper.Info($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY 握手成功");
                 else
                 {
-                    LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY 握手超时/失败 (key={activePk.Substring(0, 8)}...)");
-                    return Task.FromResult<(bool success, TimeSpan latency, Stream? stream)>((false, sw.Elapsed, null)).Result;
+                    LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY 握手超时/失败");
+                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
                 }
             }
 
             // ====== 阶段4：传输类型处理 ======
+            bool handshakeSuccess = false;
+            TimeSpan latency = sw.Elapsed;
+
             if (transportType.Equals("ws", StringComparison.OrdinalIgnoreCase) ||
                 transportType.Equals("httpupgrade", StringComparison.OrdinalIgnoreCase))
             {
-                // [Grok 修复_2025-11-17_017] 使用 InternetTester 统一 WS 检测
                 var wsPath = extra.GetValueOrDefault("ws_path") ?? extra.GetValueOrDefault("path") ?? "/";
                 var wsSuccess = await InternetTester.CheckWebSocketUpgradeAsync(
                     stream: stream!,
-                    host: sni,
+                    effectiveSni: effectiveSni,  // [Grok 修复_2025-11-17_018] 使用 effectiveSni
                     port: node.Port,
                     path: wsPath,
                     opts: opts,
-                    extra: extra,  // ← 传入所有 ExtraParams
+                    extra: extra,
                     ct: cts.Token).ConfigureAwait(false);
 
                 sw.Stop();
-                return Task.FromResult((wsSuccess, sw.Elapsed, wsSuccess ? stream : null)).Result;
+
+                if (wsSuccess)
+                {
+                    node.EffectiveSni = effectiveSni;
+                }
+
+                handshakeSuccess = wsSuccess;
+                latency = sw.Elapsed;
+                return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
             }
             else if (transportType.Equals("grpc", StringComparison.OrdinalIgnoreCase))
             {
-                var grpcResult = await HandleGrpcAsync(node, address, extra, security, cts, sw).ConfigureAwait(false);
+                var grpcResult = await HandleGrpcAsync(node, address, extra, security, cts, sw, effectiveSni).ConfigureAwait(false);
                 return Task.FromResult(grpcResult).Result;
             }
             else if (transportType.Equals("xhttp", StringComparison.OrdinalIgnoreCase))
             {
-                var xhttpResult = await HandleXHttpAsync(node, address, timeoutSec, extra, skipCertVerify, sw, cts).ConfigureAwait(false);
+                var xhttpResult = await HandleXHttpAsync(node, address, timeoutSec, extra, skipCertVerify, sw, cts, effectiveSni).ConfigureAwait(false);
                 return Task.FromResult(xhttpResult).Result;
             }
 
-            // 默认 TCP (VLESS 直连)
+            // ====== 默认 TCP (VLESS 直连) ======
             LogHelper.Debug($"[VLESS-阶段4T] {node.Host}:{node.Port} | 默认 TCP 直连，准备发送 Header");
-            // 置 Socket 超时，防止静默
+
             socket.SendTimeout = timeoutSec * 1000;
             socket.ReceiveTimeout = timeoutSec * 1000;
 
             var uuid = ParseOrRandomUuid(uuidStr);
             var header = BuildVlessHeader(node, address, uuid, extra);
+
             await stream!.WriteAsync(header, cts.Token).ConfigureAwait(false);
             await stream.FlushAsync(cts.Token).ConfigureAwait(false);
-
             LogHelper.Debug($"[VLESS-阶段4T] Header 发送成功");
 
             var buf = ArrayPool<byte>.Shared.Rent(1);
@@ -256,20 +249,39 @@ internal static class VlessHandshaker
                 if (read > 0)
                 {
                     LogHelper.Info($"[VLESS-握手成功] {node.Host}:{node.Port} | latency={sw.ElapsedMilliseconds}ms");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((true, sw.Elapsed, stream)).Result;
+                    handshakeSuccess = true;
+                    latency = sw.Elapsed;
+
+                    node.EffectiveSni = effectiveSni;
                 }
                 else
                 {
                     LogHelper.Warn($"[VLESS-握手失败] {node.Host}:{node.Port} | 服务器关闭连接");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
                 }
-
-                // return Task.FromResult((read > 0, sw.Elapsed, stream)).Result;
             }
             finally
             {
                 ArrayPool<byte>.Shared.Return(buf);
             }
+
+            // ====== 阶段5：出网验证（握手成功后）======
+            if (handshakeSuccess)
+            {
+                var internetOk = await InternetTester.CheckInternetAsync(
+                    node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
+
+                if (internetOk)
+                {
+                    LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
+                }
+                else
+                {
+                    handshakeSuccess = false;
+                    LogHelper.Warn($"[出网失败] {node.Host}:{node.Port} | 握手成功但无法出网");
+                }
+            }
+
+            return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
         }
         catch (OperationCanceledException)
         {
@@ -342,7 +354,8 @@ internal static class VlessHandshaker
         IReadOnlyDictionary<string, string> extra,
         string security,
         CancellationTokenSource cts,
-        Stopwatch sw )
+        Stopwatch sw,
+        string effectiveSni )
     {
         var grpcService = extra.GetValueOrDefault("grpc_service") ?? "vless";
         var grpcPath = $"/{grpcService}";
@@ -391,6 +404,9 @@ internal static class VlessHandshaker
                 var read = await respStream.ReadAsync(bufgRPC.AsMemory(0, 1), cts.Token).ConfigureAwait(false);
                 sw.Stop();
                 LogHelper.Info($"[gRPC] {node.Host}:{node.Port} | 握手成功");
+
+                node.EffectiveSni = effectiveSni;
+
                 return Task.FromResult<(bool, TimeSpan, Stream?)>((read > 0, sw.Elapsed, null)).Result;
             }
             finally
@@ -409,7 +425,7 @@ internal static class VlessHandshaker
     private static async Task<(bool, TimeSpan, Stream?)> HandleXHttpAsync(
         VlessNode node, IPAddress address, int timeoutSec,
         IReadOnlyDictionary<string, string> extra, bool skipCertVerify,
-        Stopwatch sw, CancellationTokenSource cts )
+        Stopwatch sw, CancellationTokenSource cts, string effectiveSni )
     {
         var xhttpPath = extra.GetValueOrDefault("xhttp_path") ?? "/";
         var xhttpHost = extra.GetValueOrDefault("xhttp_host") ?? node.Host;
@@ -456,6 +472,9 @@ internal static class VlessHandshaker
             {
                 var read = await respStream.ReadAsync(buf.AsMemory(0, 1), cts.Token).ConfigureAwait(false);
                 sw.Stop();
+
+                node.EffectiveSni = effectiveSni;
+
                 LogHelper.Info($"[XHTTP] {node.Host}:{node.Port} | 握手成功");
                 return Task.FromResult<(bool, TimeSpan, Stream?)>((read > 0, sw.Elapsed, null)).Result;
             }
