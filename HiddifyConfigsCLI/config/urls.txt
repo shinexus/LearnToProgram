@@ -24,6 +24,8 @@ https://raw.githubusercontent.com/sevcator/5ubscrpt10n/main/protocols/tr.txt
 https://raw.githubusercontent.com/V2RayRoot/V2Root-ConfigPilot/refs/heads/main/output/BestConfigs.txt
 https://raw.githubusercontent.com/R3ZARAHIMI/7/main/Config_jo.txt
 https://raw.githubusercontent.com/sakha1370/OpenRay/refs/heads/main/output/all_valid_proxies.txt
+https://raw.githubusercontent.com/iboxz/free-v2ray-collector/main/main/vless
+https://raw.githubusercontent.com/ShatakVPN/ConfigForge-V2Ray/main/configs/vless.txt
 # Telegram
 https://resistalproxy.github.io/V2Ray/server.txt
 # 以下协议暂不支持
