@@ -117,7 +117,7 @@ internal static class InternetTester
         //);
         var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, 443, path);
 
-        
+
 
         LogHelper.Debug($"[HTTP 请求] {node.Host}:{node.Port} → {host}:{port} | GET {path} | Host={effectiveSni}");
 
@@ -181,17 +181,19 @@ internal static class InternetTester
                 var (success, header) = await ReadHttpResponseHeaderAsync(stream, ct).ConfigureAwait(false);
                 if (success)
                 {
-                    LogHelper.Info($"[HTTP 出网成功] → {testUrl} | Host={effectiveSni}");
+                    // LogHelper.Info($"[HTTP 出网成功] → {testUrl} | Host={effectiveSni}");
+                    LogHelper.Info($"[HTTP 出网成功：] {node.OriginalLink} | {testUrl}");
                     return true;
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                LogHelper.Verbose($"[HTTP 单套失败] {ex.Message}");
+                LogHelper.Verbose($"[HTTP header 失败：]{ex.Message}");
             }
         }
 
-        LogHelper.Warn($"[HTTP 四连发失败] → {testUrl} | Host={effectiveSni}");
+        // LogHelper.Warn($"[HTTP header*4 失败] → {testUrl} | Host={effectiveSni}");
+        LogHelper.Warn($"[HTTP header*4 失败] → {testUrl} | Host={node.Host} | {effectiveSni}");
         return false;
     }
 
@@ -202,6 +204,7 @@ internal static class InternetTester
     /// 返回 Task.FromResult<bool>(...)
     /// </summary>
     public static async Task<bool> CheckWebSocketUpgradeAsync(
+        NodeInfoBase node,
         Stream stream,
         string effectiveSni,  // ← 新增：使用 effectiveSni
         int port,
@@ -295,7 +298,8 @@ internal static class InternetTester
                     var (success, header) = await ReadHttpResponseHeaderAsync(stream, ct).ConfigureAwait(false);
                     if (success)
                     {
-                        LogHelper.Info($"[HTTP 出网成功] → {testUrl} | Host={effectiveSni}");
+                        // LogHelper.Info($"[HTTP 出网成功] → {testUrl} | Host={effectiveSni}");
+                        LogHelper.Info($"[HTTP 出网成功：] WebSocketUpgrade | {node.OriginalLink} | {testUrl}");
                         return true;
                     }
                 }
@@ -507,8 +511,18 @@ internal static class InternetTester
     {
         host = host ?? throw new ArgumentNullException(nameof(host));
         if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
-        path = string.IsNullOrEmpty(path) ? "/" : path.StartsWith("/") ? path : "/" + path;
-        var escapedPath = Uri.EscapeUriString(path).Replace("%2F", "/");
+
+        // path = string.IsNullOrEmpty(path) ? "/" : path.StartsWith("/") ? path : "/" + path;
+        // var escapedPath = Uri.EscapeUriString(path).Replace("%2F", "/");
+        // 彻底淘汰已废弃的 Uri.EscapeUriString
+        // 1. 保证 path 永远以 / 开头（v2ray 规范要求）
+        // 2. 使用 Uri.EscapeDataString + 手动还原 /（这是 Clash.Meta / v2rayN / Sing-box 通用做法）
+        path = string.IsNullOrEmpty(path)
+               ? "/"
+               : path.StartsWith("/") ? path : "/" + path;
+
+        var escapedPath = Uri.EscapeDataString(path)   // 先整体编码（会把 / 变成 %2F）
+                                 .Replace("%2F", "/"); // 再把路径分隔符还原回来（关键！）
 
         userAgent ??= "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 

@@ -197,6 +197,7 @@ internal static class VlessHandshaker
             {
                 var wsPath = extra.GetValueOrDefault("ws_path") ?? extra.GetValueOrDefault("path") ?? "/";
                 var wsSuccess = await InternetTester.CheckWebSocketUpgradeAsync(
+                    node,
                     stream: stream!,
                     effectiveSni: effectiveSni,  // [Grok 修复_2025-11-17_018] 使用 effectiveSni
                     port: node.Port,

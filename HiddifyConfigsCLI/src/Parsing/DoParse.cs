@@ -85,8 +85,25 @@ internal static class DoParse
             LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
             allLinks.AddRange(extracted);
         }
+        // 标签或备注没有去重
+        // return allLinks.Distinct().ToList();
+        // 去重（去除 #备注后去重）
+        // 目的：同一节点不同备注只保留一个，防止重复检测、重复输出
+        // 做法：构建 (无备注链接 → 原始带备注链接) 的映射，取第一个出现的原始链接
+        var uniqueLinks = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        return allLinks.Distinct().ToList();
+        foreach (var link in allLinks)
+        {
+            var key = RemoveRemark(link);  // 去掉 #后面的备注作为去重键
+            if (!uniqueLinks.ContainsKey(key))
+            {
+                uniqueLinks[key] = link;   // 只保留第一次出现的原始链接（带完整备注）
+            }
+        }
+
+        var finalResult = uniqueLinks.Values.ToList();
+        LogHelper.Info($"最终去重后得到 {finalResult.Count} 条唯一节点（已去除重复备注）");
+        return finalResult;
     }
 
     // -----------------------------------------------------------------
@@ -238,5 +255,23 @@ internal static class DoParse
         };
         client.DefaultRequestHeaders.Add("User-Agent", opts.UserAgent);
         return client;
+    }
+
+    ///<summary>
+    ///工具方法：去除链接中的备注部分（#及其后内容）
+    ///兼容 vless:// trojan:// vmess:// hysteria2:// 等
+    /// </summary>    
+    private static string RemoveRemark( string link )
+    {
+        if (string.IsNullOrEmpty(link))
+            return link;
+
+        var hashIndex = link.LastIndexOf('#');
+        if (hashIndex == -1)
+            return link;
+
+        // 注意：# 可能出现在 Base64 编码的 vmess:// 中，必须是最后一个 #
+        // 例如：vmess://eyJyZW1hcms...#节点名  → 去掉最后的 #节点名
+        return link[..hashIndex];
     }
 }
