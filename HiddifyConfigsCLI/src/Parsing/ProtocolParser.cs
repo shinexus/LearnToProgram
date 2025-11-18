@@ -18,7 +18,7 @@ using System.Web;
 namespace HiddifyConfigsCLI.src.Parsing;
 
 /// <summary>
-/// 协议链接解析器：将 vless://、trojan:// 等链接转为 NodeInfo 结构
+/// 协议链接解析器：将 vless://、trojan:// 等链接转为 NodeInfoBase 结构
 /// 本文件为 Phase3 重建版：
 ///  - 自动识别整行 JSON/YAML 并交给对应解析器（JsonOptsParser / YmlOptsParser）
 ///  - 对 URL 查询中嵌入 JSON/YAML 的情况进行解码并展开字段
@@ -28,7 +28,7 @@ namespace HiddifyConfigsCLI.src.Parsing;
 internal static class ProtocolParser
 {
     /// <summary>
-    /// 解析任意协议链接或整行配置为 NodeInfo 结构
+    /// 解析任意协议链接或整行配置为 NodeInfoBase 结构
     /// 支持输入形式：
     ///  - 完整协议 URL（如 vless://...）
     ///  - 整行 JSON（以 { 开头并以 } 结尾）
@@ -95,25 +95,7 @@ internal static class ProtocolParser
                 // 特殊处理：Query 内可能包含 json=... / yaml=... 的情形
                 // 如果包含 json= 则把 json 解码并交给 JsonOptsParser 展开后再继续解析（在 ParseVless / ParseTrojan 中使用）
                 // 为兼容性我们把 ParseQuery 结果传到各个 ParseXxx 中，ParseXxx 内部会调用 JsonOptsParser / YmlOptsParser
-
-                /**
-                 * return scheme switch
-                {
-                    "vless" => ParseVless(uri),
-                    "trojan" => ParseTrojan(uri),
-                    "hysteria2" => ParseHysteria2(uri),
-                    "tuic" => ParseTuic(uri),
-                    "wireguard" => ParseWireGuard(uri),
-                    "socks5" => ParseSocks5(uri),
-                    // 若是未识别的 scheme，则尝试把 Query 当作 JSON/YAML 或以 http(s) 开头的远程配置
-                    _ =>
-                    {
-                        LogHelper.Debug($"[ProtocolParser] 未知 scheme: {scheme}，已跳过");
-                        return null;
-                    }
-                };
-                 * 
-                 */
+                
                 return scheme switch
                 {
                     "vless" => ParseVless(uri),
@@ -545,12 +527,12 @@ internal static class ProtocolParser
         // --------------------- 3. 基础校验 ---------------------
         if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
         {
-            LogHelper.Debug($"[Hysteria2 节点丢弃] Host 或 Port 非法: {host}:{port}");
+            LogHelper.Debug($"[Hysteria2] 节点丢弃 Host 或 Port 非法: {host}:{port}");
             return null;
         }
         if (!IsValidCredential(password))
         {
-            LogHelper.Debug($"[Hysteria2 节点丢弃] Password 无效或缺失: {password}");
+            LogHelper.Debug($"[Hysteria2] 节点丢弃 Password 无效或缺失: {password}");
             return null;
         }
 

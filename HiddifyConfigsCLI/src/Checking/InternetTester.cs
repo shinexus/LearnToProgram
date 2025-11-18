@@ -55,19 +55,7 @@ internal static class InternetTester
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         linkedCts.CancelAfter(TimeSpan.FromSeconds(opts.Timeout > 0 ? opts.Timeout : 8)); // 兜底 8s
-
-        //try
-        //{
-        //    // 1. 优先 HTTP 检测（传入 effectiveSni）
-        //    if (await CheckHttpInternetAsync(node, stream, effectiveSni, opts, linkedCts.Token).ConfigureAwait(false))
-        //    {
-        //        return Task.FromResult(true).Result;
-        //    }
-
-        //    // 2. HTTP 失败 → TCP SYN 兜底
-        //    var tcpSuccess = await CheckTcpTunnelAsync(stream, opts, linkedCts.Token).ConfigureAwait(false);
-        //    return Task.FromResult(tcpSuccess).Result;
-        //}
+        
         try
         {
             // 【关键修复】只用四连发，不再使用旧的单套请求
@@ -115,7 +103,7 @@ internal static class InternetTester
         //    path: path,
         //    userAgent: opts.UserAgent ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         //);
-        var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, 443, path);
+        var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, node.Port, path);
 
 
 
@@ -175,6 +163,8 @@ internal static class InternetTester
         {
             try
             {
+                if (stream == null) break; // 如果底层连接创建失败，则跳过四连发
+
                 await stream.WriteAsync(packet, ct).ConfigureAwait(false);
                 await stream.FlushAsync(ct).ConfigureAwait(false);
 
@@ -202,6 +192,7 @@ internal static class InternetTester
     /// 验证 101 + Upgrade + Sec-WebSocket-Accept
     /// 使用 effectiveSni 作为 Host
     /// 返回 Task.FromResult<bool>(...)
+    /// 第一个请求用真实 Upgrade，后面保留 header*4 策略
     /// </summary>
     public static async Task<bool> CheckWebSocketUpgradeAsync(
         NodeInfoBase node,
@@ -409,6 +400,9 @@ internal static class InternetTester
         var crlfCount = 0;
         // var readBuffer = ArrayPool<byte>.Shared.Rent(2048);
         var readBuffer = ArrayPool<byte>.Shared.Rent(4096);
+
+        var ms = new MemoryStream(1024);
+
         //try
         //{
         //    while (headerBuffer.Count < maxSize)
@@ -443,35 +437,58 @@ internal static class InternetTester
                     LogHelper.Verbose("[HTTP] 服务器提前关闭连接（0 字节响应，未收到完整头）");
                     return (false, "");
                 }
+                ms.Write(readBuffer, 0, read);
 
-                for (int i = 0; i < read; i++)
+                //for (int i = 0; i < read; i++)
+                //{
+                //    var b = readBuffer[i];
+                //    headerBuffer.Add(b);
+
+                //    // 检测 \r\n\r\n（连续四个 CRLF 字节）
+                //    if (b == '\r' || b == '\n')
+                //    {
+                //        crlfCount++;
+                //    }
+                //    else
+                //    {
+                //        crlfCount = 0;
+                //    }
+
+                //    if (crlfCount == 4)
+                //    {
+                //        var header = Encoding.UTF8.GetString(headerBuffer.ToArray());
+                //        LogHelper.Debug($"[HTTP 出网成功] 收到完整响应头结束标记（{headerBuffer.Count} 字节）");
+                //        return (true, header);
+                //    }
+                //}
+
+                if (ms.Length >= 4)
                 {
-                    var b = readBuffer[i];
-                    headerBuffer.Add(b);
-
-                    // 检测 \r\n\r\n（连续四个 CRLF 字节）
-                    if (b == '\r' || b == '\n')
+                    // 在内存流中查找 \r\n\r\n（字节序列）
+                    var buffer = ms.GetBuffer();
+                    int len = (int)ms.Length;
+                    for (int i = Math.Max(0, len - read - 4); i <= len - 4; i++)
                     {
-                        crlfCount++;
-                    }
-                    else
-                    {
-                        crlfCount = 0;
-                    }
-
-                    if (crlfCount == 4)
-                    {
-                        var header = Encoding.UTF8.GetString(headerBuffer.ToArray());
-                        LogHelper.Debug($"[HTTP 出网成功] 收到完整响应头结束标记（{headerBuffer.Count} 字节）");
-                        return (true, header);
+                        if (buffer[i] == (byte)'\r' && buffer[i + 1] == (byte)'\n' && buffer[i + 2] == (byte)'\r' && buffer[i + 3] == (byte)'\n')
+                        {
+                            var header = Encoding.ASCII.GetString(buffer, 0, i + 4);
+                            LogHelper.Debug($"[HTTP] 收到完整响应头（{i + 4} 字节）");
+                            return (true, header);
+                        }
                     }
                 }
 
                 // 软限制：只在极端情况下触发（防止内存炸掉），但仍算成功
-                if (headerBuffer.Count > softLimit)
+                //if (headerBuffer.Count > softLimit)
+                //{
+                //    LogHelper.Info($"[HTTP] 响应头超大（>{softLimit / 1024}KB），仍视为出网成功");
+                //    return (true, ""); // 成功！我们只关心能出网
+                //}
+
+                if (ms.Length > softLimit)
                 {
-                    LogHelper.Info($"[HTTP] 响应头超大（>{softLimit / 1024}KB），仍视为出网成功");
-                    return (true, ""); // 成功！我们只关心能出网
+                    LogHelper.Info($"[HTTP] 响应头超大（>{softLimit / 1024}KB），标记为可疑成功（建议确认）");
+                    return (true, "");
                 }
             }
         }
@@ -488,6 +505,7 @@ internal static class InternetTester
         finally
         {
             ArrayPool<byte>.Shared.Return(readBuffer);
+            ms.Dispose();
         }
     }
 

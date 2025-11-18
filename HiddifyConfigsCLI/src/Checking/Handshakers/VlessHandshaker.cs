@@ -30,15 +30,29 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers;
 /// <summary>
 /// [VLESS 握手器] 支持 REALITY / WebSocket / gRPC / XTLS-Vision
 /// [Grok 修复_2025-11-17_017] 统一 WS 检测、废弃重复方法、规范返回
+/// 注意：TCP → TLS/REALITY → 发送 VLESS Header（认证） → 出网检测（HTTP 204）
 /// </summary>
 internal static class VlessHandshaker
 {
+    /// <summary>
+    /// 
+    /// 
+    /// <param name="node"></param>
+    /// <param name="address"></param>
+    /// <param name="timeoutSec"></param>
+    /// <param name="opts"></param>
+    /// <returns></returns>
+    /// </summary>
+    //
+    // 注意：async 方法内不能直接 return Task.FromResult，改为裸元组
     public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
         VlessNode node,
         IPAddress address,
         int timeoutSec,
         RunOptions opts )
     {
+        bool returnStreamToCaller = false;
+
         var sw = Stopwatch.StartNew();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
         Stream? baseStream = null;
@@ -58,7 +72,9 @@ internal static class VlessHandshaker
             if (string.IsNullOrEmpty(uuidStr))
             {
                 LogHelper.Warn($"[VLESS] {node.Host}:{node.Port} | 缺失 UUID");
-                return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                // async 方法内不能直接 return Task.FromResult，改为裸元组
+                return (false, sw.Elapsed, null);
             }
 
             var security = extra.GetValueOrDefault("security") ?? "tls";
@@ -137,7 +153,10 @@ internal static class VlessHandshaker
                 if (!helloOk)
                 {
                     LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={effectiveSni})");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                    
+                    // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                    // async 方法内不能直接 return Task.FromResult，改为裸元组
+                    return (false, sw.Elapsed, null);
                 }
 
                 // ---------- 3. 正式 SSL 握手 ----------
@@ -152,7 +171,10 @@ internal static class VlessHandshaker
                 };
 
                 await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token).ConfigureAwait(false);
+
+                // 注意：stream 类型是 SslStream 
                 stream = ssl;
+
                 LogHelper.Info($"[TLS] {node.Host}:{node.Port} | Chrome 指纹握手成功 (SNI={effectiveSni})");
             }
 
@@ -170,12 +192,18 @@ internal static class VlessHandshaker
                 if (string.IsNullOrEmpty(activePk) || !IsValidBase64(activePk) || activePk.Length < 32)
                 {
                     LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY public_key 无效 (len={activePk?.Length ?? 0})");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+
+                    // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                    // async 方法内不能直接 return Task.FromResult，改为裸元组
+                    return (false, sw.Elapsed, null);
                 }
                 if (string.IsNullOrEmpty(sid) || sid.Length > 16)
                 {
                     LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY short_id 无效 (len={sid?.Length ?? 0})");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+
+                    // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                    // async 方法内不能直接 return Task.FromResult，改为裸元组
+                    return (false, sw.Elapsed, null);
                 }
 
                 var ok = await RealityHelper.RealityHandshakeAsync(stream!, sid, activePk, spx, cts.Token).ConfigureAwait(false);
@@ -184,7 +212,10 @@ internal static class VlessHandshaker
                 else
                 {
                     LogHelper.Warn($"[VLESS-阶段3R] {node.Host}:{node.Port} | REALITY 握手超时/失败");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+
+                    // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, sw.Elapsed, null)).Result;
+                    // async 方法内不能直接 return Task.FromResult，改为裸元组
+                    return (false, sw.Elapsed, null);
                 }
             }
 
@@ -217,12 +248,19 @@ internal static class VlessHandshaker
                     latency = sw.Elapsed;
 
                     LogHelper.Info($"[VLESS-WS] {node.Host}:{node.Port} | WebSocket 握手+出网成功 | {latency.TotalMilliseconds:F0}ms");
-                    return Task.FromResult((true, latency, stream)).Result;
+                    
+                    returnStreamToCaller = true;
+
+                    // return Task.FromResult((true, latency, stream)).Result;
+                    // async 方法内不能直接 return Task.FromResult，改为裸元组
+                    return (true, latency, stream);
                 }
                 else
                 {
                     LogHelper.Warn($"[VLESS-WS] {node.Host}:{node.Port} | WebSocket 升级失败");
-                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, latency, null)).Result;
+
+                    // return Task.FromResult<(bool, TimeSpan, Stream?)>((false, latency, null)).Result;
+                    return (false, latency, null);
                 }
 
                 //handshakeSuccess = wsSuccess;
@@ -232,12 +270,18 @@ internal static class VlessHandshaker
             else if (transportType.Equals("grpc", StringComparison.OrdinalIgnoreCase))
             {
                 var grpcResult = await HandleGrpcAsync(node, address, extra, security, cts, sw, effectiveSni).ConfigureAwait(false);
-                return Task.FromResult(grpcResult).Result;
+
+                // return Task.FromResult(grpcResult).Result;
+                // 你已经 await 得到 grpcResult，它已经不再是 Task，而是一个 值类型 tuple。
+                // 方法本身是 async Task < (…)>，那么只需要 直接 return 值
+                return grpcResult;
             }
             else if (transportType.Equals("xhttp", StringComparison.OrdinalIgnoreCase))
             {
                 var xhttpResult = await HandleXHttpAsync(node, address, timeoutSec, extra, skipCertVerify, sw, cts, effectiveSni).ConfigureAwait(false);
-                return Task.FromResult(xhttpResult).Result;
+                
+                // return Task.FromResult(xhttpResult).Result;
+                return xhttpResult;
             }
 
             // ====== 默认 TCP (VLESS 直连) ======
@@ -283,14 +327,21 @@ internal static class VlessHandshaker
             latency = sw.Elapsed;
 
             if (handshakeSuccess && !transportType.Equals("ws", StringComparison.OrdinalIgnoreCase))
-{
+            {
+                // 注意：此时的 Stream 依然是 SslStream
+                // 注意：但是 CheckInternetAsync 发送明文 HttpRequest
+                // 注意：TCP → TLS/REALITY → 发送 VLESS Header（认证） → 出网检测（HTTP 204）
                 var internetOk = await InternetTester.CheckInternetAsync(
                     node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
 
                 if (internetOk)
                 {
                     LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
-                    return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+
+                    returnStreamToCaller = true;
+
+                    // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+                    return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
                 }
                 else
                 {
@@ -299,7 +350,9 @@ internal static class VlessHandshaker
                 }
             }
 
-            return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+            returnStreamToCaller = true;
+            // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+            return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
         }
         catch (OperationCanceledException)
         {
@@ -315,8 +368,13 @@ internal static class VlessHandshaker
         }
         finally
         {
-            if (baseStream != null && !cts.Token.IsCancellationRequested)
+            //if (baseStream != null && !cts.Token.IsCancellationRequested)
+            //    await baseStream.DisposeAsync().ConfigureAwait(false);
+
+            if (baseStream != null && !returnStreamToCaller)
+            {
                 await baseStream.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 
