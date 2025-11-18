@@ -290,6 +290,7 @@ internal static class VlessHandshaker
                 if (internetOk)
                 {
                     LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
+                    return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
                 }
                 else
                 {
