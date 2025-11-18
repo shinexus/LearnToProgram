@@ -473,5 +473,5 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/valid_links_CN.txt
 /HiddifyConfigsCLI/valied_test.txt
 /HiddifyConfigsCLI/valied_test_01.txt
-HiddifyConfigsCLI/bin/Debug/net9.0/*.log
-!HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
+/HiddifyConfigsCLI/bin/Debug/net9.0/*.log
+!/HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
