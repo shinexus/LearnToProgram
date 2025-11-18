@@ -207,15 +207,27 @@ internal static class VlessHandshaker
                     ct: cts.Token).ConfigureAwait(false);
 
                 sw.Stop();
+                latency = sw.Elapsed;
 
                 if (wsSuccess)
                 {
                     node.EffectiveSni = effectiveSni;
+
+                    // handshakeSuccess = wsSuccess;
+                    latency = sw.Elapsed;
+
+                    LogHelper.Info($"[VLESS-WS] {node.Host}:{node.Port} | WebSocket 握手+出网成功 | {latency.TotalMilliseconds:F0}ms");
+                    return Task.FromResult((true, latency, stream)).Result;
+                }
+                else
+                {
+                    LogHelper.Warn($"[VLESS-WS] {node.Host}:{node.Port} | WebSocket 升级失败");
+                    return Task.FromResult<(bool, TimeSpan, Stream?)>((false, latency, null)).Result;
                 }
 
-                handshakeSuccess = wsSuccess;
-                latency = sw.Elapsed;
-                return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+                //handshakeSuccess = wsSuccess;
+                //latency = sw.Elapsed;
+                //return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
             }
             else if (transportType.Equals("grpc", StringComparison.OrdinalIgnoreCase))
             {
@@ -266,8 +278,12 @@ internal static class VlessHandshaker
             }
 
             // ====== 阶段5：出网验证（握手成功后）======
-            if (handshakeSuccess)
-            {
+            // 对于非 WS 的传输（如 tcp, grpc, xtls 等），才继续阶段5出网检测
+            handshakeSuccess = true;  // 走到这里说明 TLS/REALITY 已成功
+            latency = sw.Elapsed;
+
+            if (handshakeSuccess && !transportType.Equals("ws", StringComparison.OrdinalIgnoreCase))
+{
                 var internetOk = await InternetTester.CheckInternetAsync(
                     node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
 
