@@ -48,8 +48,7 @@ jobs:
            "--max-parts", "2"
            "--timeout", "6"
            "--parallel", "256"
-           "--http-timeout", "5"
-           "--verbose"
+           "--http-timeout", "5"           
           )
 
           & ".\$exe" @params
