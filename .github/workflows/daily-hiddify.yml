@@ -49,6 +49,7 @@ jobs:
            "--timeout", "6"
            "--parallel", "256"
            "--http-timeout", "5"
+           "--verbose"
           )
 
           & ".\$exe" @params
