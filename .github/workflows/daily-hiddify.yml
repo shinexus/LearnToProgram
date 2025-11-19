@@ -1,7 +1,4 @@
 # .github/workflows/daily-hiddify.yml
-# [Grok 终极生产版_2025-11-19]：完全尊重 CLI 原始输出文件名
-# 不构建、不发布、不改名、不加日期后缀
-# 每天只做一件事：运行 exe → 提交它吐出来的原生 valid_links*.txt 文件
 
 name: Daily HiddifyConfigsCLI
 
