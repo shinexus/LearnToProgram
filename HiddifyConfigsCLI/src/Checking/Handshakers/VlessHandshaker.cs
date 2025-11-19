@@ -34,9 +34,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers;
 /// </summary>
 internal static class VlessHandshaker
 {
-    /// <summary>
-    /// 
-    /// 
+    /// <summary>    
     /// <param name="node"></param>
     /// <param name="address"></param>
     /// <param name="timeoutSec"></param>
@@ -574,6 +572,4 @@ internal static class VlessHandshaker
         try { Convert.FromBase64String(input); return true; }
         catch { return false; }
     }
-
-
 }

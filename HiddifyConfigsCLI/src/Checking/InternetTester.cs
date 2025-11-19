@@ -13,6 +13,7 @@
 
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
+using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -55,7 +56,7 @@ internal static class InternetTester
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         linkedCts.CancelAfter(TimeSpan.FromSeconds(opts.Timeout > 0 ? opts.Timeout : 8)); // 兜底 8s
-        
+
         try
         {
             // 【关键修复】只用四连发，不再使用旧的单套请求
@@ -96,68 +97,9 @@ internal static class InternetTester
         var port = uri.Port > 0 ? uri.Port : 443;
         var path = uri.PathAndQuery;
 
-        // [Grok 修复_2025-11-17_016] 关键：Host Header = effectiveSni
-        //var requestBytes = BuildHttpGetRequestBytes(
-        //    host: effectiveSni,  // ← 使用 effectiveSni
-        //    port: port,
-        //    path: path,
-        //    userAgent: opts.UserAgent ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        //);
         var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, node.Port, path);
 
-
-
         LogHelper.Debug($"[HTTP 请求] {node.Host}:{node.Port} → {host}:{port} | GET {path} | Host={effectiveSni}");
-
-        //try
-        //{
-        //    //await stream.WriteAsync(requestBytes, ct).ConfigureAwait(false);
-        //    //await stream.FlushAsync(ct).ConfigureAwait(false);
-
-        //    //var (success, responseHeader) = await ReadHttpResponseHeaderAsync(stream, ct).ConfigureAwait(false);
-        //    //if (!success) return Task.FromResult(false).Result;
-        //    // 在 CheckInternetAsync 中四连发：
-        //    foreach (var packet in fourPackets)
-        //    {
-        //        await stream.WriteAsync(packet, ct);
-        //        await stream.FlushAsync(ct);
-
-        //        var (success, _) = await ReadHttpResponseHeaderAsync(stream, ct);
-        //        if (success) return true;
-        //    }
-
-        //    // 解析首行
-        //    var firstLine = responseHeader.Split(new[] { '\r', '\n' }, 2)[0].Trim();
-        //    var parts = firstLine.Split(' ', 3);
-        //    var statusCode = parts.Length >= 2 ? parts[1] : "";
-
-        //    LogHelper.Debug($"[HTTP 响应] ← {host} | {firstLine}");
-
-        //    // 成功条件（宽松）
-        //    bool isSuccessCode = statusCode is "204" or "200";
-        //    bool hasEmptyBody = responseHeader.Contains("Content-Length: 0", StringComparison.OrdinalIgnoreCase);
-        //    bool hasSuccessText = responseHeader.Contains("success", StringComparison.OrdinalIgnoreCase) ||
-        //                          responseHeader.Contains("Microsoft Connect Test", StringComparison.OrdinalIgnoreCase);
-        //    bool isBlocked = responseHeader.Contains("<html", StringComparison.OrdinalIgnoreCase) ||
-        //                     responseHeader.Contains("Cloudflare", StringComparison.OrdinalIgnoreCase) ||
-        //                     responseHeader.Contains("Access Denied", StringComparison.OrdinalIgnoreCase);
-
-        //    var finalSuccess = isSuccessCode && (hasEmptyBody || hasSuccessText) && !isBlocked;
-
-        //    if (opts.Verbose)
-        //    {
-        //        LogHelper.Info(finalSuccess
-        //            ? $"[HTTP 出网成功] → {testUrl} | {statusCode} | Host={effectiveSni}"
-        //            : $"[HTTP 出网失败] → {testUrl} | {statusCode} | Host={effectiveSni}");
-        //    }
-
-        //    return Task.FromResult(finalSuccess).Result;
-        //}
-        //catch (Exception ex) when (ex is not OperationCanceledException)
-        //{
-        //    LogHelper.Debug($"[HTTP 异常] {host} | {ex.Message}");
-        //    return Task.FromResult(false).Result;
-        //}
 
         foreach (var packet in fourPackets)
         {
@@ -235,49 +177,7 @@ internal static class InternetTester
                 }
             }
 
-            //var requestBytes = BuildHttpGetRequestBytes(
-            //    host: effectiveSni,  // ← 使用 effectiveSni
-            //    port: port,
-            //    path: path,
-            //    userAgent: opts.UserAgent ?? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            //    extraHeaders: headers);
-            var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, 443, path);
-
-            // 在 CheckInternetAsync 中四连发：
-            //foreach (var packet in fourPackets)
-            //{
-            //    await stream.WriteAsync(packet, ct);
-            //    await stream.FlushAsync(ct);
-
-            //    var (success, _) = await ReadHttpResponseHeaderAsync(stream, ct);
-            //    if (success) return true;
-            //}
-
-            //LogHelper.Debug($"[WS Upgrade] → {effectiveSni}:{port}{path}");
-
-            //await stream.WriteAsync(requestBytes, linkedCts.Token).ConfigureAwait(false);
-            //await stream.FlushAsync(linkedCts.Token).ConfigureAwait(false);
-
-            //var (success, responseHeader) = await ReadHttpResponseHeaderAsync(stream, linkedCts.Token).ConfigureAwait(false);
-            //if (!success) return Task.FromResult(false).Result;
-
-            //var firstLine = responseHeader.Split(new[] { '\r', '\n' }, 2)[0];
-            //var statusCode = firstLine.Split(' ', 3).ElementAtOrDefault(1) ?? "";
-
-            //// 严格验证 101 + 必要头
-            //bool is101 = statusCode == "101";
-            //bool hasUpgrade = responseHeader.Contains("Upgrade: websocket", StringComparison.OrdinalIgnoreCase);
-            //bool hasAccept = responseHeader.Contains("Sec-WebSocket-Accept", StringComparison.OrdinalIgnoreCase);
-            //var wsSuccess = is101 && hasUpgrade && hasAccept;
-
-            //if (opts.Verbose)
-            //{
-            //    LogHelper.Info(wsSuccess
-            //        ? $"[WS Upgrade 成功] → {effectiveSni}{path} | 101"
-            //        : $"[WS Upgrade 失败] → {effectiveSni}{path} | {statusCode}");
-            //}
-
-            //return Task.FromResult(wsSuccess).Result;
+            var fourPackets = BuildFourHttpGetRequestBytes(effectiveSni, node.Port, path);
 
             foreach (var packet in fourPackets)
             {
@@ -403,28 +303,6 @@ internal static class InternetTester
 
         var ms = new MemoryStream(1024);
 
-        //try
-        //{
-        //    while (headerBuffer.Count < maxSize)
-        //    {
-        //        var read = await stream.ReadAsync(readBuffer, ct).ConfigureAwait(false);
-        //        if (read == 0) break;
-        //        for (int i = 0; i < read; i++)
-        //        {
-        //            var b = readBuffer[i];
-        //            headerBuffer.Add(b);
-        //            if (b == '\r' || b == '\n') crlfCount++;
-        //            else crlfCount = 0;
-        //            if (crlfCount == 4)
-        //            {
-        //                var header = Encoding.UTF8.GetString(headerBuffer.ToArray());
-        //                return (true, header);
-        //            }
-        //        }
-        //    }
-        //    LogHelper.Warn($"[HTTP 响应头过大] > {maxSize} 字节");
-        //    return (false, "");
-        //}
         try
         {
             while (true)
@@ -438,29 +316,6 @@ internal static class InternetTester
                     return (false, "");
                 }
                 ms.Write(readBuffer, 0, read);
-
-                //for (int i = 0; i < read; i++)
-                //{
-                //    var b = readBuffer[i];
-                //    headerBuffer.Add(b);
-
-                //    // 检测 \r\n\r\n（连续四个 CRLF 字节）
-                //    if (b == '\r' || b == '\n')
-                //    {
-                //        crlfCount++;
-                //    }
-                //    else
-                //    {
-                //        crlfCount = 0;
-                //    }
-
-                //    if (crlfCount == 4)
-                //    {
-                //        var header = Encoding.UTF8.GetString(headerBuffer.ToArray());
-                //        LogHelper.Debug($"[HTTP 出网成功] 收到完整响应头结束标记（{headerBuffer.Count} 字节）");
-                //        return (true, header);
-                //    }
-                //}
 
                 if (ms.Length >= 4)
                 {
@@ -477,13 +332,6 @@ internal static class InternetTester
                         }
                     }
                 }
-
-                // 软限制：只在极端情况下触发（防止内存炸掉），但仍算成功
-                //if (headerBuffer.Count > softLimit)
-                //{
-                //    LogHelper.Info($"[HTTP] 响应头超大（>{softLimit / 1024}KB），仍视为出网成功");
-                //    return (true, ""); // 成功！我们只关心能出网
-                //}
 
                 if (ms.Length > softLimit)
                 {
@@ -522,10 +370,10 @@ internal static class InternetTester
     // 实测德国 DE 5124 节点：成功率 100.000%（零失败！）
 
     public static byte[][] BuildFourHttpGetRequestBytes(
-    string host,
-    int port,
-    string path,
-    string? userAgent = null )
+        string host,
+        int port,
+        string path,
+        string? userAgent = null )
     {
         host = host ?? throw new ArgumentNullException(nameof(host));
         if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
@@ -545,73 +393,151 @@ internal static class InternetTester
         userAgent ??= "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
         var hostHeader = $"Host: {host}{(port is not 80 and not 443 ? $":{port}" : "")}\r\n";
+
         var baseGet = $"GET {escapedPath} HTTP/1.1\r\n";
+        // var baseGet = BuildEncodedGetLine(uri);
 
         // 终极保险版用局部静态方法（兼容 .NET 6/7/8/9）
         static string[] CreateUltimateHeaders( string ua, string getLine, string hostHdr )
         {
-            var allHeaders = new[]
+            var allHeaders = new List<string>
             {
-            $"User-Agent: {ua}",
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Encoding: gzip, deflate, br, zstd",
-            "Accept-Language: en-US,en;q=0.9,de;q=0.8",
-            "Sec-Fetch-Site: none", "Sec-Fetch-Mode: navigate", "Sec-Fetch-User: ?1", "Sec-Fetch-Dest: document",
-            "Priority: u=0, i", "DNT: 1", "Upgrade-Insecure-Requests: 1", "Cache-Control: no-cache", "Pragma: no-cache"
-        };
+                $"User-Agent: {ua}\r\n",
+                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n",
+                "Accept-Encoding: gzip, deflate, br, zstd\r\n",
+                "Accept-Language: en-US,en;q=0.9\r\n",
+                "Sec-Fetch-Site: none\r\n",
+                "Sec-Fetch-Mode: navigate\r\n",
+                "Sec-Fetch-User: ?1\r\n",
+                "Sec-Fetch-Dest: document\r\n",
+                "Upgrade-Insecure-Requests: 1\r\n",
+                "Connection: close\r\n" // <-- 仅单 CRLF，尾部统一在外部加双 CRLF
+            };
 
+            // Fisher–Yates 洗牌剩余 headers（安全随机）
             var rnd = Random.Shared;
-            allHeaders = allHeaders.OrderBy(_ => rnd.Next()).ToArray();
+            for (int i = allHeaders.Count - 1; i > 0; i--)
+            {
+                int j = rnd.Next(i + 1);
+                (allHeaders[i], allHeaders[j]) = (allHeaders[j], allHeaders[i]);
+            }
 
-            var list = new List<string> { getLine, hostHdr };
-            list.AddRange(allHeaders.Select(h => h + "\r\n"));
-            list.Add("Connection: close\r\n\r\n");
+            var list = new List<string>(2 + allHeaders.Count)
+            {
+                getLine,     // 固定第 1 行
+                hostHdr      // 固定第 2 行
+            };
+
+            list.AddRange(allHeaders); // 剩余部分才可随机排列
+
+            // 统一由外层拼接 CRLF\r\n
             return list.ToArray();
         }
 
         var fingerprints = new List<string[]>
+        {
+            // 1. GFW 最严格版
+            new[]
+            {
+                baseGet,
+                hostHeader,
+                $"User-Agent: {userAgent}",
+                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                "Accept-Encoding: gzip, deflate, br, zstd",
+                "Accept-Language: en-US,en;q=0.9",
+                "Sec-Fetch-Site: none",
+                "Sec-Fetch-Mode: navigate",
+                "Sec-Fetch-User: ?1",
+                "Sec-Fetch-Dest: document",
+                "Priority: u=0, i",
+                "DNT: 1",
+                "Upgrade-Insecure-Requests: 1",
+                "Connection: close"
+            },
+
+            // 2. 欧盟/德国 DE 标准版
+            new[]
+            {
+                baseGet,
+                hostHeader,
+                $"User-Agent: {userAgent}",
+                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Encoding: gzip, deflate, br, zstd",
+                "Accept-Language: en-US,en;q=0.9,de;q=0.8",
+                "Sec-Fetch-Site: none",
+                "Sec-Fetch-Mode: navigate",
+                "Sec-Fetch-User: ?1",
+                "Sec-Fetch-Dest: document",
+                "Upgrade-Insecure-Requests: 1",
+                "Connection: close"
+            },
+
+            // 3. 社区最佳实践版
+            new[]
+            {
+                baseGet,
+                hostHeader,
+                $"User-Agent: {userAgent}",
+                "Accept: */*",
+                "Accept-Encoding: gzip, deflate, br",
+                "Accept-Language: en-US,en;q=0.9",
+                "Connection: close"
+            },
+
+            // 4. 终极保险版（随机顺序）
+            CreateUltimateHeaders(userAgent, baseGet, hostHeader)
+        };
+
+        return fingerprints
+            .Select(fp =>
+            {
+                var sb = new StringBuilder(256);
+
+                foreach (var line in fp)
+                    // sb.Append(line).Append("\r\n");
+                    sb.Append(line);
+
+                // --- HTTP 协议要求 header 结束必须有一个空行 ---
+                sb.Append("\r\n");
+
+                return Encoding.UTF8.GetBytes(sb.ToString());
+            })
+            .ToArray();
+    }
+
+    // 生成严格 URL-Encoded 的 GET 行
+    static string BuildEncodedGetLine( Uri originalUri )
     {
-        // 1. 中国 GFW 最严格版
-        new[]
+        // 1. 逐 segment 严格 URL-Encode
+        //    /a b/c:d  => /a%20b/c%3Ad
+        var encodedSegments = originalUri.Segments
+            .Select(seg =>
+                seg == "/" ? "/" : Uri.EscapeDataString(seg)
+            );
+
+        var encodedPath = string.Concat(encodedSegments);
+
+        // 2. Query 需要保留结构性字符 ?=&
+        //    例：?foo=hello world&x=100
+        //    => ?foo=hello%20world&x=100
+        string encodedQuery = "";
+        if (!string.IsNullOrEmpty(originalUri.Query))
         {
-            baseGet, hostHeader,
-            $"User-Agent: {userAgent}\r\n",
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n",
-            "Accept-Encoding: gzip, deflate, br, zstd\r\n",
-            "Accept-Language: en-US,en;q=0.9\r\n",
-            "Sec-Fetch-Site: none\r\n", "Sec-Fetch-Mode: navigate\r\n", "Sec-Fetch-User: ?1\r\n", "Sec-Fetch-Dest: document\r\n",
-            "Priority: u=0, i\r\n", "DNT: 1\r\n", "Upgrade-Insecure-Requests: 1\r\n",
-            "Connection: close\r\n\r\n"
-        },
+            encodedQuery = "?" + string.Join("&",
+                originalUri.Query.TrimStart('?')
+                .Split('&')
+                .Select(kv =>
+                {
+                    var parts = kv.Split('=', 2);
+                    if (parts.Length == 1)
+                        return Uri.EscapeDataString(parts[0]);
+                    return Uri.EscapeDataString(parts[0]) + "=" + Uri.EscapeDataString(parts[1]);
+                })
+            );
+        }
 
-        // 2. 欧盟/德国 DE 标准版
-        new[]
-        {
-            baseGet, hostHeader,
-            $"User-Agent: {userAgent}\r\n",
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n",
-            "Accept-Encoding: gzip, deflate, br, zstd\r\n",
-            "Accept-Language: en-US,en;q=0.9,de;q=0.8\r\n",
-            "Sec-Fetch-Site: none\r\n", "Sec-Fetch-Mode: navigate\r\n", "Sec-Fetch-User: ?1\r\n", "Sec-Fetch-Dest: document\r\n",
-            "Upgrade-Insecure-Requests: 1\r\n",
-            "Connection: close\r\n\r\n"
-        },
-
-        // 3. 社区最佳实践版
-        new[]
-        {
-            baseGet, hostHeader,
-            $"User-Agent: {userAgent}\r\n",
-            "Accept: */*\r\n",
-            "Accept-Encoding: gzip, deflate, br\r\n",
-            "Accept-Language: en-US,en;q=0.9\r\n",
-            "Connection: close\r\n\r\n"
-        },
-
-        // 4. 终极保险版（随机顺序）
-        CreateUltimateHeaders(userAgent, baseGet, hostHeader)
-    };
-
-        return fingerprints.Select(fp => Encoding.ASCII.GetBytes(string.Concat(fp))).ToArray();
+        // 3. 拼成最终 GET 行
+        //    注意不能添加多余空格
+        return $"GET {encodedPath}{encodedQuery} HTTP/1.1\r\n";
     }
 }
