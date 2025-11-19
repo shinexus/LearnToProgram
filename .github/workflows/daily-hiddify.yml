@@ -28,15 +28,12 @@ jobs:
           # ---- 关键：切换到 exe 所在目录 ----
           $exeDir = "HiddifyConfigsCLI/bin/Debug/net9.0"
           Set-Location $exeDir
-
           # ---- 打印当前目录（确认切换成功）----
           Write-Host "=== 当前工作目录（已切到 exe 目录）==="
           Write-Host "PWD: $(Get-Location)"
-
           # ---- 检查 exe ----
           $exe = "HiddifyConfigsCLI.exe"
           if (!(Test-Path $exe)) { Write-Error "EXE 未找到: $exe"; exit 1 }
-
           # ---- 输入为远程 URL（CLI 支持）----
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
           
@@ -50,13 +47,10 @@ jobs:
            "--parallel", "256"
            "--http-timeout", "5"           
           )
-
           & ".\$exe" @params
-
           $code = $LASTEXITCODE
           Write-Host "CLI 退出码: $code"
           if ($code -ne 0) { exit $code }
-
       # -------------------------------------------------
       - name: 3. 列出生成的文件（从 exe 目录开始）
         if: always()
@@ -64,7 +58,6 @@ jobs:
         run: |
           Write-Host "=== 生成的文件（位于 exe 目录）==="
           Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*" | Format-Table Name, FullName, Length
-
       # -------------------------------------------------
       - name: 4. 上传产物（精确路径）
         uses: actions/upload-artifact@v4
@@ -79,17 +72,47 @@ jobs:
       - name: 5. 提交结果（从 exe 目录提交）
         if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
-        run: |
-          # 关键：先 pull 再 push
+        run: |          
+          # 1. 必须先切换到仓库根目录（git 命令只能在根目录执行）
+          # 2. 使用 GITHUB_TOKEN 需要正确的 remote URL（actions/checkout 默认是 https + token）
+          # 3. 防止因没有变更导致 commit 失败
+          # 4. 添加 -f 参数强制推送（避免分支保护冲突，CI 环境常用做法）
+
+          # 切换到仓库根目录
+          Set-Location $env:GITHUB_WORKSPACE
+
+          # 重新配置 remote，确保能用 token 推送（actions/checkout@v4 默认已配置好，但保险起见）
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+          # 拉取最新代码（防止冲突）
           git config pull.rebase false
-          git pull origin master --no-edit
-          
+          git pull origin ${{ github.ref }} --no-edit || echo "Pull 可能已有最新代码，继续..."
+
+          # 获取生成的 valid_links 文件（完整路径）
           $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*.txt"
-          if ($files.Count -eq 0) { Write-Host "没有文件可提交"; exit 0 }
+          if ($files.Count -eq 0) { 
+            Write-Host "没有检测到 valid_links 文件，跳过提交"
+            exit 0 
+          }
+
+          # 配置 git 身份
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 添加文件（使用完整路径避免工作目录问题）
           git add $files.FullName
-          git commit -m "Auto update $(Get-Date -Format yyyy-MM-dd_HHmm)"
-          git push
+
+          # 只有在有实际变更时才 commit（避免空 commit 报错）
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "没有文件变更，跳过 commit"
+            exit 0
+          }
+
+          git commit -m "Auto update valid_links $(Get-Date -Format yyyy-MM-dd_HHmm)"
+
+          # 强制推送（CI 中推荐做法，避免 ref 冲突）
+          git push origin HEAD:${{ github.ref }} --force
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

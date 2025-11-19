@@ -1,6 +1,25 @@
-# HiddifyConfigs
+**HiddifyConfigsCLI** is a high-performance, fully asynchronous command-line tool written in C# (.NET 9) that automatically tests the connectivity of thousands of VLESS, Trojan, and Hysteria2 proxy nodes from any subscription or raw link list, and outputs only the working nodes in clean, ready-to-use formats.
 
-This repository contains configuration files and scripts for Hiddify, a tool designed to enhance online privacy and security. The configurations provided here can be used to set up Hiddify on various platforms and environments.
+### Core Functionality
+- Downloads and parses node lists from local files or remote URLs (supports base64-encoded subscriptions and plain-text links)
+- Accurately extracts and normalizes protocol parameters (host, port, SNI, TLS fingerprint, Reality settings, UUID/password, QUIC/Hysteria2 specifics, etc.)
+- Performs real-world connectivity checks using protocol-specific handshakes:
+  - VLESS + WebSocket + TLS + Reality (full REALITY vision support)
+  - Trojan (TLS + SHA224 password authentication)
+  - Hysteria2 (QUIC Initial packet + authentic Chrome-like TLS ClientHello)
+- Uses fully asynchronous, high-concurrency testing (SemaphoreSlim + configurable parallel threads) with precise per-node timeout control
+- Measures and records actual connection latency for every successful node
+- Deduplicates, sorts by speed (fastest first), and splits output into multiple files if needed
+- Generates clean output files:
+  - `valid_links.txt` – complete list of working links
+  - `valid_links_part1.txt`, `valid_links_part2.txt`, … – segmented files (configurable max lines per file)
+
+### Typical One-Line Usage
+```bash
+HiddifyConfigsCLI.exe --input https://example.com/sub.txt --output valid_links.txt --timeout 6 --parallel 120 --max-lines 100 --max-parts 2
+```
+
+Designed specifically for daily automated runs (GitHub Actions / cron), delivering fresh, verified, high-speed proxy node lists every day with zero manual work.
 
 ---
 《节点志·连通篇》
