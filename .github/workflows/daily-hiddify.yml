@@ -3,24 +3,23 @@ name: Daily HiddifyConfigsCLI
 
 on:
   schedule:
-    - cron: '0 3 * * *'     # 每天 UTC 03:00（北京时间 11:00）
-  workflow_dispatch:       # 支持手动触发
+    - cron: '0 3 * * *'        # 每天 UTC 03:00 → 北京时间 11:00
+  workflow_dispatch:
 
 permissions:
-  contents: write          # 必须显式声明 write 权限才能 push
+  contents: write
 
 jobs:
-  update-valid-links:
+  run-and-commit:
     runs-on: windows-latest
     timeout-minutes: 90
 
     steps:
       # -------------------------------------------------
-      - name: 1. 完整拉取仓库（解决 shallow clone 问题）
+      - name: 1. 完整 Checkout（关键！解决 shallow clone 导致的 push 失败）
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0        # 关键！完整历史，避免 git pull 卡死或报错
-          ref: master
+          fetch-depth: 0           # 必须！否则 git pull/push 99% 失败
 
       # -------------------------------------------------
       - name: 2. 安装 .NET 9.0 SDK
@@ -29,27 +28,25 @@ jobs:
           dotnet-version: '9.0.x'
 
       # -------------------------------------------------
-      - name: 3. 单文件发布（推荐，免去依赖问题）
-        run: |
-          dotnet publish HiddifyConfigsCLI/HiddifyConfigsCLI.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:PublishTrimmed=false `
-            -o publish
+      - name: 3. 构建项目（Debug 模式，和你本地一致）
+        run: dotnet build HiddifyConfigsCLI/HiddifyConfigsCLI.csproj -c Debug
 
       # -------------------------------------------------
-      - name: 4. 执行 HiddifyConfigsCLI（输出到 publish 目录）
+      - name: 4. 执行 CLI（输出直接落在 bin/Debug/net9.0，和你本地完全一致）
         id: run_exe
         shell: pwsh
         timeout-minutes: 75
         run: |
-          Set-Location publish
+          $exeDir = "HiddifyConfigsCLI/bin/Debug/net9.0"
+          Set-Location $exeDir
 
-          Write-Host "=== 当前目录 ==="
-          pwd
+          Write-Host "=== 当前工作目录 ==="
+          Get-Location
+
+          if (!(Test-Path "HiddifyConfigsCLI.exe")) {
+            Write-Error "未找到 HiddifyConfigsCLI.exe"
+            exit 1
+          }
 
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
@@ -60,13 +57,13 @@ jobs:
             "--max-parts", "2"
             "--timeout", "6"
             "--http-timeout", "5"
-            "--parallel", "128"          # 256 太激进，120 在 Actions 里最稳
+            "--parallel", "120"     # 推荐 120，256 在 Actions 容易被限流
           )
 
           & ".\HiddifyConfigsCLI.exe" @params
 
           $code = $LASTEXITCODE
-          Write-Host "HiddifyConfigsCLI 退出码: $code"
+          Write-Host "CLI 退出码: $code"
           if ($code -ne 0) { exit $code }
 
       # -------------------------------------------------
@@ -74,49 +71,45 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== 生成的文件列表 ==="
-          Get-ChildItem -Path publish -Filter "valid_links*" | Format-Table Name, Length, LastWriteTime
+          Write-Host "=== 生成的 valid_links 文件 ==="
+          Get-ChildItem "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*" | Format-Table Name, Length
 
       # -------------------------------------------------
-      - name: 6. 上传 Artifact（方便手动下载查看）
+      - name: 6. 上传 Artifact（方便下载查看）
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: valid-links-$(Get-Date -Format "yyyyMMdd")
-          path: publish/valid_links*.txt
+          path: HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
           retention-days: 14
-          if-no-files-found: warn
 
       # -------------------------------------------------
-      - name: 7. 提交并推送到仓库（最稳写法）
-        if: always() && steps.run_exe.outcome == 'success'
+      - name: 7. 提交并推送（最稳写法，专治 push 失败）
+        if: success() || failure()
         shell: pwsh
         run: |
-          # 确保在 master 分支
           git checkout master
           git pull origin master --ff-only
 
-          $files = Get-ChildItem -Path publish -Filter "valid_links*.txt"
+          $dir = "HiddifyConfigsCLI/bin/Debug/net9.0"
+          $files = Get-ChildItem $dir -Filter "valid_links*.txt"
+
           if ($files.Count -eq 0) {
-            Write-Host "没有生成任何 valid_links 文件，跳过提交"
+            Write-Host "没有生成文件，跳过提交"
             exit 0
           }
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          foreach ($f in $files) {
-            git add "$($f.FullName)"
-            Write-Host "已添加: $($f.Name)"
-          }
+          foreach ($f in $files) { git add $f.FullName }
 
           $date = Get-Date -Format "yyyy-MM-dd HH:mm"
           git commit -m "Daily auto update valid_links - $date [ci skip]"
 
-          # 使用 GITHUB_TOKEN 推送（最安全）
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin master
 
-          Write-Host "成功推送 $($files.Count) 个文件到 master 分支"
+          Write-Host "成功推送 $($files.Count) 个 valid_links 文件"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
