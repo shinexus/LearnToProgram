@@ -370,51 +370,42 @@ internal static class InternetTester
     // 实测德国 DE 5124 节点：成功率 100.000%（零失败！）
 
     public static byte[][] BuildFourHttpGetRequestBytes(
-        string host,
-        int port,
-        string path,
-        string? userAgent = null )
+    string host,
+    int port,
+    string path,
+    string? userAgent = null )
     {
         host = host ?? throw new ArgumentNullException(nameof(host));
         if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
 
-        // path = string.IsNullOrEmpty(path) ? "/" : path.StartsWith("/") ? path : "/" + path;
-        // var escapedPath = Uri.EscapeUriString(path).Replace("%2F", "/");
-        // 彻底淘汰已废弃的 Uri.EscapeUriString
-        // 1. 保证 path 永远以 / 开头（v2ray 规范要求）
-        // 2. 使用 Uri.EscapeDataString + 手动还原 /（这是 Clash.Meta / v2rayN / Sing-box 通用做法）
-        path = string.IsNullOrEmpty(path)
-               ? "/"
-               : path.StartsWith("/") ? path : "/" + path;
-
-        var escapedPath = Uri.EscapeDataString(path)   // 先整体编码（会把 / 变成 %2F）
-                                 .Replace("%2F", "/"); // 再把路径分隔符还原回来（关键！）
+        // 保证 path 永远以 / 开头
+        path = string.IsNullOrEmpty(path) ? "/" : (path.StartsWith("/") ? path : "/" + path);
+        // 严格 URL-Encode
+        var escapedPath = Uri.EscapeDataString(path).Replace("%2F", "/");
 
         userAgent ??= "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
         var hostHeader = $"Host: {host}{(port is not 80 and not 443 ? $":{port}" : "")}\r\n";
-
         var baseGet = $"GET {escapedPath} HTTP/1.1\r\n";
-        // var baseGet = BuildEncodedGetLine(uri);
 
-        // 终极保险版用局部静态方法（兼容 .NET 6/7/8/9）
+        // 终极保险版 header 构造（随机其余 header）
         static string[] CreateUltimateHeaders( string ua, string getLine, string hostHdr )
         {
             var allHeaders = new List<string>
-            {
-                $"User-Agent: {ua}\r\n",
-                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n",
-                "Accept-Encoding: gzip, deflate, br, zstd\r\n",
-                "Accept-Language: en-US,en;q=0.9\r\n",
-                "Sec-Fetch-Site: none\r\n",
-                "Sec-Fetch-Mode: navigate\r\n",
-                "Sec-Fetch-User: ?1\r\n",
-                "Sec-Fetch-Dest: document\r\n",
-                "Upgrade-Insecure-Requests: 1\r\n",
-                "Connection: close\r\n" // <-- 仅单 CRLF，尾部统一在外部加双 CRLF
-            };
+        {
+            $"User-Agent: {ua}\r\n",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n",
+            "Accept-Encoding: gzip, deflate, br, zstd\r\n",
+            "Accept-Language: en-US,en;q=0.9\r\n",
+            "Sec-Fetch-Site: none\r\n",
+            "Sec-Fetch-Mode: navigate\r\n",
+            "Sec-Fetch-User: ?1\r\n",
+            "Sec-Fetch-Dest: document\r\n",
+            "Upgrade-Insecure-Requests: 1\r\n",
+            "Connection: close\r\n"
+        };
 
-            // Fisher–Yates 洗牌剩余 headers（安全随机）
+            // Fisher–Yates 洗牌
             var rnd = Random.Shared;
             for (int i = allHeaders.Count - 1; i > 0; i--)
             {
@@ -422,122 +413,74 @@ internal static class InternetTester
                 (allHeaders[i], allHeaders[j]) = (allHeaders[j], allHeaders[i]);
             }
 
-            var list = new List<string>(2 + allHeaders.Count)
-            {
-                getLine,     // 固定第 1 行
-                hostHdr      // 固定第 2 行
-            };
-
-            list.AddRange(allHeaders); // 剩余部分才可随机排列
-
-            // 统一由外层拼接 CRLF\r\n
+            var list = new List<string> { getLine, hostHdr };
+            list.AddRange(allHeaders);
             return list.ToArray();
         }
 
         var fingerprints = new List<string[]>
+    {
+        // 1. GFW 最严格版
+        new[]
         {
-            // 1. GFW 最严格版
-            new[]
-            {
-                baseGet,
-                hostHeader,
-                $"User-Agent: {userAgent}",
-                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-                "Accept-Encoding: gzip, deflate, br, zstd",
-                "Accept-Language: en-US,en;q=0.9",
-                "Sec-Fetch-Site: none",
-                "Sec-Fetch-Mode: navigate",
-                "Sec-Fetch-User: ?1",
-                "Sec-Fetch-Dest: document",
-                "Priority: u=0, i",
-                "DNT: 1",
-                "Upgrade-Insecure-Requests: 1",
-                "Connection: close"
-            },
+            baseGet,
+            hostHeader,
+            $"User-Agent: {userAgent}\r\n",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7\r\n",
+            "Accept-Encoding: gzip, deflate, br, zstd\r\n",
+            "Accept-Language: en-US,en;q=0.9\r\n",
+            "Sec-Fetch-Site: none\r\n",
+            "Sec-Fetch-Mode: navigate\r\n",
+            "Sec-Fetch-User: ?1\r\n",
+            "Sec-Fetch-Dest: document\r\n",
+            "Priority: u=0, i\r\n",
+            "DNT: 1\r\n",
+            "Upgrade-Insecure-Requests: 1\r\n",
+            "Connection: close\r\n"
+        },
 
-            // 2. 欧盟/德国 DE 标准版
-            new[]
-            {
-                baseGet,
-                hostHeader,
-                $"User-Agent: {userAgent}",
-                "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "Accept-Encoding: gzip, deflate, br, zstd",
-                "Accept-Language: en-US,en;q=0.9,de;q=0.8",
-                "Sec-Fetch-Site: none",
-                "Sec-Fetch-Mode: navigate",
-                "Sec-Fetch-User: ?1",
-                "Sec-Fetch-Dest: document",
-                "Upgrade-Insecure-Requests: 1",
-                "Connection: close"
-            },
+        // 2. 欧盟/德国 DE 标准版
+        new[]
+        {
+            baseGet,
+            hostHeader,
+            $"User-Agent: {userAgent}\r\n",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\n",
+            "Accept-Encoding: gzip, deflate, br, zstd\r\n",
+            "Accept-Language: en-US,en;q=0.9,de;q=0.8\r\n",
+            "Sec-Fetch-Site: none\r\n",
+            "Sec-Fetch-Mode: navigate\r\n",
+            "Sec-Fetch-User: ?1\r\n",
+            "Sec-Fetch-Dest: document\r\n",
+            "Upgrade-Insecure-Requests: 1\r\n",
+            "Connection: close\r\n"
+        },
 
-            // 3. 社区最佳实践版
-            new[]
-            {
-                baseGet,
-                hostHeader,
-                $"User-Agent: {userAgent}",
-                "Accept: */*",
-                "Accept-Encoding: gzip, deflate, br",
-                "Accept-Language: en-US,en;q=0.9",
-                "Connection: close"
-            },
+        // 3. 社区最佳实践版
+        new[]
+        {
+            baseGet,
+            hostHeader,
+            $"User-Agent: {userAgent}\r\n",
+            "Accept: */*\r\n",
+            "Accept-Encoding: gzip, deflate, br\r\n",
+            "Accept-Language: en-US,en;q=0.9\r\n",
+            "Connection: close\r\n"
+        },
 
-            // 4. 终极保险版（随机顺序）
-            CreateUltimateHeaders(userAgent, baseGet, hostHeader)
+        // 4. 终极保险版（随机顺序）
+        CreateUltimateHeaders(userAgent, baseGet, hostHeader)
         };
 
         return fingerprints
             .Select(fp =>
             {
                 var sb = new StringBuilder(256);
-
                 foreach (var line in fp)
-                    // sb.Append(line).Append("\r\n");
-                    sb.Append(line);
-
-                // --- HTTP 协议要求 header 结束必须有一个空行 ---
-                sb.Append("\r\n");
-
+                    sb.Append(line); // 行自带 \r\n
+                sb.Append("\r\n");    // HTTP header 结束空行
                 return Encoding.UTF8.GetBytes(sb.ToString());
             })
             .ToArray();
-    }
-
-    // 生成严格 URL-Encoded 的 GET 行
-    static string BuildEncodedGetLine( Uri originalUri )
-    {
-        // 1. 逐 segment 严格 URL-Encode
-        //    /a b/c:d  => /a%20b/c%3Ad
-        var encodedSegments = originalUri.Segments
-            .Select(seg =>
-                seg == "/" ? "/" : Uri.EscapeDataString(seg)
-            );
-
-        var encodedPath = string.Concat(encodedSegments);
-
-        // 2. Query 需要保留结构性字符 ?=&
-        //    例：?foo=hello world&x=100
-        //    => ?foo=hello%20world&x=100
-        string encodedQuery = "";
-        if (!string.IsNullOrEmpty(originalUri.Query))
-        {
-            encodedQuery = "?" + string.Join("&",
-                originalUri.Query.TrimStart('?')
-                .Split('&')
-                .Select(kv =>
-                {
-                    var parts = kv.Split('=', 2);
-                    if (parts.Length == 1)
-                        return Uri.EscapeDataString(parts[0]);
-                    return Uri.EscapeDataString(parts[0]) + "=" + Uri.EscapeDataString(parts[1]);
-                })
-            );
-        }
-
-        // 3. 拼成最终 GET 行
-        //    注意不能添加多余空格
-        return $"GET {encodedPath}{encodedQuery} HTTP/1.1\r\n";
     }
 }
