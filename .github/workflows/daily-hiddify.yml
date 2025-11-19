@@ -87,23 +87,16 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # 收集 valid_links* 文件（使用相对路径）
-          $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Include "valid_links*" -File |
-                   ForEach-Object {
-                     $_.FullName.Substring($env:GITHUB_WORKSPACE.Length + 1)
-                   }
+          # 直接使用最稳的写法：cd 到目标目录后 add .
+          Set-Location "HiddifyConfigsCLI/bin/Debug/net9.0"
+          git add .
 
-          if ($files.Count -eq 0) {
-            Write-Host "没有生成 valid_links 文件，跳过 commit"
-            exit 0
-          }
-
-          git add $files
+          # 再次回到根目录进行 commit（git 本身不依赖当前目录）
+          Set-Location $env:GITHUB_WORKSPACE
 
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Host "文件无变化，跳过 commit"
             exit 0
           }
-
-          git commit -m "Auto update valid_links $(Get-Date -Format yyyy-MM-dd_HHmm)"
           git push origin HEAD:${{ github.ref }} --force
