@@ -456,6 +456,7 @@ FodyWeavers.xsd
 #
 /HiddifyConfigsCLI/.gitignore
 /HiddifyConfigsCLI/bin/Debug/net8.0/*test*.txt
+/HiddifyConfigsCLI/*.csproj
 /HiddifyConfigsCLI/*.txt
 /HiddifyConfigsCLI/*.ps1
 /HiddifyConfigsCLI/tests/*.txt

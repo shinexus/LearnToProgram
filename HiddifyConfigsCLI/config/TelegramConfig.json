@@ -1,0 +1,16 @@
+﻿{
+  "channels": [
+    "v2Line",
+    "vpnfail_v2ray",
+    "free_v2ray",
+    "AlphaV2ray",
+    "v2rayNG"
+  ],
+  "maxMessagesPerChannel": 50,
+  "requestDelayMs": 2000,
+  "parallelChannels": 5,
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  "cacheDir": "cache/telegram",
+  "enableCache": true,
+  "timeoutSeconds": 15
+}
