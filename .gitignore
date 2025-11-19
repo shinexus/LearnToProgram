@@ -418,9 +418,6 @@ FodyWeavers.xsd
 *.msp
 
 # JimTsui & shinexus
-*.csproj
-*.json
-
 /LearnToProgram.sln
 
 /HiddifyConfigs/Properties/AssemblyInfo.cs
@@ -475,3 +472,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/valied_test_01.txt
 /HiddifyConfigsCLI/bin/Debug/net9.0/*.log
 !/HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
+/HiddifyConfigsCLI/Properties/launchSettings.json
