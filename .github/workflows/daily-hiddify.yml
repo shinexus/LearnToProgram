@@ -70,8 +70,10 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
           # 进入 EXE 目录提交 valid_links*
-          Set-Location "HiddifyConfigsCLI/bin/Debug/net9.0"
-          git add valid_links*
+          # Set-Location "HiddifyConfigsCLI/bin/Debug/net9.0"
+          # git add valid_links*
+          Set-Location $env:GITHUB_WORKSPACE
+          git add HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*          
 
           # 返回仓库根目录执行 commit/push
           Set-Location $env:GITHUB_WORKSPACE
