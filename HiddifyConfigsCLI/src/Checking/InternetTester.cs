@@ -24,6 +24,7 @@ namespace HiddifyConfigsCLI.src.Checking;
 
 internal static class InternetTester
 {
+    
     // ─────────────── URL 池 ───────────────
     private static readonly string[] DefaultTestUrls =
     [
