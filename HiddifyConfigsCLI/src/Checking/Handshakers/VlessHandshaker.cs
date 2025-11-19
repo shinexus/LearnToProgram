@@ -321,7 +321,7 @@ internal static class VlessHandshaker
 
             // ====== 阶段5：出网验证（握手成功后）======
             // 对于非 WS 的传输（如 tcp, grpc, xtls 等），才继续阶段5出网检测
-            handshakeSuccess = true;  // 走到这里说明 TLS/REALITY 已成功
+            handshakeSuccess = true;  // 走到这里说明 TLS/REALITY 协议握手已成功
             latency = sw.Elapsed;
 
             if (handshakeSuccess && !transportType.Equals("ws", StringComparison.OrdinalIgnoreCase))
@@ -329,27 +329,66 @@ internal static class VlessHandshaker
                 // 注意：此时的 Stream 依然是 SslStream
                 // 注意：但是 CheckInternetAsync 发送明文 HttpRequest
                 // 注意：TCP → TLS/REALITY → 发送 VLESS Header（认证） → 出网检测（HTTP 204）
-                var internetOk = await InternetTester.CheckInternetAsync(
-                    node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
+                //var internetOk = await InternetTester.CheckInternetAsync(
+                //    node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
 
-                if (internetOk)
+                //if (internetOk)
+                //{
+                //    LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
+
+                //    returnStreamToCaller = true;
+
+                //    // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+                //    return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
+                //}
+                //else
+                //{
+                //    handshakeSuccess = false;
+                //    LogHelper.Warn($"[出网失败] {node.Host}:{node.Port} | 握手成功但无法出网");
+                //}
+
+                var requestBytes = InternetTester.BuildFourHttpGetRequestBytes(node.Host, node.Port, "/");
+
+                foreach (var request in requestBytes)
                 {
-                    LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
+                    try
+                    {
+                        // 写入请求到流
+                        await stream!.WriteAsync(request, cts.Token).ConfigureAwait(false);
+                        await stream.FlushAsync(cts.Token).ConfigureAwait(false);
 
-                    returnStreamToCaller = true;
-
-                    // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
-                    return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
+                        // 读取响应
+                        var step5buf = ArrayPool<byte>.Shared.Rent(1);
+                        try
+                        {
+                            var read = await stream.ReadAsync(buf.AsMemory(0, 1), cts.Token).ConfigureAwait(false);
+                            if (read > 0)
+                            {
+                                // 如果读取到数据，说明请求成功
+                                LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK | 请求成功");
+                                returnStreamToCaller = true;
+                                break; // 成功后退出循环
+                            }
+                        }
+                        finally
+                        {
+                            ArrayPool<byte>.Shared.Return(step5buf);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.Warn($"[出网测试失败] {node.Host}:{node.Port} | 请求失败: {ex.Message}");
+                    }
                 }
-                else
+                if (!returnStreamToCaller)
                 {
                     handshakeSuccess = false;
                     LogHelper.Warn($"[出网失败] {node.Host}:{node.Port} | 握手成功但无法出网");
                 }
             }
 
-            returnStreamToCaller = true;
-            // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
+            // returnStreamToCaller = true;            
+            // return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
             return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
         }
         catch (OperationCanceledException)
