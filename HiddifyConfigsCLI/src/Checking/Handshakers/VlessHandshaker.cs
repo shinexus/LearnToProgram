@@ -225,7 +225,7 @@ internal static class VlessHandshaker
                 transportType.Equals("httpupgrade", StringComparison.OrdinalIgnoreCase))
             {
                 var wsPath = extra.GetValueOrDefault("ws_path") ?? extra.GetValueOrDefault("path") ?? "/";
-                var wsSuccess = await InternetTester.CheckWebSocketUpgradeAsync(
+                var wsSuccess = await HttpInternetChecker.CheckWebSocketUpgradeAsync(
                     node,
                     stream: stream!,
                     effectiveSni: effectiveSni,  // [Grok 修复_2025-11-17_018] 使用 effectiveSni
@@ -347,7 +347,7 @@ internal static class VlessHandshaker
                 //    LogHelper.Warn($"[出网失败] {node.Host}:{node.Port} | 握手成功但无法出网");
                 //}
 
-                var requestBytes = InternetTester.BuildFourHttpGetRequestBytes(node.Host, node.Port, "/");
+                var requestBytes = HttpRequestBuilder.BuildFourHttpGetRequestBytes(node.Host, node.Port, "/");
 
                 foreach (var request in requestBytes)
                 {
