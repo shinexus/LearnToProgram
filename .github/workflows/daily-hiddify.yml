@@ -1,102 +1,118 @@
 # .github/workflows/daily-hiddify.yml
-
 name: Daily HiddifyConfigsCLI
 
 on:
-  schedule:
-    - cron: '0 3 * * *'        # 每天北京时间 11:00
-  workflow_dispatch:
-
+ schedule:
+  - cron: '0 3 * * *'
+ workflow_dispatch:
+  
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  run-and-commit:
+  run:
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 80
 
     steps:
       # -------------------------------------------------
-      - name: Checkout 完整仓库（必须，否则 push 必失败）
+      - name: 1. 拉代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # -------------------------------------------------
-      - name: 执行 HiddifyConfigsCLI.exe（零构建，直接运行）
+      - name: 2. 运行 exe（输出到 exe 同目录）
+        id: run_exe
         shell: pwsh
-        timeout-minutes: 75
+        timeout-minutes: 70
         run: |
+          # ---- 关键：切换到 exe 所在目录 ----
           $exeDir = "HiddifyConfigsCLI/bin/Debug/net9.0"
           Set-Location $exeDir
-
-          if (!(Test-Path "HiddifyConfigsCLI.exe")) {
-            Write-Error "致命错误：HiddifyConfigsCLI.exe 不存在！请确保 bin/Debug/net9.0 已完整提交"
-            exit 1
-          }
-
-          $inputUrl = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
-
-          & ".\HiddifyConfigsCLI.exe" `
-            --input     $inputUrl `
-            --output    "valid_links.txt" `
-            --max-lines 100 `
-            --max-parts 2 `
-            --timeout   6 `
-            --http-timeout 5 `
-            --parallel  120
-
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
+          # ---- 打印当前目录（确认切换成功）----
+          Write-Host "=== 当前工作目录（已切到 exe 目录）==="
+          Write-Host "PWD: $(Get-Location)"
+          # ---- 检查 exe ----
+          $exe = "HiddifyConfigsCLI.exe"
+          if (!(Test-Path $exe)) { Write-Error "EXE 未找到: $exe"; exit 1 }
+          # ---- 输入为远程 URL（CLI 支持）----
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          
+          # ---- 执行 CLI（所有输出文件会落在 exe 目录）----
+          $params = @(
+           "--input", $input
+           "--output", "valid_links.txt"
+           "--max-lines", "100"
+           "--max-parts", "2"
+           "--timeout", "6"
+           "--parallel", "256"
+           "--http-timeout", "5"           
+          )
+          & ".\$exe" @params
+          $code = $LASTEXITCODE
+          Write-Host "CLI 退出码: $code"
+          if ($code -ne 0) { exit $code }
       # -------------------------------------------------
-      - name: 显示本次生成的原始文件名（调试用）
+      - name: 3. 列出生成的文件（从 exe 目录开始）
         if: always()
         shell: pwsh
         run: |
-          Write-Host "=== CLI 原始输出文件（不改名、不加后缀）==="
-          Get-ChildItem "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*" | 
-            Select-Object Name, Length, LastWriteTime | Format-Table
-
+          Write-Host "=== 生成的文件（位于 exe 目录）==="
+          Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*" | Format-Table Name, FullName, Length
       # -------------------------------------------------
-      - name: 上传 Artifact（文件名保持原始，Artifact 名加日期仅为区分下载包）
+      - name: 4. 上传产物（精确路径）
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          # Artifact 包名加日期（方便你下载时区分），但内部文件保持原名！
-          name: valid-links-${{ format('yyyyMMdd', github.event.schedule || utcTimestamp()) }}
+          name: valid-links
           path: HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: warn
 
       # -------------------------------------------------
-      - name: 提交并推送（只提交 CLI 吐出来的原文件名，绝不重命名）
-        if: always()
+      - name: 5. 提交结果（从 exe 目录提交）
+        if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
-        run: |
-          git checkout master
-          git pull origin master --ff-only
+        run: |          
+          # 1. 必须先切换到仓库根目录（git 命令只能在根目录执行）
+          # 2. 使用 GITHUB_TOKEN 需要正确的 remote URL（actions/checkout 默认是 https + token）
+          # 3. 防止因没有变更导致 commit 失败
+          # 4. 添加 -f 参数强制推送（避免分支保护冲突，CI 环境常用做法）
 
-          $files = Get-ChildItem "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*.txt"
-          
-          if ($files.Count -eq 0) {
-            Write-Host "本次未生成 valid_links 文件，跳过提交"
+          # 切换到仓库根目录
+          Set-Location $env:GITHUB_WORKSPACE
+
+          # 重新配置 remote，确保能用 token 推送（actions/checkout@v4 默认已配置好，但保险起见）
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+          # 拉取最新代码（防止冲突）
+          git config pull.rebase false
+          git pull origin ${{ github.ref }} --no-edit || echo "Pull 可能已有最新代码，继续..."
+
+          # 获取生成的 valid_links 文件（完整路径）
+          $files = Get-ChildItem -Path "HiddifyConfigsCLI/bin/Debug/net9.0" -Filter "valid_links*.txt"
+          if ($files.Count -eq 0) { 
+            Write-Host "没有检测到 valid_links 文件，跳过提交"
+            exit 0 
+          }
+
+          # 配置 git 身份
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 添加文件（使用完整路径避免工作目录问题）
+          git add $files.FullName
+
+          # 只有在有实际变更时才 commit（避免空 commit 报错）
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "没有文件变更，跳过 commit"
             exit 0
           }
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Auto update valid_links $(Get-Date -Format yyyy-MM-dd_HHmm)"
 
-          foreach ($f in $files) {
-            git add "$($f.FullName)"
-            Write-Host "添加提交：$($f.Name)"
-          }
+          # 强制推送（CI 中推荐做法，避免 ref 冲突）
+          git push origin HEAD:${{ github.ref }} --force
 
-          $now = Get-Date -Format "yyyy-MM-dd HH:mm"
-          git commit -m "Daily update valid_links - $now [ci skip]"
-
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin master
-
-          Write-Host "成功提交 $($files.Count) 个原始 valid_links 文件（文件名未改动）"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
