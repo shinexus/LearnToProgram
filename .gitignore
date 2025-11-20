@@ -474,3 +474,8 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/bin/Debug/net9.0/*.log
 !/HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*.txt
 /HiddifyConfigsCLI/Properties/launchSettings.json
+/HiddifyConfigs/bin/Debug/valid_links.txt
+/HiddifyConfigs/bin/Debug/valid_links_01.txt
+/HiddifyConfigs/bin/Debug/valid_links_02.txt
+/HiddifyConfigsCLI/tests/del_type_ws.cmd
+/HiddifyConfigsCLI/tests/test.txt.bak
