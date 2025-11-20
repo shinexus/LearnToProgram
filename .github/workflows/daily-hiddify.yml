@@ -82,8 +82,8 @@ jobs:
           if ($mainCandidates) {
             foreach ($f in $mainCandidates) {
               Write-Host "---- file: $($f.FullName) (Length=$($f.Length) bytes) ----"
-              Write-Host "前 50 行内容预览："
-              Get-Content -Path $f.FullName -TotalCount 50 | ForEach-Object { Write-Host $_ }
+              Write-Host "前 50 行内容预览（省略）："
+              # Get-Content -Path $f.FullName -TotalCount 50 | ForEach-Object { Write-Host $_ }
               Write-Host "---- End of preview ----"
             }
           } else {
