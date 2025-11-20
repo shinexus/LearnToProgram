@@ -1,0 +1,51 @@
+name: Test Push
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run commit & push
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+      - name: 4. 提交结果（自动 rebase）
+        if: always() && steps.run_exe.outcome == 'success'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+          # 添加生成的文件
+          git add "HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*"
+
+          # 若无变化则退出
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "文件无变化，跳过 commit"
+            exit 0
+          }
+
+          # 提交本地更改
+          git commit -m "Update valid_links"
+
+          # 获取远程分支名
+          $branch = "${{ github.ref }}" -replace '^refs/heads/',''
+
+          # 拉取远程更新并 rebase
+          git fetch origin
+          git rebase origin/$branch || git rebase --abort
+
+          # 推送到远程，安全覆盖本地 rebase 提交
+          git push origin HEAD:$branch --force-with-lease
+
