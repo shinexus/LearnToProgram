@@ -50,76 +50,56 @@ internal static class TlsRealityHelper
                              || string.Equals(security, "reality", StringComparison.OrdinalIgnoreCase);
 
         // ===== TLS 阶段 =====
-        if (security is "tls" or "reality")
+        // 关键：REALITY 必须在裸 TCP 上握手，不能在 SslStream 上运行！
+        if (security == "tls")
         {
-            LogHelper.Debug($"[TLS] {node.Host}:{node.Port} | 开始 TLS (原始 SNI={sni}, skipCert={skipCertVerify})");
+            // 纯 TLS 节点：执行标准 TLS 握手
+            LogHelper.Debug($"[TLS] {node.Host}:{node.Port} | 开始标准 TLS 握手 (skipCert={skipCertVerify})");
 
-            // SNI fallback 仅在 REALITY 模式下使用
-            if (security == "reality" && !string.IsNullOrEmpty(sni))
-            {
-                effectiveSni = await PreValidateSniFallbackAsync(node, sni, skipCertVerify).ConfigureAwait(false);
-            }
-            else
-            {
-                effectiveSni = !string.IsNullOrEmpty(sni) ? sni : node.Host;
-                LogHelper.Debug($"[TLS] {node.Host}:{node.Port} | 非 REALITY，使用 SNI={effectiveSni}");
-            }
+            // 使用原始传入的 SNI（或 fallback 到 Host）
+            var tlsSni = !string.IsNullOrEmpty(sni) ? sni : node.Host;
 
             // Chrome ClientHello 指纹检测
             bool helloOk = await TlsHelper.TestTlsWithChromeHelloAsync(
-                node.Host, node.Port, effectiveSni,
-                timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
-            ).ConfigureAwait(false);
+node.Host, node.Port, effectiveSni,
+timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
+).ConfigureAwait(false);
 
             if (!helloOk)
             {
-                LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={effectiveSni})");
+                LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={tlsSni})");
                 return null;
             }
 
-            // 正式 SSL 握手
-            var ssl = new SslStream(stream, leaveInnerStreamOpen: true);
-            var sslOpts = TlsHelper.CreateSslOptions(effectiveSni, skipCertVerify);
+            var ssl = new SslStream(baseStream, leaveInnerStreamOpen: true);
+            var sslOpts = TlsHelper.CreateSslOptions(tlsSni, skipCertVerify);
             sslOpts.EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13;
-            sslOpts.ApplicationProtocols = new List<SslApplicationProtocol> { SslApplicationProtocol.Http2, SslApplicationProtocol.Http11 };
+            sslOpts.ApplicationProtocols = new List<SslApplicationProtocol>
+    {
+        SslApplicationProtocol.Http2,
+        SslApplicationProtocol.Http11
+    };
+
             await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token).ConfigureAwait(false);
+
             stream = ssl;
-
-            LogHelper.Info($"[TLS] {node.Host}:{node.Port} | Chrome 指纹握手成功 (SNI={effectiveSni})");
+            LogHelper.Info($"[TLS] {node.Host}:{node.Port} | TLS 握手成功 (SNI={tlsSni})");
         }
-
-        // ===== REALITY 阶段 =====
-        if (realityEnabled && security == "reality")
+        else if (security == "reality")
         {
-            LogHelper.Debug($"[REALITY] {node.Host}:{node.Port} | 开始 REALITY");
+            // REALITY 节点：直接在原始 TCP 流上进行 REALITY 握手（跳过 TLS）
+            LogHelper.Debug($"[REALITY] {node.Host}:{node.Port} | 跳过 TLS，直接在裸 TCP 上执行 REALITY 握手");
 
             var spx = extra.GetValueOrDefault("spx") ?? "/";
             var pk = extra.GetValueOrDefault("reality_public_key") ?? "";
-            var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
             var pbk = extra.GetValueOrDefault("pbk") ?? "";
+            var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
             var activePk = !string.IsNullOrEmpty(pk) ? pk : pbk;
 
-            // 处理 URL-safe Base64 编码的特性
-            // Base64 URL-safe 编码未补齐
-            // Base64 URL-safe 解码要求长度是 4 的倍数
-            // 43 % 4 = 3，需要补一个 = 才能正确解码成 32 字节
-            // 如果客户端没有自动补齐，就会报错
-            // 此校验放在 RealityHelper.cs
-
-
-            // 使用新方法判断公钥合法性         
-            // 统一使用 RealityHelper 解析公钥，支持 URL-safe + 补齐 + 长度检查
-            //if (string.IsNullOrEmpty(activePk) || !IsValidBase64(activePk) || activePk.Length < 32)
-            //{
-            //    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | public_key 无效 (len={activePk?.Length ?? 0})");
-            //    return null;
-            //}
-
-            // 提前验证公钥合法性
-            // 此处若抛异常则说明公钥无效
+            // 提前验证公钥合法性（支持 URL-safe Base64 + 自动补齐）
             try
             {
-                _= RealityHelper.ParseRealityPublicKey(activePk);
+                _ = RealityHelper.ParseRealityPublicKey(activePk);
             }
             catch
             {
@@ -133,17 +113,28 @@ internal static class TlsRealityHelper
                 return null;
             }
 
-            var ok = await RealityHelper.RealityHandshakeAsync(stream, sid, activePk, spx, cts.Token).ConfigureAwait(false);
-            
-            if (ok)
+            var (success, encryptedStream) = await RealityHelper.RealityHandshakeAsync(
+                baseStream,           // ← 关键！必须传原始 TCP 流，不能传 SslStream
+                sid,
+                activePk,
+                spx,
+                cts.Token).ConfigureAwait(false);
+
+            if (success && encryptedStream != null)
             {
-                LogHelper.Info($"[REALITY] {node.Host}:{node.Port} | 握手成功");
+                stream = encryptedStream;
+                LogHelper.Info($"[REALITY] {node.Host}:{node.Port} | REALITY 握手成功，已建立加密通道");
             }
             else
             {
-                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | 握手失败/超时");
+                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | REALITY 握手失败或超时");
                 return null;
             }
+        }
+        // 其他 security（如 "none"）直接返回原始 stream
+        else
+        {
+            LogHelper.Debug($"[PLAIN] {node.Host}:{node.Port} | 无加密，直接使用裸 TCP");
         }
 
         return stream;
