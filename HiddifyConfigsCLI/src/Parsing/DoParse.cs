@@ -49,42 +49,85 @@ internal static class DoParse
 
         var allLinks = new List<string>();
 
-        if (isRemoteInput)
-        {
-            var sourceUrls = inputContent
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Where(l => !string.IsNullOrEmpty(l) &&
-                            !IsCommentLine(l) &&
-                            Uri.TryCreate(l, UriKind.Absolute, out var u) &&
-                            (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps))
-                .Distinct()
-                .ToList();
+        // 如果内容是链接列表（http/https），无论远程还是本地，均再次解析
+        var subUrls = inputContent
+        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        .Select(l => l.Trim())
+        .Where(l => !string.IsNullOrEmpty(l) &&
+                    !IsCommentLine(l) &&
+                    Uri.TryCreate(l, UriKind.Absolute, out var u) &&
+                    (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps))      // 解析 http/https 链接
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
-            foreach (var sourceUrl in sourceUrls)
+        if (subUrls.Count > 0)
+        {
+            // 1：内容包含链接列表 → 批量下载（无论来源是远程还是本地）
+            LogHelper.Info($"检测到 {subUrls.Count} 个子订阅源，开始批量下载并解析节点...");
+            foreach (var url in subUrls)
             {
                 try
                 {
-                    LogHelper.Info($"正在下载子文件: {sourceUrl}");
-                    var client = CreateHttpClient(opts);
-                    var txtContent = await client.GetStringAsync(sourceUrl);
-                    var extracted = ExtractLinksFromText(txtContent);
-                    LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
-                    allLinks.AddRange(extracted);
+                    LogHelper.Info($" ├─ 下载子订阅: {url}");
+                    using var client = CreateHttpClient(opts);
+                    var content = await client.GetStringAsync(url).ConfigureAwait(false);
+                    var links = ExtractLinksFromText(content);
+                    allLinks.AddRange(links);
+                    LogHelper.Info($" └─ 提取节点 {links.Count} 条");
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Warn($"下载失败（跳过）: {sourceUrl} | {ex.Message}");
+                    LogHelper.Warn($" 子订阅下载失败（跳过）: {url} → {ex.Message}");
                 }
             }
         }
         else
         {
-            LogHelper.Info($"处理本地输入文件: {Path.GetFullPath(opts.Input)}");
-            var extracted = ExtractLinksFromText(inputContent);
-            LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
-            allLinks.AddRange(extracted);
+            // 2：否则 → 直接解析为节点列表
+            LogHelper.Info("未检测到子订阅链接，直接解析当前内容为节点列表");
+            var links = ExtractLinksFromText(inputContent);
+            allLinks.AddRange(links);
+            LogHelper.Info($" └─ 提取节点 {links.Count} 条");
         }
+
+        //if (isRemoteInput)
+        //{
+        //    var sourceUrls = inputContent
+        //        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        //        .Select(l => l.Trim())
+        //        .Where(l => !string.IsNullOrEmpty(l) &&
+        //                    !IsCommentLine(l) &&
+        //                    Uri.TryCreate(l, UriKind.Absolute, out var u) &&
+        //                    (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps))
+        //        .Distinct()
+        //        .ToList();
+
+        //    foreach (var sourceUrl in sourceUrls)
+        //    {
+        //        try
+        //        {
+        //            LogHelper.Info($"正在下载子文件: {sourceUrl}");
+        //            var client = CreateHttpClient(opts);
+        //            var txtContent = await client.GetStringAsync(sourceUrl);
+        //            var extracted = ExtractLinksFromText(txtContent);
+        //            LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
+        //            allLinks.AddRange(extracted);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            LogHelper.Warn($"下载失败（跳过）: {sourceUrl} | {ex.Message}");
+        //        }
+        //    }
+        //}
+        //else
+        //{
+        //    LogHelper.Info($"处理本地输入文件: {Path.GetFullPath(opts.Input)}");
+        //    var extracted = ExtractLinksFromText(inputContent);
+        //    LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
+        //    allLinks.AddRange(extracted);
+        //}
+
+
         // 标签或备注没有去重
         // return allLinks.Distinct().ToList();
         // 去重（去除 #备注后去重）
@@ -241,12 +284,24 @@ internal static class DoParse
         // 统一代理配置，消除重复 + 安全解析
         if (!string.IsNullOrWhiteSpace(opts.Proxy))
         {
-            var parts = opts.Proxy.Split(':');
-            if (parts.Length != 2 || !int.TryParse(parts[1], out var port))
+            var parts = opts.Proxy.Split(':', 2);
+            if (parts.Length != 2)
                 throw new FormatException($"代理格式错误: {opts.Proxy}，应为 host:port");
 
-            handler.Proxy = new WebProxy(parts[0], port);
+            var host = parts[0].Trim();
+            var portStr = parts[1].Trim();
+
+            if (!int.TryParse(portStr, out var port) || port < 1 || port > 65535)
+                throw new FormatException($"代理端口错误: {portStr}，应为 1~65535 的整数");
+
+            if (!System.Net.IPAddress.TryParse(host, out _))
+                throw new FormatException($"代理主机错误: {host}，必须是有效 IPv4 或 IPv6 地址");
+
+            // 只有校验通过才打印
+            handler.Proxy = new WebProxy(host, port);
             handler.UseProxy = true;
+
+            // LogHelper.Info($"[代理模式] 使用代理: {host}:{port}");
         }
 
         var client = new HttpClient(handler, disposeHandler: true)

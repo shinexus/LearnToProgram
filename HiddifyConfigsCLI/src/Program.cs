@@ -100,6 +100,26 @@ internal class Program
         {
             LogHelper.Info($"开始执行：输入={opts.Input} 输出={opts.Output}");
 
+            // ───────────── 如果指定 --proxy，则打印 Host:Port ─────────────
+            if (!string.IsNullOrEmpty(opts.Proxy))
+            {
+                LogHelper.Info($"[代理模式] 使用代理: {opts.Proxy}");
+                var parts = opts.Proxy.Split(':', 2);
+                if (parts.Length == 2)
+                {
+                    var host = parts[0];
+                    var port = parts[1];
+                    // Console.WriteLine($"{host}:{port}");
+                }
+                else
+                {
+                    // Console.WriteLine(opts.Proxy);
+                }
+
+                // 如果仅打印代理，不执行其他逻辑，可直接返回
+                // return 0;
+            }
+
             // ==================== 1. 下载 + 提取（含 Telegram） ====================
             var rawLinks = new List<string>();
 

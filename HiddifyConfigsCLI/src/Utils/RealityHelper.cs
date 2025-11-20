@@ -39,7 +39,8 @@ internal static class RealityHelper
             byte[] serverPubKey;
             try
             {
-                serverPubKey = Convert.FromBase64String(pkOrPbk);
+                // serverPubKey = Convert.FromBase64String(pkOrPbk);
+                serverPubKey = ParseRealityPublicKey(pkOrPbk);
             }
             catch
             {
@@ -129,5 +130,23 @@ internal static class RealityHelper
         Array.Copy(rnd, 0, hello, clientPubKey.Length + idBytes.Length + spxBytes.Length, rnd.Length);
 
         return hello;
+    }
+
+    /// <summary>
+    /// Reality 公钥解析（支持 URL-safe Base64 + 补齐 + 长度检查）
+    /// </summary>
+    public static byte[] ParseRealityPublicKey( string pkOrPbk )
+    {
+        if (string.IsNullOrEmpty(pkOrPbk))
+            throw new ArgumentException("公钥为空", nameof(pkOrPbk));
+
+        // URL-safe → 标准 Base64
+        var s = pkOrPbk.Replace('-', '+').Replace('_', '/');
+        s = s.PadRight((s.Length + 3) / 4 * 4, '=');
+
+        var bytes = Convert.FromBase64String(s);
+        if (bytes.Length != 32)
+            throw new InvalidOperationException($"Reality 公钥长度错误: {bytes.Length}");
+        return bytes;
     }
 }
