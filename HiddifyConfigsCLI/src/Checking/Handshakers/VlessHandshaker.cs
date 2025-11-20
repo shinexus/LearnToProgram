@@ -326,27 +326,6 @@ internal static class VlessHandshaker
 
             if (handshakeSuccess && !transportType.Equals("ws", StringComparison.OrdinalIgnoreCase))
             {
-                // 注意：此时的 Stream 依然是 SslStream
-                // 注意：但是 CheckInternetAsync 发送明文 HttpRequest
-                // 注意：TCP → TLS/REALITY → 发送 VLESS Header（认证） → 出网检测（HTTP 204）
-                //var internetOk = await InternetTester.CheckInternetAsync(
-                //    node, stream!, effectiveSni, opts, cts.Token).ConfigureAwait(false);
-
-                //if (internetOk)
-                //{
-                //    LogHelper.Info($"[出网成功] {node.Host}:{node.Port} | 完整链路 OK");
-
-                //    returnStreamToCaller = true;
-
-                //    // return Task.FromResult((handshakeSuccess, latency, handshakeSuccess ? stream : null)).Result;
-                //    return (handshakeSuccess, latency, handshakeSuccess ? stream : null);
-                //}
-                //else
-                //{
-                //    handshakeSuccess = false;
-                //    LogHelper.Warn($"[出网失败] {node.Host}:{node.Port} | 握手成功但无法出网");
-                //}
-
                 var requestBytes = HttpRequestBuilder.BuildFourHttpGetRequestBytes(node.Host, node.Port, "/");
 
                 foreach (var request in requestBytes)
