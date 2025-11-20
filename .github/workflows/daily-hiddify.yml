@@ -39,7 +39,7 @@ jobs:
 
           # 输入 URL（可按需替换）
           # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
           # 输出 绝对路径
           $outputFile = Join-Path $exeDir "valid_links.txt"
