@@ -78,7 +78,7 @@ jobs:
             Select-Object Name, FullName, Length | Format-Table
 
           # --- 如果找到了主文件，打印前 50 行和文件字节数以供核验 ---
-          $mainCandidates = Get-ChildItem -Path $exeDir -Filter "valid_links.txt","valid_links_*.txt" -ErrorAction SilentlyContinue
+          $mainCandidates = Get-ChildItem -Path $exeDir -Filter "valid_links_*.txt" -ErrorAction SilentlyContinue
           if ($mainCandidates) {
             foreach ($f in $mainCandidates) {
               Write-Host "---- file: $($f.FullName) (Length=$($f.Length) bytes) ----"
