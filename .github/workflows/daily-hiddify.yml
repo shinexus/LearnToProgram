@@ -121,7 +121,7 @@ jobs:
           if-no-files-found: warn
 
       # -------------------------------------------------
-      - name: 4. 提交结果
+      - name: 4. 提交结果（自动 rebase）
         if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
         env:
@@ -143,5 +143,15 @@ jobs:
             exit 0
           }
 
+          # 提交本地更改
           git commit -m "Update valid_links"
-          git push origin HEAD:${{ github.ref }}
+
+          # 获取远程分支名
+          $branch = "${{ github.ref }}" -replace '^refs/heads/',''
+
+          # 拉取远程更新并 rebase
+          git fetch origin
+          git rebase origin/$branch || git rebase --abort
+
+          # 推送到远程，安全覆盖本地 rebase 提交
+          git push origin HEAD:$branch --force-with-lease
