@@ -31,7 +31,8 @@ jobs:
           $exe = "HiddifyConfigsCLI.exe"
           if (!(Test-Path $exe)) { Write-Error "EXE 不存在: $exe"; exit 1 }
 
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
 
           & ".\$exe" `
             --input $input `
@@ -45,6 +46,15 @@ jobs:
           
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # -------------------------------------------------
+      - name: 调试：搜索整个 workspace 的 valid_links.txt
+        shell: pwsh
+        run: |
+          Write-Host "当前目录: $(Get-Location)"
+          Write-Host "搜索 valid_links* in workspace:"
+          Get-ChildItem -Recurse -Filter "valid_links*" |
+          Format-Table FullName, Length
+      
       # -------------------------------------------------
       - name: 3. 上传产物
         uses: actions/upload-artifact@v4
