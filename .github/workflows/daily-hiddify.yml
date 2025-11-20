@@ -20,24 +20,27 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------
-      - name: 2. 运行 CLI（强制设定工作目录）
+      - name: 2. 运行 CLI（强检路径 + 验证输出）
         id: run_exe
         shell: pwsh
         timeout-minutes: 70
         run: |
+          # --- 明确 EXE 完整路径（基于 workspace） ---
           $exeDir = Join-Path $env:GITHUB_WORKSPACE "HiddifyConfigsCLI/bin/Debug/net9.0"
           $exe = Join-Path $exeDir "HiddifyConfigsCLI.exe"
+
+          Write-Host "预期 EXE Dir  = $exeDir"
+          Write-Host "预期 EXE Path = $exe"
 
           if (!(Test-Path $exe)) {
             Write-Error "EXE 不存在: $exe"
             exit 1
           }
 
-          # 输入地址，可以随时改
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          # 输入 URL（可按需替换）
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
 
-          # 构造参数（必须 List<string> 格式）
+          # 参数数组
           $params = @(
             "--input", $input,
             "--output", "valid_links.txt",
@@ -49,18 +52,51 @@ jobs:
             "--verbose"
           )
 
-          Write-Host "使用 Start-Process 强制工作目录: $exeDir"
-          Start-Process -FilePath $exe `
-            -WorkingDirectory $exeDir `
-            -ArgumentList $params `
-            -Wait -NoNewWindow
+          # 显示运行前目录与 EXE 目录下文件（便于对比）
+          Write-Host "运行前当前目录: $(Get-Location)"
+          Write-Host "运行前列出 EXE 目录文件："
+          Get-ChildItem -Path $exeDir -Force -ErrorAction SilentlyContinue | Select-Object Name, FullName, Length | Format-Table
 
-          if (-not $?) {
-            Write-Error "CLI 执行失败"
-            exit 1
+          # --- 用 Start-Process 确保 WorkingDirectory 不被重置，拿到进程对象以读取 ExitCode ---
+          Write-Host "使用 Start-Process 启动 EXE..."
+          $proc = Start-Process -FilePath $exe -WorkingDirectory $exeDir -ArgumentList $params -Wait -NoNewWindow -PassThru
+
+          Write-Host "Start-Process 返回 ExitCode: $($proc.ExitCode)"
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "CLI 退出码非0： $($proc.ExitCode)"
+            exit $proc.ExitCode
           }
 
-          Write-Host "CLI 执行成功"
+          # --- 运行后马上列出 workspace 与 exeDir 下的 valid_links* 并打印基本信息 ---
+          Write-Host "运行后当前目录: $(Get-Location)"
+          Write-Host "运行后：搜索 workspace 下所有 valid_links* 文件（FullName + Length）"
+          Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter "valid_links*" -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length | Format-Table
+
+          Write-Host "运行后：列出 EXE 目录下 valid_links*："
+          Get-ChildItem -Path $exeDir -Filter "valid_links*" -ErrorAction SilentlyContinue |
+            Select-Object Name, FullName, Length | Format-Table
+
+          # --- 如果找到了主文件，打印前 50 行和文件字节数以供核验 ---
+          $mainCandidates = Get-ChildItem -Path $exeDir -Filter "valid_links.txt","valid_links_*.txt" -ErrorAction SilentlyContinue
+          if ($mainCandidates) {
+            foreach ($f in $mainCandidates) {
+              Write-Host "---- file: $($f.FullName) (Length=$($f.Length) bytes) ----"
+              Write-Host "前 50 行内容预览："
+              Get-Content -Path $f.FullName -TotalCount 50 | ForEach-Object { Write-Host $_ }
+              Write-Host "---- End of preview ----"
+            }
+          } else {
+            Write-Host "未在 EXE 目录发现 valid_links 文件，尝试在 workspace 全局搜索。"
+            $global = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter "valid_links*" -ErrorAction SilentlyContinue
+            foreach ($g in $global) {
+              Write-Host "---- file: $($g.FullName) (Length=$($g.Length) bytes) ----"
+              Get-Content -Path $g.FullName -TotalCount 50 | ForEach-Object { Write-Host $_ }
+              Write-Host "---- End of preview ----"
+            }
+          }
+
+          Write-Host "Step 2 完成"
 
       # -------------------------------------------------
       - name: 调试：搜索 valid_links*
