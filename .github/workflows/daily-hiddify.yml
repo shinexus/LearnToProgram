@@ -40,10 +40,13 @@ jobs:
           # 输入 URL（可按需替换）
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
 
+          # 输出 绝对路径
+          $outputFile = Join-Path $exeDir "valid_links.txt"
+          
           # 参数数组
           $params = @(
             "--input", $input,
-            "--output", "valid_links.txt",
+            "--output", $outputFile,
             "--max-lines", "100",
             "--max-parts", "2",
             "--timeout", "6",
