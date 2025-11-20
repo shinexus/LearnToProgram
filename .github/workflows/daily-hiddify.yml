@@ -38,24 +38,27 @@ jobs:
           }
 
           # 输入 URL（可按需替换）
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
+          # 输出 绝对路径
+          $outputFile = Join-Path $exeDir "valid_links.txt"
+          
           # 参数数组
           $params = @(
             "--input", $input,
-            "--output", "valid_links.txt",
+            "--output", $outputFile,
             "--max-lines", "100",
             "--max-parts", "2",
             "--timeout", "6",
-            "--parallel", "256",
-            "--http-timeout", "5",
-            "--verbose"
+            "--parallel", "128",
+            "--http-timeout", "5"            
           )
 
           # 显示运行前目录与 EXE 目录下文件（便于对比）
           Write-Host "运行前当前目录: $(Get-Location)"
-          Write-Host "运行前列出 EXE 目录文件："
-          Get-ChildItem -Path $exeDir -Force -ErrorAction SilentlyContinue | Select-Object Name, FullName, Length | Format-Table
+          Write-Host "运行前列出 EXE 目录文件（省略）："
+          # Get-ChildItem -Path $exeDir -Force -ErrorAction SilentlyContinue | Select-Object Name, FullName, Length | Format-Table
 
           # --- 用 Start-Process 确保 WorkingDirectory 不被重置，拿到进程对象以读取 ExitCode ---
           Write-Host "使用 Start-Process 启动 EXE..."
@@ -118,7 +121,7 @@ jobs:
           if-no-files-found: warn
 
       # -------------------------------------------------
-      - name: 4. 提交结果
+      - name: 4. 提交结果（自动 rebase）
         if: always() && steps.run_exe.outcome == 'success'
         shell: pwsh
         env:
@@ -140,5 +143,15 @@ jobs:
             exit 0
           }
 
+          # 提交本地更改
           git commit -m "Update valid_links"
-          git push origin HEAD:${{ github.ref }}
+
+          # 获取远程分支名
+          $branch = "${{ github.ref }}" -replace '^refs/heads/',''
+
+          # 拉取远程更新并 rebase
+          git fetch origin
+          git rebase origin/$branch || git rebase --abort
+
+          # 推送到远程，安全覆盖本地 rebase 提交
+          git push origin HEAD:$branch --force-with-lease
