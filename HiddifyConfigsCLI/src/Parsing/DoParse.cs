@@ -63,12 +63,12 @@ internal static class DoParse
         if (subUrls.Count > 0)
         {
             // 1：内容包含链接列表 → 批量下载（无论来源是远程还是本地）
-            LogHelper.Info($"检测到 {subUrls.Count} 个子订阅源，开始批量下载并解析节点...");
+            LogHelper.Info($"检测到 {subUrls.Count} 个子列表，开始批量下载并解析节点...");
             foreach (var url in subUrls)
             {
                 try
                 {
-                    LogHelper.Info($" ├─ 下载子订阅: {url}");
+                    LogHelper.Info($" ├─ 下载子列表: {url}");
                     using var client = CreateHttpClient(opts);
                     var content = await client.GetStringAsync(url).ConfigureAwait(false);
                     var links = ExtractLinksFromText(content);
@@ -77,56 +77,18 @@ internal static class DoParse
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.Warn($" 子订阅下载失败（跳过）: {url} → {ex.Message}");
+                    LogHelper.Warn($" 子列表下载失败（跳过）: {url} → {ex.Message}");
                 }
             }
         }
         else
         {
             // 2：否则 → 直接解析为节点列表
-            LogHelper.Info("未检测到子订阅链接，直接解析当前内容为节点列表");
+            LogHelper.Info("未检测到子列表链接，直接解析当前内容为节点列表");
             var links = ExtractLinksFromText(inputContent);
             allLinks.AddRange(links);
             LogHelper.Info($" └─ 提取节点 {links.Count} 条");
-        }
-
-        //if (isRemoteInput)
-        //{
-        //    var sourceUrls = inputContent
-        //        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-        //        .Select(l => l.Trim())
-        //        .Where(l => !string.IsNullOrEmpty(l) &&
-        //                    !IsCommentLine(l) &&
-        //                    Uri.TryCreate(l, UriKind.Absolute, out var u) &&
-        //                    (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps))
-        //        .Distinct()
-        //        .ToList();
-
-        //    foreach (var sourceUrl in sourceUrls)
-        //    {
-        //        try
-        //        {
-        //            LogHelper.Info($"正在下载子文件: {sourceUrl}");
-        //            var client = CreateHttpClient(opts);
-        //            var txtContent = await client.GetStringAsync(sourceUrl);
-        //            var extracted = ExtractLinksFromText(txtContent);
-        //            LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
-        //            allLinks.AddRange(extracted);
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            LogHelper.Warn($"下载失败（跳过）: {sourceUrl} | {ex.Message}");
-        //        }
-        //    }
-        //}
-        //else
-        //{
-        //    LogHelper.Info($"处理本地输入文件: {Path.GetFullPath(opts.Input)}");
-        //    var extracted = ExtractLinksFromText(inputContent);
-        //    LogHelper.Info($" └─ 提取到 {extracted.Count} 条链接");
-        //    allLinks.AddRange(extracted);
-        //}
-
+        }        
 
         // 标签或备注没有去重
         // return allLinks.Distinct().ToList();
@@ -187,6 +149,11 @@ internal static class DoParse
 
             // ---------- 新增 解码 Base64 编码行 ----------
             line = Base64ProtocolDecoder.TryDecode(line);
+            // 在这里统一消灭 HTML 实体污染（&amp;）
+            line = System.Net.WebUtility.HtmlDecode(line);
+            line = line.Replace("&AMP;", "&", StringComparison.OrdinalIgnoreCase);
+            // 保险起见：有些订阅把整个链接 Base64 了，里面还有 &amp;
+            line = Base64ProtocolDecoder.TryDecode(line);  // 再解一次，防止嵌套
 
             // 正常流程
             if (string.IsNullOrWhiteSpace(line) ||

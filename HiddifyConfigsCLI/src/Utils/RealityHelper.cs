@@ -1,9 +1,11 @@
-﻿using HiddifyConfigsCLI.src.Logging;
+﻿using HiddifyConfigsCLI.src.Core;
+using HiddifyConfigsCLI.src.Logging;
 using Org.BouncyCastle.Crypto.Agreement;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
+using Org.BouncyCastle.Utilities;
 using System.Buffers;
 using System.Security.Cryptography;
 using System.Text;
@@ -22,10 +24,12 @@ internal static class RealityHelper
     /// <param name="ct">CancellationToken</param>
     /// <returns>握手是否成功</returns>
     public static async Task<(bool success, Stream? encryptedStream)> RealityHandshakeAsync(
+        VlessNode node,
         Stream baseStream,
         string shortId,
         string pkOrPbk,
         string spx,
+        string effectiveSni,
         CancellationToken ct )
     {
         if (baseStream == null || string.IsNullOrEmpty(shortId) || string.IsNullOrEmpty(pkOrPbk))
@@ -55,16 +59,16 @@ internal static class RealityHelper
 
             // ===== 3. 构建 Reality ClientHello =====
             // 新增 spx 支持，将伪装路径加入初始握手数据
-            var clientHello = BuildRealityClientHello(clientPub.GetEncoded(), shortId, spx);
+            var realityClientHello = BuildRealityClientHello(clientPub.GetEncoded(), shortId, spx, effectiveSni);
             // 增加随机 padding，符合协议规范，防止固定长度被识别
-            // var clientHello = BuildRealityClientHello(clientPub.GetEncoded(), shortId, spx);
+            // var realityClientHello = BuildRealityClientHello(clientPub.GetEncoded(), shortId, spx);
 
             // ===== 4. 发送 ClientHello =====
             using (var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 // 增加握手超时，避免阻塞
                 ctsTimeout.CancelAfter(TimeSpan.FromSeconds(5)); 
-                await baseStream.WriteAsync(clientHello.AsMemory(0, clientHello.Length), ctsTimeout.Token);
+                await baseStream.WriteAsync(realityClientHello.AsMemory(0, realityClientHello.Length), ctsTimeout.Token);
                 await baseStream.FlushAsync(ctsTimeout.Token);
             }
 
@@ -77,20 +81,12 @@ internal static class RealityHelper
                 // await baseStream.ReadExactlyAsync(respBuf.AsMemory(0, 48), ct).ConfigureAwait(false);
                 // 使用自定义扩展方法，返回实际读取长度
                 int readBytes = await baseStream.ReadExactlyWithLengthAsync(respBuf.AsMemory(0, 48), ct);
-                LogHelper.Debug($"[REALITY] 读取 {readBytes} 字节响应");
+                LogHelper.Debug($"[REALITY] {node.Host}:{node.Port} 读取 {readBytes} 字节响应");
 
                 // 读取 32 字节服务器公钥
                 var serverPubFromResp = respBuf.AsSpan(0, 32).ToArray();
                 // 读取 16 字节 Poly1305 tag
-                var serverTag = respBuf.AsSpan(32, 16).ToArray();
-
-                //using (var ctsTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
-                //{
-                //    ctsTimeout.CancelAfter(TimeSpan.FromSeconds(5));
-                //    read = await stream.ReadAsync(respBuf.AsMemory(0, respBuf.Length), ctsTimeout.Token);
-                //}
-
-                //if (read <= 0) return false;
+                var serverTag = respBuf.AsSpan(32, 16).ToArray();                
 
                 // ===== 6. 计算（生成）共享密钥 =====
                 var serverPubParam = new X25519PublicKeyParameters(serverPubKey, 0);
@@ -106,35 +102,29 @@ internal static class RealityHelper
                 // ===== 8. 验证服务器响应 MAC（Poly1305）=====                
                 if (!VerifyPoly1305(serverPubFromResp, key, iv, serverTag))
                 {
-                    LogHelper.Warn("[REALITY] 服务器响应验证失败（可能公钥错误或被中间人）");
+                    LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | sid={shortId}, pbk={Convert.ToBase64String(serverPubKey)} 服务器响应验证失败（可能公钥错误或被中间人）");
                     return (false, null);
                 }
 
-                LogHelper.Info("[REALITY] 握手成功！共享密钥建立，准备加密通信");
+                LogHelper.Info($"[REALITY] {node.Host}:{node.Port} 握手成功！共享密钥建立，准备加密通信");
 
                 // ===== 9. 创建并返回加密流 =====
                 var encryptedStream = new ChaCha20Poly1305Stream(baseStream, key, iv, isClient: true);
-                return (true, encryptedStream);
-
-                // TODO: 使用 sharedSecret 构建加密流 (AES-GCM 或 ChaCha20-Poly1305)
-                // 当前模板仅验证握手可达性
-
-                // return respBuf[0] != 0;
-                // return true;
+                return (true, encryptedStream);                
             }
             catch (EndOfStreamException)
             {
-                LogHelper.Warn("[REALITY] 服务器响应不完整（EndOfStream）");
+                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | sid={shortId}, pbk={Convert.ToBase64String(serverPubKey)} 服务器响应不完整（EndOfStream）");
                 return (false, null);
             }
             catch (OperationCanceledException)
             {
-                LogHelper.Warn("[REALITY] 握手超时（Cancellation）");
+                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} 握手超时（Cancellation）");
                 return (false, null);
             }
             catch (Exception ex)
             {
-                LogHelper.Warn($"[REALITY] 读取响应异常: {ex.Message}");
+                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} 读取响应异常: {ex.Message}");
                 return (false, null);
             }
             finally
@@ -145,36 +135,62 @@ internal static class RealityHelper
         catch (OperationCanceledException oce)
         {
             // return false;
-            LogHelper.Warn($"[REALITY] 握手超时: {oce.Message}");
+            LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} 握手超时: {oce.Message}");
             return (false, null);
         }
         catch(Exception ex)
         {
             // return false;
-            LogHelper.Warn($"[REALITY] 握手失败: {ex.Message}");
+            LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} 握手失败: {ex.Message}");
             return (false, null);
         }
     }
 
     /// <summary>
     /// 构建 Reality ClientHello（增强版 + spx + 随机 padding）
+    /// 符合 Xray-core REALITY 规范的 ClientHello（含 uTLS 指纹 + 正确 SNI）
     /// </summary>
-    private static byte[] BuildRealityClientHello( byte[] clientPubKey, string shortId, string spx )
+    private static byte[] BuildRealityClientHello( 
+        byte[] clientPubKey, 
+        string shortId, 
+        string spx, 
+        string effectiveSni,
+        string? fingerprint = null )
     {
-        var idBytes = Encoding.UTF8.GetBytes(shortId);
+        if (string.IsNullOrEmpty(effectiveSni))
+            effectiveSni = "www.microsoft.com"; // 保险起见
+
+        // 1. 生成 shortId 和 spx 字节
+        var shortIdBytes = Encoding.UTF8.GetBytes(shortId);
         var spxBytes = Encoding.UTF8.GetBytes(spx ?? "/"); // spx 不为空时加入
 
-        //增加 8~16 字节随机 padding，增强协议一致性
-        var rnd = RandomNumberGenerator.GetBytes(8);
-        var hello = new byte[clientPubKey.Length + idBytes.Length + spxBytes.Length + rnd.Length];
+        // 2. 增加 8~16 字节随机 padding
+        // var rnd = RandomNumberGenerator.GetBytes(8);
+        // Xray 官方就是这么干的
+        var padding = new byte[8 + RandomNumberGenerator.GetInt32(9)]; // 8~16
 
-        // 拼接顺序：客户端公钥 + shortId + spx
-        Array.Copy(clientPubKey, 0, hello, 0, clientPubKey.Length);
-        Array.Copy(idBytes, 0, hello, clientPubKey.Length, idBytes.Length);
-        Array.Copy(spxBytes, 0, hello, clientPubKey.Length + idBytes.Length, spxBytes.Length);
-        Array.Copy(rnd, 0, hello, clientPubKey.Length + idBytes.Length + spxBytes.Length, rnd.Length);
+        // 构造 REALITY 协议头：clientPubKey + shortId + spx + padding
+        var realityHeader = new byte[clientPubKey.Length + shortIdBytes.Length + spxBytes.Length + padding.Length];
+        int offset = 0;
+        Array.Copy(clientPubKey, 0, realityHeader, offset, clientPubKey.Length);
+        offset += clientPubKey.Length;
+        Array.Copy(shortIdBytes, 0, realityHeader, offset, shortIdBytes.Length);
+        offset += shortIdBytes.Length;
+        Array.Copy(spxBytes, 0, realityHeader, offset, spxBytes.Length);
+        offset += spxBytes.Length;
+        Array.Copy(padding, 0, realityHeader, offset, padding.Length);
 
-        return hello;
+        // 3. 关键：使用 effectiveSni 构建真实 TLS ClientHello
+        var tlsClientHello = TlsHelper.BuildChromeClientHello(effectiveSni);
+
+        // 4. 合并：REALITY 头 +真实 TLS ClientHello（关键！）
+        var realityHello = new byte[realityHeader.Length + tlsClientHello.Length];
+        Array.Copy(realityHeader, 0, realityHello, 0, realityHeader.Length);
+        Array.Copy(tlsClientHello, 0, realityHello, realityHeader.Length, tlsClientHello.Length);
+
+        LogHelper.Verbose($"[REALITY] ClientHello 构建成功 | SNI={effectiveSni} | 协议头={realityHeader.Length} 字节 | 总长={realityHello.Length} 字节");
+
+        return realityHello; // ← 现在才是正确的！        
     }
 
     /// <summary>
@@ -185,13 +201,17 @@ internal static class RealityHelper
         if (string.IsNullOrEmpty(pkOrPbk))
             throw new ArgumentException("公钥为空", nameof(pkOrPbk));
 
-        // URL-safe → 标准 Base64
-        var s = pkOrPbk.Replace('-', '+').Replace('_', '/');
-        s = s.PadRight((s.Length + 3) / 4 * 4, '=');
+        // 第1步：先补齐 =（关键！必须先补齐）
+        int padding = (4 - pkOrPbk.Length % 4) % 4;
+        var padded = pkOrPbk + new string('=', padding);  // ← 先补齐！
 
-        var bytes = Convert.FromBase64String(s);
+        // 第2步：再把 URL-safe 字符转回标准 Base64
+        var standard = padded.Replace('-', '+').Replace('_', '/');
+
+        var bytes = Convert.FromBase64String(standard);
         if (bytes.Length != 32)
-            throw new InvalidOperationException($"Reality 公钥长度错误: {bytes.Length}");
+            throw new InvalidOperationException($"公钥长度错误: {bytes.Length} 字节");
+
         return bytes;
     }
 
@@ -199,7 +219,10 @@ internal static class RealityHelper
     private static (byte[] key, byte[] iv) HkdfDeriveKeys( byte[] ikm, string saltStr )
     {
         var salt = Encoding.UTF8.GetBytes(saltStr);
-        var info = Encoding.UTF8.GetBytes("REALITY");
+
+        // 根据官方文档使用小写 "reality" 作为 info
+        // var info = Encoding.UTF8.GetBytes("REALITY");
+        var info = Encoding.UTF8.GetBytes("reality");
 
         var prk = new byte[32];
         var hmac = new Org.BouncyCastle.Crypto.Macs.HMac(new Sha256Digest());
@@ -253,4 +276,6 @@ internal static class RealityHelper
         await stream.ReadExactlyAsync(buffer, ct);
         return buffer.Length;  // 总是等于请求长度（否则已抛异常）
     }
+
+
 }

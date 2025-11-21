@@ -42,8 +42,11 @@ internal static class TlsRealityHelper
         // 1. 提取参数
         var security = extra.GetValueOrDefault("security") ?? "tls";
         var skipCertVerify = extra.GetValueOrDefault("skip_cert_verify") == "true";
-        var sni = node.HostParam ?? node.Host;
-        string effectiveSni = node.Host;
+
+        // var sni = node.HostParam ?? node.Host;
+        var sni = extra.GetValueOrDefault("sni")?.Trim();
+        
+        string effectiveSni;
 
         // 2. 判断是否启用 REALITY
         var realityEnabled = string.Equals(extra.GetValueOrDefault("reality_enabled"), "true", StringComparison.OrdinalIgnoreCase)
@@ -53,11 +56,22 @@ internal static class TlsRealityHelper
         // 关键：REALITY 必须在裸 TCP 上握手，不能在 SslStream 上运行！
         if (security == "tls")
         {
+            if (!string.IsNullOrEmpty(sni))
+            {
+                // 有 sni 参数 → 智能 fallback
+                effectiveSni = sni.Trim();
+            }
+            else
+            {
+                effectiveSni = await PreValidateSniFallbackAsync(node, node.Host, skipCertVerify);
+            }
+            LogHelper.Info($"[TLS] {node.Host}:{node.Port} | 原始 sni={sni}，最终使用 {effectiveSni}");
+
             // 纯 TLS 节点：执行标准 TLS 握手
             LogHelper.Debug($"[TLS] {node.Host}:{node.Port} | 开始标准 TLS 握手 (skipCert={skipCertVerify})");
 
             // 使用原始传入的 SNI（或 fallback 到 Host）
-            var tlsSni = !string.IsNullOrEmpty(sni) ? sni : node.Host;
+            // var tlsSni = !string.IsNullOrEmpty(sni) ? sni : node.Host;
 
             // Chrome ClientHello 指纹检测
             bool helloOk = await TlsHelper.TestTlsWithChromeHelloAsync(
@@ -67,12 +81,12 @@ timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
 
             if (!helloOk)
             {
-                LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={tlsSni})");
+                LogHelper.Warn($"[TLS] {node.Host}:{node.Port} | Chrome ClientHello 失败 (SNI={effectiveSni})");
                 return null;
             }
 
             var ssl = new SslStream(baseStream, leaveInnerStreamOpen: true);
-            var sslOpts = TlsHelper.CreateSslOptions(tlsSni, skipCertVerify);
+            var sslOpts = TlsHelper.CreateSslOptions(effectiveSni, skipCertVerify);
             sslOpts.EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13;
             sslOpts.ApplicationProtocols = new List<SslApplicationProtocol>
     {
@@ -83,18 +97,30 @@ timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
             await ssl.AuthenticateAsClientAsync(sslOpts, cts.Token).ConfigureAwait(false);
 
             stream = ssl;
-            LogHelper.Info($"[TLS] {node.Host}:{node.Port} | TLS 握手成功 (SNI={tlsSni})");
+            LogHelper.Info($"[TLS] {node.Host}:{node.Port} | TLS 握手成功 (SNI={effectiveSni})");
         }
         else if (security == "reality")
         {
             // REALITY 节点：直接在原始 TCP 流上进行 REALITY 握手（跳过 TLS）
             LogHelper.Debug($"[REALITY] {node.Host}:{node.Port} | 跳过 TLS，直接在裸 TCP 上执行 REALITY 握手");
 
+            if (!string.IsNullOrEmpty(sni))
+            {
+                // 有 sni 参数 → 智能 fallback                
+                effectiveSni = sni.Trim();
+            }
+            else
+            {
+                effectiveSni = await PreValidateSniFallbackAsync(node, node.Host, skipCertVerify);
+            }
+            LogHelper.Info($"[REALITY] {node.Host}:{node.Port} | 最终使用 SNI = {effectiveSni}");
+
             var spx = extra.GetValueOrDefault("spx") ?? "/";
             var pk = extra.GetValueOrDefault("reality_public_key") ?? "";
             var pbk = extra.GetValueOrDefault("pbk") ?? "";
-            var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
-            var activePk = !string.IsNullOrEmpty(pk) ? pk : pbk;
+            // var sid = extra.GetValueOrDefault("reality_short_id") ?? "";
+            var sid = node.ShortId ?? "";
+            var activePk = !string.IsNullOrEmpty(pk) ? pk : pbk;            
 
             // 提前验证公钥合法性（支持 URL-safe Base64 + 自动补齐）
             try
@@ -109,15 +135,21 @@ timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
 
             if (string.IsNullOrEmpty(sid) || sid.Length > 16)
             {
-                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | short_id 无效 (len={sid?.Length ?? 0})");
+                // 0～16 个字符的十六进制字符串（0-9, a-f, A-F）
+                // 长度必须 ≤ 16 字符
+                // 最常见长度：8 或 16 位
+                // 注意：flow=xtls-rprx-vision 时，sid 将被忽略
+                LogHelper.Warn($"[REALITY] {node.Host}:{node.Port} | short_id（sid） 无效 (len={sid?.Length ?? 0})");
                 return null;
             }
 
             var (success, encryptedStream) = await RealityHelper.RealityHandshakeAsync(
+                node,
                 baseStream,           // ← 关键！必须传原始 TCP 流，不能传 SslStream
                 sid,
                 activePk,
                 spx,
+                effectiveSni,
                 cts.Token).ConfigureAwait(false);
 
             if (success && encryptedStream != null)
@@ -141,47 +173,82 @@ timeoutMs: (int)TimeSpan.FromSeconds(timeoutSec).TotalMilliseconds
     }
 
     /// <summary>
-    /// REALITY 模式 SNI fallback 预验证
+    /// TLS 和 REALITY 模式 SNI fallback 预验证
+    /// 空 → 兜底、域名 → 验证、IP → 直接兜底
     /// </summary>
-    private static async Task<string> PreValidateSniFallbackAsync( VlessNode node, string sni, bool skipCertVerify )
+    private static async Task<string> PreValidateSniFallbackAsync(
+        VlessNode node,
+        string? sni,
+        bool skipCertVerify )
     {
-        string effectiveSni = sni;
-        var hostParts = node.Host.Split('.');
-        var fallbackSnis = new List<string> { node.Host };
-
-        if (hostParts.Length >= 2)
+        // 1. 空 sni → 直接兜底（最快）
+        if (string.IsNullOrWhiteSpace(sni))
         {
-            var root = string.Join(".", hostParts.Skip(hostParts.Length - 2));
-            fallbackSnis.Add(root);
-            fallbackSnis.Add("www." + root);
-            fallbackSnis.Add("*." + root);
+            LogHelper.Info($"[SNI-Fallback] {node.Host}:{node.Port} | sni 为空，直接使用兜底域名");
+            return "www.microsoft.com";
         }
-        fallbackSnis.Add("www.microsoft.com");
-        fallbackSnis.Add("www.cloudflare.com");
-        fallbackSnis = fallbackSnis.Distinct().ToList();
 
-        LogHelper.Verbose($"[REALITY-SNI] {node.Host}:{node.Port} | fallback SNIs: {string.Join(", ", fallbackSnis)}");
+        string inputSni = sni.Trim();
 
-        foreach (var f in fallbackSnis)
+        // 2. 是 IP（IPv4 或 IPv6）→ 直接兜底（避免无意义 TLS 握手）
+        if (IPAddress.TryParse(inputSni, out _))
         {
-            var match = await TlsHelper.PreValidateSniAsync(node.Host, node.Port, f, 2000, skipCertVerify).ConfigureAwait(false);
-            LogHelper.Verbose($"[REALITY-SNI-Fallback] {node.Host}:{node.Port} | 测试 SNI={f} → Match={match}");
+            LogHelper.Warn($"[SNI-Fallback] {node.Host}:{node.Port} | sni 是 IP ({inputSni})，证书不可能匹配，直接兜底");
+            return "www.microsoft.com";
+        }
 
-            if (match)
+        // 3. 是合法域名 → 才进行智能 fallback 验证
+        LogHelper.Verbose($"[SNI-Fallback] {node.Host}:{node.Port} | sni 是域名 ({inputSni})，开始智能验证");
+
+        string effectiveSni = inputSni;
+        var hostParts = node.Host.Split('.');
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 优先尝试原始 sni（用户指定的最可信）
+        candidates.Add(inputSni);
+
+        // 再加根域变种
+        if (!IPAddress.TryParse(node.Host, out _))
+        {
+            candidates.Add(node.Host);
+            if (hostParts.Length >= 2)
             {
-                effectiveSni = f.StartsWith("*.") ? node.Host : f;
-                LogHelper.Info($"[REALITY-SNI] {node.Host}:{node.Port} | 匹配成功 → 使用 effectiveSni={effectiveSni}");
-                break;
+                var root = string.Join(".", hostParts.Skip(hostParts.Length - 2));
+                candidates.Add(root);
+                candidates.Add("www." + root);
+                candidates.Add("*." + root);
             }
         }
 
-        if (effectiveSni == sni)
+        // 全球最强兜底三件套
+        candidates.Add("www.microsoft.com");
+        candidates.Add("www.cloudflare.com");
+        candidates.Add("www.youtube.com");
+
+        foreach (var candidate in candidates)
         {
-            effectiveSni = node.Host;
-            LogHelper.Warn($"[REALITY-SNI] {node.Host}:{node.Port} | 所有 fallback 失败，强制使用 Host={effectiveSni}");
+            // 跳过明显是 IP 的（虽然前面已过滤，但保险）
+            if (IPAddress.TryParse(candidate, out _))
+                continue;
+
+            var match = await TlsHelper.PreValidateSniAsync(
+                node.Host, node.Port, candidate, 2000, skipCertVerify)
+                .ConfigureAwait(false);
+
+            LogHelper.Verbose($"[SNI-Fallback] 测试 SNI={candidate} → Match={match}");
+
+            if (match)
+            {
+                // 通配符处理：*.example.com → 使用用户原始 sni（最自然）
+                effectiveSni = candidate.StartsWith("*.") ? inputSni : candidate;
+                LogHelper.Info($"[SNI-Fallback] {node.Host}:{node.Port} | 验证成功 → 使用 {effectiveSni}");
+                return effectiveSni;
+            }
         }
 
-        return effectiveSni;
+        // 所有都失败 → 强制兜底
+        LogHelper.Warn($"[SNI-Fallback] {node.Host}:{node.Port} | 所有候选域名均失败，强制使用 www.microsoft.com");
+        return "www.microsoft.com";
     }
 
     /// <summary>

@@ -268,6 +268,27 @@ internal static class ProtocolParser
 
         var readOnlyExtra = query.ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 
+        // 处理 reality_short_id（sid）不同名称
+        if (string.IsNullOrEmpty(query.GetValueOrDefault("reality_short_id")) &&
+    query.TryGetValue("sid", out var sidValue) &&
+    !string.IsNullOrWhiteSpace(sidValue))
+        {
+            query["reality_short_id"] = sidValue;  // 统一映射
+            // 调试信息
+            LogHelper.Verbose($"[VLESS 解析] {host}:{port}检测到 sid 参数，自动映射为 reality_short_id: {sidValue}");
+        }
+
+        // 同时处理 reality_public_key（pbk）不同名称
+        if (string.IsNullOrEmpty(query.GetValueOrDefault("reality_public_key")) &&
+            query.TryGetValue("pbk", out var pbkValue) &&
+            !string.IsNullOrWhiteSpace(pbkValue))
+        {
+            query["reality_public_key"] = pbkValue;
+            query["reality_enabled"] = "true";
+            // 调试信息
+            // LogHelper.Verbose($"[VLESS 解析] 检测到 pbk 参数，自动映射为 reality_public_key: {pbkValue} | reality_enabled = true");
+        }
+
         return new VlessNode
         {
             OriginalLink = uri.ToString(),
