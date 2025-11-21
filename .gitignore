@@ -477,6 +477,6 @@ FodyWeavers.xsd
 /HiddifyConfigs/bin/Debug/valid_links.txt
 /HiddifyConfigs/bin/Debug/valid_links_01.txt
 /HiddifyConfigs/bin/Debug/valid_links_02.txt
-/HiddifyConfigsCLI/tests/del_type_ws.cmd
-/HiddifyConfigsCLI/tests/test.txt.bak
-/HiddifyConfigsCLI/tests/get_security_reality.cmd
+/HiddifyConfigsCLI/tests/*.cmd
+/HiddifyConfigsCLI/tests/*.bak
+
