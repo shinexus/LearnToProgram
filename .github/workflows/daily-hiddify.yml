@@ -38,8 +38,8 @@ jobs:
           }
 
           # 输入 URL（可按需替换）
-          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
-          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"
+          # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
           # 输出 绝对路径
           $outputFile = Join-Path $exeDir "valid_links.txt"
@@ -52,7 +52,8 @@ jobs:
             "--max-parts", "2",
             "--timeout", "6",
             "--parallel", "128",
-            "--http-timeout", "5"            
+            "--http-timeout", "5"
+            "--verbose"
           )
 
           # 显示运行前目录与 EXE 目录下文件（便于对比）
