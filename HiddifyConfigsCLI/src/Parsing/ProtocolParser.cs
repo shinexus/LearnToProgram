@@ -648,6 +648,15 @@ internal static class ProtocolParser
             query.Remove("transport");
         }
 
+        // security 字段提取（关键！） ---------------------
+        string? security = null;
+        if (query.TryGetValue("security", out var secVal) && !string.IsNullOrWhiteSpace(secVal))
+        {
+            security = secVal.Trim();
+            query.Remove("security");
+            // LogHelper.Verbose($"[Hysteria2] 检测到 security={security}");
+        }
+
         // --------------------- 6. 剩余字段进入 ExtraParams ---------------------
         foreach (var kvp in query)
         {
@@ -689,6 +698,9 @@ internal static class ProtocolParser
 
                 // ── 传输控制 ──
                 DisableUdp = disableUdp,
+
+                // ── 安全类型（默认 TLS ， Reality） ──
+                Security = security,
 
                 // ── 扩展字段（仅未知）──
                 ExtraParams = extra

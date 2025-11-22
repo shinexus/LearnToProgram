@@ -73,12 +73,17 @@ public sealed class Hysteria2Node : NodeInfoBase
     /// <summary>
     /// 是否禁用 UDP（用于纯 TCP 场景）
     /// </summary>
-    public bool? DisableUdp { get; set; }
+    public bool? DisableUdp { get; set; }    
 
     /// <summary>
     /// 传输类型（udp / wechat-video 等，默认为 udp）
     /// </summary>
     public string? TransportType { get; set; } = "udp";
+
+    /// <summary
+    /// 安全类型（tls / none，默认为 tls）
+    /// </summary>
+    public string? Security { get; set; } = "tls";
 
     // ──────────────────────────────
     // 高级选项（保留在 ExtraParams 中）

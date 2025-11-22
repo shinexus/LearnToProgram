@@ -31,7 +31,7 @@ internal static class TlsRealityHelper
     /// <param name="cts">取消令牌源</param>
     /// <returns>握手成功后的 Stream（可能是 SslStream 或 RealityStream）</returns>
     public static async Task<Stream?> HandleTlsRealityAsync(
-        VlessNode node,
+        VlessNode node,        
         Stream baseStream,
         IReadOnlyDictionary<string, string> extra,
         int timeoutSec,
