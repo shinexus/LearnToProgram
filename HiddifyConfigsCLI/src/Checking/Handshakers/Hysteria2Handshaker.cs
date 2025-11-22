@@ -98,7 +98,8 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                     // 使用兜底后的真实 SNI（关键！）
                     TargetHost = effectiveSni,
                     // ApplicationProtocols = new List<SslApplicationProtocol> { SslApplicationProtocol.Http3 },
-                    ApplicationProtocols = new() { SslApplicationProtocol.Http3 },
+                    // ApplicationProtocols = new() { SslApplicationProtocol.Http3 },
+                    ApplicationProtocols = alpnList,
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
 
                     // 强制 TLS 1.3（Hysteria2 要求）
@@ -114,7 +115,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                             return true;
                         }
                         LogHelper.Verbose($"[Hysteria2] TLS 证书错误（已忽略） → {errors}");
-                        return true;
+                        return errors == SslPolicyErrors.None;
                     }
                 }
 
@@ -145,7 +146,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
 
                 var reqBytes = Encoding.ASCII.GetBytes(request);
                 // await stream.WriteAsync(reqBytes, cts.Token);
-                await stream.WriteAsync(reqBytes, cts.Token).ConfigureAwait(false); ;
+                await stream.WriteAsync(reqBytes, cts.Token).ConfigureAwait(false);
 
                 // --- 5️⃣ 读取服务器返回 ---
                 var buffer = ArrayPool<byte>.Shared.Rent(8192);
@@ -153,7 +154,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                 try
                 {
                     var memory = buffer.AsMemory(0, 8192);
-                    int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, 4096), cts.Token).ConfigureAwait(false);
+                    int bytesRead = await stream.ReadAsync(buffer.AsMemory(0, 8192), cts.Token).ConfigureAwait(false);
                     if (bytesRead == 0)
                     {
                         LogHelper.Warn($"[Hysteria2] {node.Host}:{node.Port} 服务器关闭流（bytesRead=0）");
@@ -191,6 +192,8 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
             {
                 sw.Stop();
                 LogHelper.Warn($"[Hysteria2] {node.Host}:{node.Port} QUIC 错误 → {qex.Message} (ErrorCode={qex.ApplicationErrorCode} | {qex.TransportErrorCode})");
+                // 0x80072743 = WSAEHOSTUNREACH（Windows Socket 错误码 10065）
+                // 官方定义：No route to host（目标主机不可达）
                 return (false, sw.Elapsed, null);
             }
             catch (AuthenticationException aex)
@@ -209,7 +212,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                 
         // 辅助方法：安全识别 .NET 官方支持的 ALPN 协议常量
         // 避免使用 new SslApplicationProtocol(string) 导致 QUIC 握手失败
-        private static bool TryGetKnownProtocol( string name, out SslApplicationProtocol protocol )
+        public static bool TryGetKnownProtocol( string name, out SslApplicationProtocol protocol )
         {
             protocol = name.Trim() switch
             {
