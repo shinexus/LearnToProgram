@@ -137,8 +137,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                 // --- 4️⃣ 发送 Hysteria2 控制请求 ---
                 // Hysteria2 官方客户端发送的原始报文（必须包含 Hysteria-UDP: true）
                 var request =
-                    "CONNECT / HTTP/3\r\n" +
-                    // $"Host: {node.Host}\r\n" +
+                    "CONNECT / HTTP/3\r\n" +                    
                     $"Host: {effectiveSni}\r\n" +
                     "User-Agent: hysteria/2.3.0\r\n" +
                     "Hysteria-UDP: true\r\n" +
