@@ -276,6 +276,4 @@ internal static class RealityHelper
         await stream.ReadExactlyAsync(buffer, ct);
         return buffer.Length;  // 总是等于请求长度（否则已抛异常）
     }
-
-
 }

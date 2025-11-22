@@ -14,7 +14,7 @@ using System.Text;
 namespace HiddifyConfigsCLI.src.Checking.Handshakers;
 
 /// <summary>
-/// 【Trojan 握手器】完整 Trojan 协议握手（TLS + SHA224 密码验证）
+/// 完整 Trojan 协议握手（TLS + SHA224 密码验证）
 /// </summary>
 internal static class TrojanHandshaker
 {
@@ -22,8 +22,7 @@ internal static class TrojanHandshaker
     /// 检测 Trojan 协议握手连通性
     /// 返回值：success, latency, stream（若 success 且希望继续用连接则返回 SslStream；调用者在最终使用完后必须 Dispose）
     /// </summary>
-    public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
-        // NodeInfo node,
+    public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(        
         TrojanNode node,
         IPAddress address,
         int timeoutSec,
@@ -89,7 +88,8 @@ internal static class TrojanHandshaker
                 socket = null;
 
                 LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | 密码为空");
-                return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+                
+                return (false, sw.Elapsed, null);
             }
 
             // 计算 SHA224(hex)
@@ -114,9 +114,9 @@ internal static class TrojanHandshaker
             var buffer = ArrayPool<byte>.Shared.Rent(2);
             try
             {
-                // 创建一个短时的读取超时（例如 500ms）与总超时组合
+                // 创建一个短时的读取超时（例如 1000ms）与总超时组合
                 using var readCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-                readCts.CancelAfter(TimeSpan.FromMilliseconds(500));
+                readCts.CancelAfter(TimeSpan.FromMilliseconds(1000));
 
                 int read = 0;
                 try
@@ -131,14 +131,15 @@ internal static class TrojanHandshaker
                     stream = ssl;
                     keepAlive = true; // 上层负责释放
                     LogHelper.Info($"[Trojan] {node.Host}:{node.Port} | 未立即返回数据，但 TLS+密码已发送 — 视为握手成功");
-                    return await Task.FromResult((true, sw.Elapsed, stream));
+                    
+                    return (true, sw.Elapsed, stream);
                 }
                 catch (IOException ioEx)
                 {
                     // IO 异常（例如对端重置）：把它当作失败
                     sw.Stop();
                     LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | 读取响应 IO 异常: {ioEx.Message}");
-                    return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+                    return (false, sw.Elapsed, null);
                 }
 
                 // 如果读到数据，检查是否为 CRLF（\r\n）
@@ -148,21 +149,21 @@ internal static class TrojanHandshaker
                     stream = ssl;
                     keepAlive = true; // 返回后上层负责释放
                     LogHelper.Info($"[Trojan] {node.Host}:{node.Port} | 握手成功（收到 CRLF）");
-                    return await Task.FromResult((true, sw.Elapsed, stream));
+                    return (true, sw.Elapsed, stream);
                 }
                 else if (read > 0)
                 {
                     // 收到非 CRLF 数据：视为验证失败（服务端返回了错误或其他二进制）
                     sw.Stop();
                     LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | 验证响应非 CRLF，bytesRead={read}");
-                    return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+                    return (false, sw.Elapsed, null);
                 }
                 else
                 {
                     // read == 0: 对端已关闭连接（视为失败）
                     sw.Stop();
                     LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | 连接已被对端关闭（读取到 0 字节）");
-                    return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+                    return (false, sw.Elapsed, null);
                 }
             }
             finally
@@ -175,27 +176,27 @@ internal static class TrojanHandshaker
             // 超时
             sw.Stop();
             LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | 超时");
-            return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+            return (false, sw.Elapsed, null);
         }
         catch (AuthenticationException ex)
         {
             // TLS 验证失败（证书问题等）
             sw.Stop();
             LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | TLS 认证失败: {ex.Message}");
-            return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+            return (false, sw.Elapsed, null);
         }
         catch (SocketException ex)
         {
             // TCP 层问题
             sw.Stop();
             LogHelper.Warn($"[Trojan] {node.Host}:{node.Port} | TCP 连接失败: {ex.Message}");
-            return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+            return (false, sw.Elapsed, null);
         }
         catch (Exception ex)
         {
             sw.Stop();
             LogHelper.Error($"[Trojan] {node.Host}:{node.Port} | 握手异常: {ex.Message}");
-            return await Task.FromResult((false, sw.Elapsed, (Stream?)null));
+            return (false, sw.Elapsed, null);
         }
         finally
         {

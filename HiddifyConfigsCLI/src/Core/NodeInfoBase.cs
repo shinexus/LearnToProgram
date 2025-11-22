@@ -32,6 +32,7 @@ namespace HiddifyConfigsCLI.src.Core
         /// <summary>
         /// TLS SNI 主机名（优先于 Host）
         /// 可为空 → 使用 Host
+        /// SNI 必须为域名
         /// </summary>
         public string? HostParam { get; set; }
 
