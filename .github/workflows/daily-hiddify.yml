@@ -42,7 +42,8 @@ jobs:
           # $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
           # 输出 绝对路径
-          $outputFile = Join-Path $exeDir "valid_links.txt"
+          # $outputFile = Join-Path $exeDir "valid_links.txt"
+          $outputFile = Join-Path $exeDir "_test.txt"
           
           # 参数数组
           $params = @(
