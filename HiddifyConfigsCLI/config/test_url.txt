@@ -1,1 +1,2 @@
 https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/python/hysteria2
+https://raw.githubusercontent.com/Argh94/Proxy-List/refs/heads/main/Hysteria2.txt
