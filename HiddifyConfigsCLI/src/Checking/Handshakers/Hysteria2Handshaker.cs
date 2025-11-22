@@ -122,13 +122,16 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                         // RemoteCertificateValidationCallback 已无意义（仅用于日志）
                         RemoteCertificateValidationCallback = ( sender, cert, chain, errors ) =>
                         {
-                            if (errors == SslPolicyErrors.None || node.SkipCertVerify)
-                            {
-                                LogHelper.Verbose($"[Hysteria2] TLS 证书通过 → {cert?.Subject}");
-                                return true;
-                            }
-                            LogHelper.Verbose($"[Hysteria2] TLS 证书错误（已忽略） → {errors}");
-                            return errors == SslPolicyErrors.None;
+                            bool allow = errors == SslPolicyErrors.None || node.SkipCertVerify;
+
+                            if (allow && errors != SslPolicyErrors.None)
+                                LogHelper.Verbose($"[Hysteria2] TLS 证书错误但已跳过（insecure=1） → {errors}");
+                            else if (errors == SslPolicyErrors.None)
+                                LogHelper.Verbose($"[Hysteria2] TLS 证书验证通过 → {cert?.Subject}");
+                            else
+                                LogHelper.Warn($"[Hysteria2] TLS 证书验证失败 → {errors}");
+
+                            return allow;
                         }
                     }
 
