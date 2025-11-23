@@ -1,0 +1,57 @@
+name: Test 
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: windows-latest
+    timeout-minutes: 80
+
+    steps:
+      # -------------------------------------------------
+      - name: 1. 拉取仓库
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      - name: 2. 运行 CLI（强检路径 + 验证输出）
+        id: run_exe
+        shell: pwsh
+        timeout-minutes: 70
+        run: |
+          # --- 明确 EXE 完整路径（基于 workspace） ---
+          $exeDir = Join-Path $env:GITHUB_WORKSPACE "HiddifyConfigsCLI/bin/Debug/net9.0"
+          $exe = Join-Path $exeDir "HiddifyConfigsCLI.exe"
+
+          Write-Host "预期 EXE Dir  = $exeDir"
+          Write-Host "预期 EXE Path = $exe"
+
+          if (!(Test-Path $exe)) {
+            Write-Error "EXE 不存在: $exe"
+            exit 1
+          }
+
+          # 输入 URL（可按需替换）
+          $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/test_url.txt"          
+
+          # 输出 绝对路径          
+          $outputFile = Join-Path $exeDir "_test.txt"
+          
+          # 参数数组
+          $params = @(
+            "--input", $input,
+            "--output", $outputFile,
+            "--max-lines", "100",
+            "--max-parts", "2",
+            "--timeout", "6",
+            "--parallel", "128",
+            "--http-timeout", "5"
+            "--verbose"
+          )
+
+          # 显示运行前目录与 EXE 目录下文件（便于对比）
+          Write-Host "运行前当前目录: $(Get-Location)"
+          Write-Host "运行前列出 EXE 目录文件（省略）："
+          # Get-ChildItem -Path $exeDir -Force -ErrorAction SilentlyContinue | Select-Object Name, FullName, Length | Format-Table     
+
+          Write-Host "Step 2 完成"
