@@ -17,7 +17,7 @@ using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Tls;
 
 internal static class TlsRealityHelper
 {

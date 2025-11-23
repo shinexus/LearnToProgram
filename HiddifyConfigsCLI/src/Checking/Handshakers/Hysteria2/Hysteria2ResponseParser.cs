@@ -7,7 +7,7 @@ using System.Text;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     /// <summary>
     /// Hysteria2 协议专用响应解析器

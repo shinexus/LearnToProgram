@@ -14,7 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Buffers;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 
 internal static class VlessGrpcHandler
 {

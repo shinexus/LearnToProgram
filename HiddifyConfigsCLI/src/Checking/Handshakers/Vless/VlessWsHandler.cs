@@ -3,7 +3,6 @@
 // 功能：VLESS 节点 WebSocket 处理
 // 目的：将 VlessHandshaker 中 WS 相关逻辑抽离为独立类，提高可读性与可维护性
 
-using HiddifyConfigsCLI.src.Checking;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System;
@@ -13,7 +12,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 
 internal static class VlessWsHandler
 {

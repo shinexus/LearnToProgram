@@ -11,7 +11,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 
 internal static class VlessHeaderBuilder
 {

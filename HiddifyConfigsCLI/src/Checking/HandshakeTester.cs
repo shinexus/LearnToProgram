@@ -1,6 +1,9 @@
 ﻿// src/Checking/HandshakeTester.cs
 
 
+using HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2;
+using HiddifyConfigsCLI.src.Checking.Handshakers.Trojan;
+using HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System.Net;
@@ -49,15 +52,15 @@ internal static class HandshakeTester
         return node.Type switch
         {
             "vless" => node is VlessNode vlessNode
-                ? await Handshakers.VlessHandshaker.TestAsync(vlessNode, address, timeoutSec, opts)
+                ? await VlessHandshaker.TestAsync(vlessNode, address, timeoutSec, opts)
                 : (false, TimeSpan.Zero, null),
 
             "trojan" => node is TrojanNode trojanNode
-                ? await Handshakers.TrojanHandshaker.TestAsync(trojanNode, address, timeoutSec, opts)
+                ? await TrojanHandshaker.TestAsync(trojanNode, address, timeoutSec, opts)
                 : (false, TimeSpan.Zero, null),
 
             "hysteria2" => node is Hysteria2Node hysteria2Node
-                ? await Handshakers.Hysteria2Handshaker.TestAsync(hysteria2Node, address, timeoutSec, opts)
+                ? await Hysteria2Handshaker.TestAsync(hysteria2Node, address, timeoutSec, opts)
                 : (false, TimeSpan.Zero, null),
 
             _ => (false, TimeSpan.Zero, null) // 防御性

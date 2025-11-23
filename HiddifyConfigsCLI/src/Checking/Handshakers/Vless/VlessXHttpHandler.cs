@@ -14,7 +14,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 
 internal static class VlessXHttpHandler
 {

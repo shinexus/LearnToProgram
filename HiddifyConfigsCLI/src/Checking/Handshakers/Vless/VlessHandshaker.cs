@@ -9,7 +9,7 @@
 // 目的：调用独立 Handler 类，实现 TCP/TLS/REALITY/WS/gRPC/XHTTP 全流程
 // 优化：可读性、性能、可维护性，保留原注释和日志
 
-using HiddifyConfigsCLI.src.Checking;
+using HiddifyConfigsCLI.src.Checking.Tls;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using HiddifyConfigsCLI.src.Utils;
@@ -21,7 +21,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Vless;
 
 internal static class VlessHandshaker
 {

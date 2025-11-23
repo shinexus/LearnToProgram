@@ -12,7 +12,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     /// <summary>
     /// Hysteria2 协议专用握手器（.NET 9 System.Net.Quic 纯实现）

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Net.Security;
 using System.Text;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     /// <summary>
     /// Hysteria2 协议专用 HTTP/3 /auth 请求构造器

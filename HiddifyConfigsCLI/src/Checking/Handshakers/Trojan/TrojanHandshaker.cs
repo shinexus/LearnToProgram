@@ -11,7 +11,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Text;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers;
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Trojan;
 
 /// <summary>
 /// 完整 Trojan 协议握手（TLS + SHA224 密码验证）
