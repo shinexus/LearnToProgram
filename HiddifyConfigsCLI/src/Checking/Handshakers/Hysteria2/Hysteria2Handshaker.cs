@@ -15,8 +15,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     /// Hysteria2 协议专用握手器（.NET 9 System.Net.Quic 纯实现）
     /// 完全遵循官方协议：TLS 1.3 + HTTP/3 /auth + 233 HyOK
     /// 支持 mport 多端口随机选择、Up/DownMbps 带宽声明、随机 Padding
+    /// 支持 Salamander（BouncyCastle）、cipher 伪装、mport、完整异常处理
     /// </summary>
-    // [Grok 修复_2025-11-23_007] // 重构：主流程极简清晰，职责完全解耦至 RequestBuilder & ResponseParser
+    // 重构：主流程极简清晰，职责完全解耦至 RequestBuilder & ResponseParser
     internal static class Hysteria2Handshaker
     {
         /// <summary>
@@ -38,20 +39,30 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 int targetPort = ResolveTargetPort(node);
                 var endpoint = new IPEndPoint(address, targetPort);
 
-                // 2. 建立 QUIC 连接（SNI/ALPN 统一配置）
+                // 2. 建立 QUIC 连接（OpenSSL + cipher 伪装）
                 await using var connection = await ConnectQuicAsync(node, endpoint, cts.Token);
                 if (connection == null)
                     return (false, sw.Elapsed, null);
 
                 LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.RemoteEndPoint}");
 
-                // 3. 开双向流并发送 /auth 请求
+                // 3. 开双向流
                 await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
 
-                byte[] requestBytes = Hysteria2RequestBuilder.BuildAuthRequest(node);
-                await stream.WriteAsync(requestBytes, cts.Token).ConfigureAwait(false);
+                // 4. 发送 /auth 请求（Salamander 加密）
+                byte[] request = Hysteria2RequestBuilder.BuildAuthRequest(node);
+                if (Hysteria2SalamanderEngine.IsEnabled(node))
+                {
+                    var encrypted = Hysteria2SalamanderEngine.Encrypt(request, node.ObfsPassword!);
+                    await stream.WriteAsync(encrypted, cts.Token);
+                    LogHelper.Verbose($"[Hysteria2] Salamander 加密请求 {request.Length} → {encrypted.Length} 字节");
+                }
+                else
+                {
+                    await stream.WriteAsync(request, cts.Token);
+                }
 
-                // 4. 解析服务器响应（233 HyOK）
+                // 5. 读取并解析响应（Salamander 解密）
                 var parseResult = await Hysteria2ResponseParser.ParseAsync(stream, node, cts.Token);
 
                 sw.Stop();
@@ -62,7 +73,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                     return (false, sw.Elapsed, null);
                 }
 
-                LogHelper.Info($"[Hysteria2] {node.Host}:{targetPort} 握手成功，延迟 {sw.Elapsed.TotalMilliseconds:F0}ms");
+                LogHelper.Info($"[Hysteria2] {node.Host}:{targetPort} 握手成功，延迟 {sw.Elapsed.TotalMilliseconds:F0}ms | UDP: {parseResult.UdpEnabled}");
                 return (true, sw.Elapsed, parseResult.ResponseStream);
             }
             catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -127,7 +138,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             Environment.SetEnvironmentVariable("QUIC_TLS", "openssl");  // 仅连接前设置，fallback Schannel 若 OpenSSL 未安装
 
             var cipherPolicy = new CipherSuitesPolicy(GetCipherSuites(node.Fingerprint));  // 自定义 cipher 列表
-
+            
             // 原有配置（保留，用于 fallback）
             var fallbackOptions = new QuicClientConnectionOptions
             {
@@ -158,6 +169,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 }
             };
 
+            LogHelper.Verbose($"[Hysteria2] TLS 伪装启用 → OpenSSL + {node.Fingerprint ?? "chrome"} cipher");
             return await QuicConnection.ConnectAsync(fallbackOptions, ct).ConfigureAwait(false);
         }
 
