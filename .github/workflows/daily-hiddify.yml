@@ -53,8 +53,7 @@ jobs:
             "--max-parts", "2",
             "--timeout", "6",
             "--parallel", "128",
-            "--http-timeout", "5"
-            "--verbose"
+            "--http-timeout", "5"            
           )
 
           # 显示运行前目录与 EXE 目录下文件（便于对比）
