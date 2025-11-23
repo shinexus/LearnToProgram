@@ -98,6 +98,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                 }
 
                 // 4. 配置 QUIC 连接参数 ---
+                var userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
                 var quicOptions = new QuicClientConnectionOptions
                 {
                     RemoteEndPoint = serverEndPoint,
@@ -122,16 +123,20 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                         // RemoteCertificateValidationCallback 已无意义（仅用于日志）
                         RemoteCertificateValidationCallback = ( sender, cert, chain, errors ) =>
                         {
-                            bool allow = errors == SslPolicyErrors.None || node.SkipCertVerify;
+                            if (errors == SslPolicyErrors.None)
+                            {
+                                LogHelper.Verbose($"[Hysteria2] 证书验证通过 → {cert?.Subject}");
+                                return true;
+                            }
 
-                            if (allow && errors != SslPolicyErrors.None)
-                                LogHelper.Verbose($"[Hysteria2] TLS 证书错误但已跳过（insecure=1） → {errors}");
-                            else if (errors == SslPolicyErrors.None)
-                                LogHelper.Verbose($"[Hysteria2] TLS 证书验证通过 → {cert?.Subject}");
-                            else
-                                LogHelper.Warn($"[Hysteria2] TLS 证书验证失败 → {errors}");
+                            if (node.SkipCertVerify)
+                            {
+                                LogHelper.Verbose($"[Hysteria2] 证书错误但已跳过（insecure=1） → {errors}");
+                                return true;
+                            }
 
-                            return allow;
+                            LogHelper.Warn($"[Hysteria2] 证书验证失败 → {errors}");
+                            return false;
                         }
                     }
 
@@ -154,7 +159,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers
                 var request =
                     "CONNECT / HTTP/3\r\n" +
                     $"Host: {effectiveSni}\r\n" +
-                    "User-Agent: hysteria/2.3.0\r\n" +
+                    $"User-Agent: {userAgent}\r\n" +
                     "Hysteria-UDP: true\r\n" +
                     "Connection: keep-alive\r\n\r\n";
 
