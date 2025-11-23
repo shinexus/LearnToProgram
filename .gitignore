@@ -480,3 +480,4 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/tests/*.cmd
 /HiddifyConfigsCLI/tests/*.bak
 
+/HiddifyConfigsCLI/bin/Debug/net9.0/runtimes
