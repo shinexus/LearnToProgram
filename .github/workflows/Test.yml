@@ -49,9 +49,14 @@ jobs:
             "--verbose"
           )
 
-          # 显示运行前目录与 EXE 目录下文件（便于对比）
-          Write-Host "运行前当前目录: $(Get-Location)"
-          Write-Host "运行前列出 EXE 目录文件（省略）："
-          # Get-ChildItem -Path $exeDir -Force -ErrorAction SilentlyContinue | Select-Object Name, FullName, Length | Format-Table     
+          # --- 用 Start-Process 确保 WorkingDirectory 不被重置，拿到进程对象以读取 ExitCode ---
+          Write-Host "使用 Start-Process 启动 EXE..."
+          $proc = Start-Process -FilePath $exe -WorkingDirectory $exeDir -ArgumentList $params -Wait -NoNewWindow -PassThru
+
+          Write-Host "Start-Process 返回 ExitCode: $($proc.ExitCode)"
+          if ($proc.ExitCode -ne 0) {
+            Write-Error "CLI 退出码非0： $($proc.ExitCode)"
+            exit $proc.ExitCode
+          }     
 
           Write-Host "Step 2 完成"
