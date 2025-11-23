@@ -657,6 +657,23 @@ internal static class ProtocolParser
             // LogHelper.Verbose($"[Hysteria2] 检测到 security={security}");
         }
 
+        // --------------------- 5.5 mport 多端口解析（新增） ---------------------
+        int[]? multiPorts = null;
+        if (query.TryGetValue("mport", out var mportVal) && !string.IsNullOrWhiteSpace(mportVal))
+        {
+            var ports = ParseMportParameter(mportVal);
+            if (ports != null && ports.Length > 0)
+            {
+                multiPorts = ports;
+                LogHelper.Verbose($"[Hysteria2] 检测到 mport 范围，解析得到 {ports.Length} 个可用端口");
+            }
+            else
+            {
+                LogHelper.Warn($"[Hysteria2] mport 参数格式无效，已忽略: {mportVal}");
+            }
+            query.Remove("mport"); // 消费该字段
+        }
+
         // --------------------- 6. 剩余字段进入 ExtraParams ---------------------
         foreach (var kvp in query)
         {
@@ -676,6 +693,7 @@ internal static class ProtocolParser
                 Type = "hysteria2",
                 Host = host,
                 Port = port,
+                MultiPorts = multiPorts,
                 Remark = string.Empty,
                 Transport = transportType ?? "udp",
 
@@ -843,4 +861,54 @@ internal static class ProtocolParser
         return dict;
     }
     #endregion
+
+    /// <summary>
+    /// 解析 Hysteria2 mport 参数，支持范围和离散端口
+    /// 示例：
+    ///   "50000-60000" → [50000, 50001, ..., 60000]
+    ///   "443,8443,50000" → [443, 8443, 50000]
+    ///   "443" → [443]
+    /// </summary>
+    private static int[]? ParseMportParameter( string mport )
+    {
+        try
+        {
+            var parts = mport.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var ports = new List<int>();
+
+            foreach (var part in parts)
+            {
+                if (part.Contains('-'))
+                {
+                    // 范围格式：50000-60000
+                    var range = part.Split('-', 2);
+                    if (range.Length == 2 &&
+                        int.TryParse(range[0], out int start) &&
+                        int.TryParse(range[1], out int end) &&
+                        start > 0 && end <= 65535 && start <= end)
+                    {
+                        for (int p = start; p <= end; p++)
+                        {
+                            ports.Add(p);
+                        }
+                    }
+                }
+                else
+                {
+                    // 单端口
+                    if (int.TryParse(part, out int port) && port > 0 && port <= 65535)
+                    {
+                        ports.Add(port);
+                    }
+                }
+            }
+
+            return ports.Count > 0 ? ports.ToArray() : null;
+        }
+        catch (Exception ex)
+        {
+            LogHelper.Warn($"[Hysteria2] 解析 mport 失败: {mport} | 错误: {ex.Message}");
+            return null;
+        }
+    }
 }

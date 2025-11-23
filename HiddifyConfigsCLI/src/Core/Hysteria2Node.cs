@@ -27,6 +27,16 @@ public sealed class Hysteria2Node : NodeInfoBase
     // public string? HostParam { get; set; }
 
     /// <summary>
+    /// 多端口范围（由 mport 参数解析）
+    /// 如果为 null → 使用单端口 Port
+    /// 如果非 null → 每次连接随机选择一个
+    /// </summary>
+    public int[]? MultiPorts { get; set; }
+
+    // 保留原始 Port 字段用于显示/日志（原始链接中的端口）
+    // 实际连接时优先使用 MultiPorts
+
+    /// <summary>
     /// 跳过证书验证（insecure / skip-cert-verify）
     /// </summary>
     public bool SkipCertVerify { get; set; } = false;
@@ -66,6 +76,11 @@ public sealed class Hysteria2Node : NodeInfoBase
     /// 下行带宽限制（Mbps）
     /// </summary>
     public int? DownMbps { get; set; }
+
+    ///<summary>
+    ///
+    /// </summary>
+    public int? MaxClientBandwidthMbps { get; set; }
 
     // ──────────────────────────────
     // 传输控制
