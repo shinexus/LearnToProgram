@@ -1,14 +1,10 @@
 ﻿// HiddifyConfigsCLI.src.Checking/Handshakers/Hysteria2/Hysteria2Handshaker.cs
-using HiddifyConfigsCLI.src.Checking.Tls;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Quic;
-using System.Net.Security;
-using System.Runtime.InteropServices;
 using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
 
 namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
@@ -17,14 +13,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     /// 完全遵循官方协议：TLS 1.3 + HTTP/3 /auth + 233 HyOK
     /// 支持：mport 多端口随机选择、Up/DownMbps 带宽声明、随机 Padding
     /// 支持：Salamander（BouncyCastle）、cipher 伪装、mport、完整异常处理
-    /// 重构：主流程解耦至 RequestBuilder & ResponseParser
+    /// 重构：主流程解耦至 RequestBuilder & ResponseParser 等
     /// </summary>    
     internal static class Hysteria2Handshaker
     {
-        /// <summary>
-        /// 测试 Hysteria2 节点连通性
-        /// </summary>
-        /// <returns>(success, latency, stream) 与其他协议保持一致</returns>
         public static async Task<(bool success, TimeSpan latency, Stream? stream)> TestAsync(
             Hysteria2Node node,
             IPAddress address,
@@ -36,21 +28,17 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
             try
             {
-                // 1. 选择目标端口（支持 mport 随机）
-                int targetPort = ResolveTargetPort(node);
+                int targetPort = Hysteria2PortResolver.Resolve(node);
                 var endpoint = new IPEndPoint(address, targetPort);
 
-                // 2. 建立 QUIC 连接（OpenSSL + cipher 伪装）
-                await using var connection = await ConnectQuicAsync(node, endpoint, cts.Token);
+                await using var connection = await Hysteria2ConnectionFactory.ConnectAsync(node, endpoint, cts.Token);
                 if (connection == null)
                     return (false, sw.Elapsed, null);
 
                 LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.RemoteEndPoint}");
 
-                // 3. 开双向流
                 await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
 
-                // 4. 发送 /auth 请求（Salamander 加密）
                 byte[] request = Hysteria2RequestBuilder.BuildAuthRequest(node);
                 if (Hysteria2SalamanderEngine.IsEnabled(node))
                 {
@@ -63,9 +51,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                     await stream.WriteAsync(request, cts.Token);
                 }
 
-                // 5. 读取并解析响应（Salamander 解密）
                 var parseResult = await Hysteria2ResponseParser.ParseAsync(stream, node, cts.Token);
-
                 sw.Stop();
 
                 if (!parseResult.Success)
@@ -101,197 +87,6 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 LogHelper.Warn($"[Hysteria2] {node.Host} 未知异常 → {ex.GetType().Name}: {ex.Message}");
                 return (false, sw.Elapsed, null);
             }
-        }
-
-        /// <summary>
-        /// 支持 mport 多端口随机选择
-        /// </summary>
-        private static int ResolveTargetPort( Hysteria2Node node )
-        {
-            if (node.MultiPorts != null && node.MultiPorts.Length > 0)
-            {
-                int index = Random.Shared.Next(node.MultiPorts.Length);
-                int port = node.MultiPorts[index];
-                LogHelper.Verbose($"[Hysteria2] mport 随机选择端口 → {port} (共 {node.MultiPorts.Length} 个)");
-                return port;
-            }
-
-            return node.Port; // 兜底使用原始端口
-        }
-
-        /// <summary>
-        /// 建立 QUIC 连接（统一配置 TLS 与 ALPN）
-        /// </summary>
-        private static async Task<QuicConnection?> ConnectQuicAsync(
-            Hysteria2Node node,
-            IPEndPoint endpoint,
-            CancellationToken ct )
-        {
-            string effectiveSni = await TlsSniResolver.ResolveEffectiveSniAsync(
-                node.Host, node.Port, node.HostParam, node.SkipCertVerify, ct).ConfigureAwait(false);
-
-            var alpnList = BuildAlpnList(node.Alpn);
-
-            // 启用 MsQuic OpenSSL 后端 + 手动 cipher 排序，模拟 Chrome ClientHello 规避 CloseNotify           
-            // OpenSSL 后端：ClientHello 更接近浏览器（cipher order 优化），成功率提升至 70%+
-            // 支持 node.Fingerprint：chrome (默认，JA3 771,4865-4866-4867,... )、firefox (4865-4866-4867-49195-52393,... )
-            // GREASE：.NET 9 自动启用（EnabledSslProtocols.Tls13）
-            // 强制尝试使用 OpenSSL 后端（Linux 有效）
-            // Windows、macOS 会自动忽略此变量并回退 Schannel
-            Environment.SetEnvironmentVariable("QUIC_TLS", "openssl");  // 仅连接前设置，fallback Schannel 若 OpenSSL 未安装
-
-            // var cipherPolicy = new CipherSuitesPolicy(GetCipherSuites(node.Fingerprint));  // 自定义 cipher 列表
-            CipherSuitesPolicy? cipherPolicy = null;
-            bool cipherPolicySupported = false;
-
-            // 只有在非 Windows 且明确支持 CipherSuitesPolicy 时才尝试自定义
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
-                !RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                try
-                {
-                    // 尝试实例化一次 CipherSuitesPolicy，用于检测当前平台是否真正支持
-                    var testSuites = GetCipherSuites(node.Fingerprint);
-                    if (testSuites is { Count: > 0 })
-                    {
-                        cipherPolicy = new CipherSuitesPolicy(testSuites);
-                        cipherPolicySupported = true;
-                    }
-                }
-                catch (PlatformNotSupportedException)
-                {
-                    // OpenSSL 版本太老或未正确加载，降级
-                    cipherPolicySupported = false;
-                    LogHelper.Verbose("[Hysteria2] 当前平台不支持 CipherSuitesPolicy，降级使用默认 TLS 密码套件顺序");
-                }
-            }
-            else
-            {
-                LogHelper.Verbose("[Hysteria2] Windows/macOS 平台不支持 CipherSuitesPolicy，使用系统默认 TLS 策略");
-            }
-
-            // 原有配置（保留，用于 fallback）
-            var fallbackOptions = new QuicClientConnectionOptions
-            {
-                RemoteEndPoint = endpoint,
-                DefaultStreamErrorCode = 0,
-                DefaultCloseErrorCode = 0,
-                MaxInboundBidirectionalStreams = 100,
-                MaxInboundUnidirectionalStreams = 10,
-                ClientAuthenticationOptions = new SslClientAuthenticationOptions
-                {
-                    TargetHost = effectiveSni,
-                    ApplicationProtocols = alpnList,
-                    EnabledSslProtocols = SslProtocols.Tls13,
-                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                    
-                    // CipherSuitesPolicy = cipherPolicy,  // 新增：手动排序 cipher，模拟浏览器优先级
-                    // 仅在真正支持时才赋值，否则保持 null（系统默认）
-                    CipherSuitesPolicy = cipherPolicySupported ? cipherPolicy : null,
-
-                    RemoteCertificateValidationCallback = ( sender, cert, chain, errors ) =>
-                    {
-                        if (errors == SslPolicyErrors.None)
-                            return true;
-                        if (node.SkipCertVerify)
-                        {
-                            LogHelper.Verbose($"[Hysteria2] 证书错误已跳过 → {errors}");
-                            return true;
-                        }
-                        LogHelper.Warn($"[Hysteria2] 证书验证失败 → {errors}");
-                        return false;
-                    }
-                }
-            };
-
-            // 日志提示用户当前实际使用的指纹策略
-            if (cipherPolicySupported)
-            {
-                LogHelper.Verbose($"[Hysteria2] TLS 伪装启用 → OpenSSL + {node.Fingerprint ?? "chrome"} cipher 自定义顺序");
-            }
-            else
-            {
-                LogHelper.Verbose($"[Hysteria2] TLS 伪装降级 → 使用系统默认 cipher 顺序（连通性优先）");
-            }
-
-            return await QuicConnection.ConnectAsync(fallbackOptions, ct).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// 构建 ALPN 列表（强制包含 h3）
-        /// </summary>
-        private static List<SslApplicationProtocol> BuildAlpnList( string? alpnConfig )
-        {
-            var list = new List<SslApplicationProtocol>();
-
-            if (string.IsNullOrWhiteSpace(alpnConfig))
-            {
-                list.Add(SslApplicationProtocol.Http3);
-                return list;
-            }
-
-            var parts = alpnConfig.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            bool hasValid = false;
-
-            foreach (var p in parts)
-            {
-                if (Hysteria2RequestBuilder.TryGetKnownProtocol(p, out var proto))
-                {
-                    list.Add(proto);
-                    hasValid = true;
-                }
-            }
-
-            if (!hasValid || list.Count == 0)
-            {
-                LogHelper.Warn("[Hysteria2] ALPN 配置无效，强制使用 h3");
-                list.Clear();
-            }
-
-            if (!list.Contains(SslApplicationProtocol.Http3))
-                list.Insert(0, SslApplicationProtocol.Http3); // h3 必须优先
-
-            return list;
-        }
-
-        /// <summary>
-        /// 获取浏览器-like cipher suites 列表（模拟 JA3 指纹）
-        /// </summary>
-        /// <param name="fingerprint">节点指纹参数（chrome/firefox/random）</param>
-        /// <returns>排序后的 CipherSuite 数组</returns>
-        private static IList<TlsCipherSuite> GetCipherSuites( string? fingerprint )
-        {
-            return fingerprint?.ToLowerInvariant() switch
-            {
-                "firefox" => new TlsCipherSuite[]
-                {
-                    TlsCipherSuite.TLS_AES_128_GCM_SHA256,      // 4865
-                    TlsCipherSuite.TLS_AES_256_GCM_SHA384,      // 4866
-                    TlsCipherSuite.TLS_CHACHA20_POLY1305_SHA256, // 4867
-                    TlsCipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, // 49195 (Firefox 优先 ECDSA)
-                    TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,   // 49200
-                    TlsCipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, // 49196
-                    TlsCipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 // 52393
-                },
-                "random" => new TlsCipherSuite[]
-                {
-                    // 随机化：每连接 shuffle（生产中用 Random.Shared.Shuffle）
-                    TlsCipherSuite.TLS_AES_128_GCM_SHA256,
-                    TlsCipherSuite.TLS_CHACHA20_POLY1305_SHA256,
-                    TlsCipherSuite.TLS_AES_256_GCM_SHA384,
-                    TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA               // 添加旧 cipher 混淆
-                }.Shuffle().ToArray(),                                              // 调用 Shuffle,  // 假设扩展方法 Shuffle()（见下文）
-                _ => new TlsCipherSuite[]  // 默认 Chrome 131 JA3 顺序
-                {
-                    TlsCipherSuite.TLS_AES_128_GCM_SHA256,          // 4865 (Chrome 第一优先)
-                    TlsCipherSuite.TLS_AES_256_GCM_SHA384,          // 4866
-                    TlsCipherSuite.TLS_CHACHA20_POLY1305_SHA256,    // 4867
-                    TlsCipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, // 52392
-                    TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,   // 49200
-                    TlsCipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, // 52393
-                    TlsCipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 // 52394
-                }
-            };
         }
     }
 }
