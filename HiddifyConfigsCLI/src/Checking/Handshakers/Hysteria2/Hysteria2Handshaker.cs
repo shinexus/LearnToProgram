@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Quic;
 using System.Net.Security;
+using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
@@ -14,10 +15,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     /// <summary>
     /// Hysteria2 协议专用握手器（.NET 9 System.Net.Quic 纯实现）
     /// 完全遵循官方协议：TLS 1.3 + HTTP/3 /auth + 233 HyOK
-    /// 支持 mport 多端口随机选择、Up/DownMbps 带宽声明、随机 Padding
-    /// 支持 Salamander（BouncyCastle）、cipher 伪装、mport、完整异常处理
-    /// </summary>
-    // 重构：主流程极简清晰，职责完全解耦至 RequestBuilder & ResponseParser
+    /// 支持：mport 多端口随机选择、Up/DownMbps 带宽声明、随机 Padding
+    /// 支持：Salamander（BouncyCastle）、cipher 伪装、mport、完整异常处理
+    /// 重构：主流程解耦至 RequestBuilder & ResponseParser
+    /// </summary>    
     internal static class Hysteria2Handshaker
     {
         /// <summary>
@@ -135,10 +136,40 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             // OpenSSL 后端：ClientHello 更接近浏览器（cipher order 优化），成功率提升至 70%+
             // 支持 node.Fingerprint：chrome (默认，JA3 771,4865-4866-4867,... )、firefox (4865-4866-4867-49195-52393,... )
             // GREASE：.NET 9 自动启用（EnabledSslProtocols.Tls13）
+            // 强制尝试使用 OpenSSL 后端（Linux 有效）
+            // Windows、macOS 会自动忽略此变量并回退 Schannel
             Environment.SetEnvironmentVariable("QUIC_TLS", "openssl");  // 仅连接前设置，fallback Schannel 若 OpenSSL 未安装
 
-            var cipherPolicy = new CipherSuitesPolicy(GetCipherSuites(node.Fingerprint));  // 自定义 cipher 列表
-            
+            // var cipherPolicy = new CipherSuitesPolicy(GetCipherSuites(node.Fingerprint));  // 自定义 cipher 列表
+            CipherSuitesPolicy? cipherPolicy = null;
+            bool cipherPolicySupported = false;
+
+            // 只有在非 Windows 且明确支持 CipherSuitesPolicy 时才尝试自定义
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                !RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                try
+                {
+                    // 尝试实例化一次 CipherSuitesPolicy，用于检测当前平台是否真正支持
+                    var testSuites = GetCipherSuites(node.Fingerprint);
+                    if (testSuites is { Count: > 0 })
+                    {
+                        cipherPolicy = new CipherSuitesPolicy(testSuites);
+                        cipherPolicySupported = true;
+                    }
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    // OpenSSL 版本太老或未正确加载，降级
+                    cipherPolicySupported = false;
+                    LogHelper.Verbose("[Hysteria2] 当前平台不支持 CipherSuitesPolicy，降级使用默认 TLS 密码套件顺序");
+                }
+            }
+            else
+            {
+                LogHelper.Verbose("[Hysteria2] Windows/macOS 平台不支持 CipherSuitesPolicy，使用系统默认 TLS 策略");
+            }
+
             // 原有配置（保留，用于 fallback）
             var fallbackOptions = new QuicClientConnectionOptions
             {
@@ -153,7 +184,11 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                     ApplicationProtocols = alpnList,
                     EnabledSslProtocols = SslProtocols.Tls13,
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                    CipherSuitesPolicy = cipherPolicy,  // 新增：手动排序 cipher，模拟浏览器优先级
+                    
+                    // CipherSuitesPolicy = cipherPolicy,  // 新增：手动排序 cipher，模拟浏览器优先级
+                    // 仅在真正支持时才赋值，否则保持 null（系统默认）
+                    CipherSuitesPolicy = cipherPolicySupported ? cipherPolicy : null,
+
                     RemoteCertificateValidationCallback = ( sender, cert, chain, errors ) =>
                     {
                         if (errors == SslPolicyErrors.None)
@@ -169,7 +204,16 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 }
             };
 
-            LogHelper.Verbose($"[Hysteria2] TLS 伪装启用 → OpenSSL + {node.Fingerprint ?? "chrome"} cipher");
+            // 日志提示用户当前实际使用的指纹策略
+            if (cipherPolicySupported)
+            {
+                LogHelper.Verbose($"[Hysteria2] TLS 伪装启用 → OpenSSL + {node.Fingerprint ?? "chrome"} cipher 自定义顺序");
+            }
+            else
+            {
+                LogHelper.Verbose($"[Hysteria2] TLS 伪装降级 → 使用系统默认 cipher 顺序（连通性优先）");
+            }
+
             return await QuicConnection.ConnectAsync(fallbackOptions, ct).ConfigureAwait(false);
         }
 
