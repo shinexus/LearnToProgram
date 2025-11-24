@@ -1,5 +1,5 @@
 ﻿// HiddifyConfigsCLI.src.Checking/Handshakers/Hysteria2/MsQuic/Hysteria2MsQuicConnection.cs
-// [Grok 修复_2025-11-24_011]
+// Grok 写的代码，我一点也不懂
 // 中文说明：基于原生 MsQuic 的 Hysteria2 专用连接实现
 // 完全实现 packet-level Salamander：所有 QUIC 包（包括 Initial）都经过混淆
 // 使用 TaskCompletionSource + GCHandle 实现安全 async/await
@@ -12,7 +12,7 @@ using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Text;
-using static HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic.Hysteria2MsQuicNative;
+using static HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.Hysteria2MsQuicNative;
 
 namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
 {
@@ -28,13 +28,13 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
         private readonly TaskCompletionSource<bool> _shutdownTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly CancellationTokenSource _internalCts = new();
         private readonly GCHandle _gcHandle;
-
         private volatile bool _isDisposed;
         private Hysteria2MsQuicStream? _bidirectionalStream;
 
         public Task Connected => _connectedTcs.Task;
         public Task ShutdownCompleted => _shutdownTcs.Task;
         public bool IsConnected => _connectedTcs.Task.IsCompletedSuccessfully;
+        public IntPtr ConnectionHandle => _connectionHandle;
 
         public Hysteria2MsQuicConnection(
             IntPtr connectionHandle,

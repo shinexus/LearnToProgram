@@ -1,68 +1,56 @@
 ﻿// HiddifyConfigsCLI.src.Checking/Handshakers/Hysteria2/MsQuic/Hysteria2MsQuicNative.cs
-// [Grok 修复_2025-11-24_009]
-// 中文说明：使用原生 MsQuic C API（P/Invoke）实现 packet-level Salamander
-// 完全绕过 System.Net.Quic 的 sealed 限制，实现全包混淆（包括 Initial 包）
-// 支持 Windows Schannel / Linux OpenSSL 自动切换
-// 所有回调安全托管，零 GC 压力，兼容 .NET 9 Native AOT
+// Grok 写的代码，我一点也不懂。
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using Org.BouncyCastle.Crypto.Digests;
-using HiddifyConfigsCLI.src.Logging;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
-    /// <summary>
-    /// MsQuic 原生 API 声明（精简版，仅 Hysteria2 所需）
-    /// 参考：https://github.com/microsoft/msquic/blob/main/src/inc/msquic.h
-    /// </summary>
-    internal static unsafe partial class Hysteria2MsQuicNative
+    internal static unsafe class Hysteria2MsQuicNative
     {
         private const string MsQuicDll = "msquic";
-
-        // QUIC API 版本（v2.5+）
         public const uint QUIC_API_VERSION = 3;
-
-        // 状态码
         public const int QUIC_STATUS_SUCCESS = 0;
-        public const int QUIC_STATUS_INVALID_PARAMETER = -100;
-        public const int QUIC_STATUS_OUT_OF_MEMORY = -101;
 
-        // 回调类型
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int QUIC_CONNECTION_CALLBACK(
-            IntPtr Connection,
-            IntPtr Context,
-            QUIC_CONNECTION_EVENT* Event );
+        // ====================== 枚举 ======================
+        public enum QUIC_ADDRESS_FAMILY : ushort { UNSPECIFIED = 0, INET = 2, INET6 = 23 }
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int QUIC_STREAM_CALLBACK(
-            IntPtr Stream,
-            IntPtr Context,
-            QUIC_STREAM_EVENT* Event );
+        [Flags] public enum QUIC_STREAM_FLAGS : uint { NONE = 0x0000 }
+        [Flags] public enum QUIC_SEND_FLAGS : uint { NONE = 0x0000, FIN = 0x0001 }
+        [Flags] public enum QUIC_CONNECTION_SHUTDOWN_FLAGS : ulong { NONE = 0x0000 }
+        public enum QUIC_CREDENTIAL_TYPE : uint { NONE = 0 }
+        [Flags] public enum QUIC_CREDENTIAL_FLAGS : uint { NONE = 0, CLIENT = 0x00000001, NO_CERTIFICATE_VALIDATION = 0x00001000 }
+        public enum QUIC_STREAM_START_FLAGS : uint { NONE = 0x0000, IMMEDIATE = 0x0002 }
+        public enum QUIC_CONNECTION_EVENT_TYPE : uint { CONNECTED = 0, SHUTDOWN_COMPLETE = 2 }
+        public enum QUIC_STREAM_EVENT_TYPE : uint { START_COMPLETE = 0, RECEIVE = 4 }
+        [Flags] public enum QUIC_RECEIVE_FLAGS : uint { NONE = 0, FIN = 1 }
 
-        // 结构体定义（精简，仅关键字段）
+        // ====================== 结构体 ======================
         [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_CONNECTION_EVENT
+        public struct QUIC_BUFFER
         {
-            public QUIC_CONNECTION_EVENT_TYPE Type;
-            public QUIC_CONNECTION_EVENT_DATA Data;
+            public uint Length;
+            public byte* Buffer;
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_CONNECTION_EVENT_DATA
+        public struct QUIC_CREDENTIAL_CONFIG
         {
-            public QUIC_CONNECTION_EVENT_CONNECTED Connected;
-            public QUIC_CONNECTION_EVENT_SHUTDOWN_COMPLETE ShutdownComplete;
-            // 其他字段省略
+            public QUIC_CREDENTIAL_TYPE Type;
+            public QUIC_CREDENTIAL_FLAGS Flags;
+            public nint CertificateHash;
+            public nint CertificateHashStore;
+            public nint CertificateContext;
+            public nint CertificateHashStoreName;
+            public byte AsyncCertificateValidation;
+            public fixed byte Reserved[59];
         }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct QUIC_CONNECTION_EVENT_CONNECTED
         {
             public byte SessionResumed;
-            public IntPtr NegotiatedAlpn; // const uint8_t*
+            public nint NegotiatedAlpn;
             public fixed byte _padding[7];
         }
 
@@ -74,39 +62,18 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
             public fixed byte _padding[6];
         }
 
-        public enum QUIC_CONNECTION_EVENT_TYPE : uint
+        [StructLayout(LayoutKind.Explicit)]
+        public struct QUIC_CONNECTION_EVENT_DATA
         {
-            CONNECTED = 0,
-            SHUTDOWN_COMPLETE = 2,
-            // 其他省略
+            [FieldOffset(0)] public QUIC_CONNECTION_EVENT_CONNECTED Connected;
+            [FieldOffset(0)] public QUIC_CONNECTION_EVENT_SHUTDOWN_COMPLETE ShutdownComplete;
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_STREAM_EVENT
+        public struct QUIC_CONNECTION_EVENT
         {
-            public QUIC_STREAM_EVENT_TYPE Type;
-            public QUIC_STREAM_EVENT_DATA Data;
-        }
-
-        public enum QUIC_STREAM_EVENT_TYPE : uint
-        {
-            SEND_COMPLETE = 2,
-            RECEIVE = 4,
-            // 其他省略
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_STREAM_EVENT_DATA
-        {
-            public QUIC_STREAM_EVENT_SEND_COMPLETE SendComplete;
-            public QUIC_STREAM_EVENT_RECEIVE Receive;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_STREAM_EVENT_SEND_COMPLETE
-        {
-            public byte Canceled;
-            public IntPtr ClientContext;
+            public QUIC_CONNECTION_EVENT_TYPE Type;
+            public QUIC_CONNECTION_EVENT_DATA Data;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -114,108 +81,143 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
         {
             public ulong AbsoluteOffset;
             public ulong TotalBufferLength;
-            public IntPtr Buffers; // QUIC_BUFFER*
+            public nint Buffers;
             public uint BufferCount;
             public QUIC_RECEIVE_FLAGS Flags;
         }
 
-        [Flags]
-        public enum QUIC_RECEIVE_FLAGS : uint
-        {
-            NONE = 0,
-            FIN = 1,
-        }
-
         [StructLayout(LayoutKind.Sequential)]
-        public struct QUIC_BUFFER
+        public struct QUIC_STREAM_EVENT
         {
-            public uint Length;
-            public byte* Buffer;
+            public QUIC_STREAM_EVENT_TYPE Type;
+            public QUIC_STREAM_EVENT_RECEIVE Receive;
         }
 
-        // API 函数声明
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int MsQuicOpenVersion( uint Version, out IntPtr ApiTable );
+        // ====================== 回调 ======================
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int QUIC_CONNECTION_CALLBACK( nint Connection, nint Context, QUIC_CONNECTION_EVENT* Event );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void MsQuicClose( IntPtr ApiTable );
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int QUIC_STREAM_CALLBACK( nint Stream, nint Context, QUIC_STREAM_EVENT* Event );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int RegistrationOpen( byte* Configuration, out IntPtr Registration );
+        // ====================== API 委托 ======================
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int ConfigurationOpenDelegate(
+            nint Registration,
+            QUIC_BUFFER* AlpnBuffers,
+            uint AlpnBufferCount,
+            QUIC_CREDENTIAL_CONFIG* Credential,
+            uint CredentialSize,
+            nint Context,
+            out nint Configuration );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RegistrationClose( IntPtr Registration );
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int ConnectionOpenDelegate(
+            nint Registration,
+            QUIC_CONNECTION_CALLBACK? Handler,
+            nint Context,
+            out nint Connection );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int ConnectionOpen(
-            IntPtr Registration,
-            QUIC_CONNECTION_CALLBACK Handler,
-            IntPtr Context,
-            out IntPtr Connection );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void ConnectionClose( IntPtr Connection );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int ConnectionStart(
-            IntPtr Connection,
-            IntPtr Configuration,
-            ushort Family,
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int ConnectionStartDelegate(
+            nint Connection,
+            nint Configuration,
+            QUIC_ADDRESS_FAMILY Family,
             byte* ServerName,
             ushort ServerPort );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int StreamOpen(
-            IntPtr Connection,
-            QUIC_STREAM_FLAGS Flags,
-            QUIC_STREAM_CALLBACK Handler,
-            IntPtr Context,
-            out IntPtr Stream );
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int ConnectionShutdownDelegate(
+            nint Connection,
+            QUIC_CONNECTION_SHUTDOWN_FLAGS Flags,
+            ulong ErrorCode );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void StreamClose( IntPtr Stream );
+        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        //public delegate int StreamOpenDelegate(
+        //    nint Connection,
+        //    QUIC_STREAM_FLAGS Flags,
+        //    QUIC_STREAM_CALLBACK Handler,
+        //    nint Context,
+        //    out nint Stream );
 
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int StreamSend(
-            IntPtr Stream,
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int StreamStartDelegate( nint Stream, QUIC_STREAM_START_FLAGS Flags );
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int StreamSendDelegate(
+            nint Stream,
             QUIC_BUFFER* Buffers,
             uint BufferCount,
             QUIC_SEND_FLAGS Flags,
-            IntPtr ClientContext );
+            nint ClientContext );
 
-        // 注册表函数（用于获取函数指针）
-        public static readonly QUIC_API_TABLE* Api;
+        // 1. 添加委托定义
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int ConnectionSetCallbackHandlerDelegate(
+            IntPtr Connection,
+            QUIC_CONNECTION_CALLBACK Handler,
+            IntPtr Context );
+
+        public static readonly ConnectionSetCallbackHandlerDelegate ConnectionSetCallbackHandler;
+
+        // 公开委托
+        public static readonly ConfigurationOpenDelegate ConfigurationOpen;
+        public static readonly ConnectionOpenDelegate ConnectionOpen;
+        public static readonly ConnectionStartDelegate ConnectionStart;
+        public static readonly ConnectionShutdownDelegate ConnectionShutdown;
+        // public static readonly StreamOpenDelegate StreamOpen;
+        private static readonly QUIC_STREAM_CALLBACK StreamCallbackDelegate = StreamCallbackManaged;
+
+        public static readonly StreamStartDelegate StreamStart;
+        public static readonly StreamSendDelegate StreamSend;
+
+        // 原始表结构
+        [StructLayout(LayoutKind.Sequential)]
+        private struct QUIC_API_TABLE_RAW
+        {
+            public nint SetParam; public nint GetParam;
+            public nint RegistrationOpen; public nint RegistrationClose;
+            public nint ConfigurationOpen; public nint ConfigurationClose;
+            public nint ConnectionOpen; public nint ConnectionShutdown; public nint ConnectionStart;
+            public nint StreamOpen; public nint StreamStart; public nint StreamSend;
+            public IntPtr ConnectionSetCallbackHandler;
+        }
 
         static Hysteria2MsQuicNative()
         {
-            int status = MsQuicOpenVersion(QUIC_API_VERSION, out IntPtr apiPtr);
+            int status = MsQuicOpenVersion(QUIC_API_VERSION, out nint apiPtr);
             if (status != QUIC_STATUS_SUCCESS)
-                throw new InvalidOperationException($"MsQuicOpenVersion failed: 0x{status:X}");
-            Api = (QUIC_API_TABLE*)apiPtr;
-        }
-    }
+                throw new PlatformNotSupportedException($"MsQuic 加载失败: 0x{status:X8}");
 
-    // QUIC_API_TABLE 结构体（精简）
-    [StructLayout(LayoutKind.Sequential)]
-    public struct QUIC_API_TABLE
-    {
-        public IntPtr SetParam;
-        public IntPtr GetParam;
-        public IntPtr RegistrationOpen;
-        public IntPtr RegistrationClose;
-        public IntPtr ConfigurationOpen;
-        public IntPtr ConfigurationClose;
-        public IntPtr ConfigurationLoadCredential;
-        public IntPtr ConnectionOpen;
-        public IntPtr ConnectionClose;
-        public IntPtr ConnectionShutdown;
-        public IntPtr ConnectionStart;
-        public IntPtr StreamOpen;
-        public IntPtr StreamClose;
-        public IntPtr StreamStart;
-        public IntPtr StreamSend;
-        public IntPtr StreamReceiveComplete;
-        public IntPtr StreamReceiveSetEnabled;
-        // 其他省略
+            var table = Marshal.PtrToStructure<QUIC_API_TABLE_RAW>(apiPtr);
+
+            ConfigurationOpen = Marshal.GetDelegateForFunctionPointer<ConfigurationOpenDelegate>(table.ConfigurationOpen);
+            ConnectionOpen = Marshal.GetDelegateForFunctionPointer<ConnectionOpenDelegate>(table.ConnectionOpen);
+            ConnectionStart = Marshal.GetDelegateForFunctionPointer<ConnectionStartDelegate>(table.ConnectionStart);
+            ConnectionShutdown = Marshal.GetDelegateForFunctionPointer<ConnectionShutdownDelegate>(table.ConnectionShutdown);
+            StreamOpen = Marshal.GetDelegateForFunctionPointer<StreamOpenDelegate>(table.StreamOpen);
+            StreamStart = Marshal.GetDelegateForFunctionPointer<StreamStartDelegate>(table.StreamStart);
+            StreamSend = Marshal.GetDelegateForFunctionPointer<StreamSendDelegate>(table.StreamSend);
+            ConnectionSetCallbackHandler = Marshal.GetDelegateForFunctionPointer<ConnectionSetCallbackHandlerDelegate>(table.ConnectionSetCallbackHandler);
+        }
+
+        // 必须保留的 DllImport
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int RegistrationOpen( byte* Config, out nint Registration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void RegistrationClose( nint Registration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ConfigurationClose( nint Configuration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ConnectionClose( nint Connection );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void StreamClose( nint Stream );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int MsQuicOpenVersion( uint Version, out nint ApiTable );
     }
 }
