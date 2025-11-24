@@ -22,7 +22,7 @@ internal static class ResultProcessor
         if (nodes.Count == 0)
             return new List<NodeInfoBase>();
 
-        // 【修改】增强去重键：不再依赖 DedupKey，而是动态构建全面唯一标识
+        // [修改] 增强去重键：不再依赖 DedupKey，而是动态构建全面唯一标识
         // 键组成：{Type}://{Host}:{Port}[/uid:{UserId}][/pwd:{PasswordHash}][/priv:{PrivateKeyHash}]
         // 目的：
         //   1. 同一服务器不同用户配置（如多 UUID VLESS）保留独立节点
@@ -36,20 +36,21 @@ internal static class ResultProcessor
                 var key = new StringBuilder();
                 key.Append($"{n.Type}://{n.Host}:{n.Port}");
 
-                // 【新增】VLESS/Trojan/Tuic/SOCKS5：UserId（如 UUID）参与去重
+                // [新增] VLESS/Trojan/Tuic/SOCKS5：UserId（如 UUID）参与去重
                 if (!string.IsNullOrEmpty(n.UserId))
                     key.Append($"/uid:{n.UserId}");
 
-                // 【新增】Trojan/Tuic/SOCKS5：Password 参与去重（哈希防泄露）
+                // [新增] Trojan/Tuic/SOCKS5：Password 参与去重（哈希防泄露）
                 if (!string.IsNullOrEmpty(n.Password))
                     key.Append($"/pwd:{n.Password.GetHashCode()}");
 
-                // 【新增】WireGuard：私钥参与去重（哈希）
+                // [新增] WireGuard：私钥参与去重（哈希）
                 if (!string.IsNullOrEmpty(n.PrivateKey))
                     key.Append($"/priv:{n.PrivateKey.GetHashCode()}");
 
-                // 【可扩展点】Hysteria2 auth / VLESS flow / reality pubkey 等
-                // 示例：if (n.ExtraParams?.TryGetValue("auth", out var auth) == true)
+                // [可扩展点] Hysteria2 auth / VLESS flow / reality pubkey 等
+                // 示例：
+                // if (n.ExtraParams?.TryGetValue("auth", out var auth) == true)
                 //         key.Append($"/auth:{auth.GetHashCode()}");
 
                 return key.ToString();
@@ -93,23 +94,26 @@ internal static class ResultProcessor
             _ => dedup // 默认：保持去重顺序（已低延迟优先）
         };
 
-        // 【增强日志】更详细的去重统计
+        // [增强日志] 更详细的去重统计
         var removedByDedup = nodes.Count - dedup.Count;
         LogHelper.Info($"去重排序完成：{nodes.Count} → {dedup.Count}（去重，移除 {removedByDedup} 条）→ {sorted.Count}（最终） | 排序: {sortBy ?? "default"}");
 
-        // 【新增】Verbose 模式下输出去重详情
-        //if (Program.Options!.Verbose && removedByDedup > 0)
-        //{
-        //    var sampleDup = nodes
-        //        .GroupBy(n => n.DedupKey)
-        //        .Where(g => g.Count() > 1)
-        //        .FirstOrDefault();
+        // [新增] Verbose 模式下输出去重详情
+        /**
+         * 暂不启用
+        if (Program.Options!.Verbose && removedByDedup > 0)
+        {
+            var sampleDup = nodes
+                .GroupBy(n => n.DedupKey)
+                .Where(g => g.Count() > 1)
+                .FirstOrDefault();
 
-        //    if (sampleDup != null)
-        //    {
-        //        LogHelper.Verbose($"示例重复组 [{sampleDup.Key}]: 保留延迟 {(sampleDup.Min(n => n.SortLatency).TotalMilliseconds == double.MaxValue ? "N/A" : sampleDup.Min(n => n.SortLatency).TotalMilliseconds + "ms")} 的节点");
-        //    }
-        //}
+            if (sampleDup != null)
+            {
+                LogHelper.Verbose($"示例重复组 [{sampleDup.Key}]: 保留延迟 {(sampleDup.Min(n => n.SortLatency).TotalMilliseconds == double.MaxValue ? "N/A" : sampleDup.Min(n => n.SortLatency).TotalMilliseconds + "ms")} 的节点");
+            }
+        }
+        **/
 
         return sorted;
     }

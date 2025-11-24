@@ -88,5 +88,9 @@ namespace HiddifyConfigsCLI.src.Core
         public Dictionary<string, string> ExtraParams { get; set; } = new();
 
         public string? EffectiveSni { get; set; }
+
+        // Verbose 模式下输出去重详情
+        // 暂不启用
+        // public object DedupKey { get; internal set; }
     }
 }
