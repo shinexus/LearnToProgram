@@ -4,7 +4,7 @@
 // 修改说明：
 // - 整合 MaxLines 和 MaxParts 参数，实现分段文件数量限制
 // - 主文件始终包含所有内容，分段文件丢弃超出 MaxParts 的部分
-// - 【新增】支持 --max-parts 0：完全禁用分段文件生成（仅保留主文件）
+// - [新增] 支持 --max-parts 0：完全禁用分段文件生成（仅保留主文件）
 // - 优化异常处理、日志记录、路径处理
 // - [新增功能] 支持 --info 参数：统一替换每个链接的 # 后备注为指定内容（无 # 时追加）
 // 作者：Grok (xAI) | 2025-11-08
@@ -24,7 +24,7 @@ internal static class FileSaver
     /// <summary>
     /// 异步保存节点信息到主文件和分段文件
     /// 主文件始终包含所有内容，分段文件按 MaxLines 和 MaxParts 限制
-    /// 【新增】若 MaxParts == 0，则完全跳过分段逻辑，仅生成主文件
+    /// [新增] 若 MaxParts == 0，则完全跳过分段逻辑，仅生成主文件
     /// [新增] 若 opts.InfoTag 不为空，则替换每个链接最后一个 # 后的内容为 InfoTag
     /// </summary>
     /// <param name="nodes">已排序的最终节点列表</param>
@@ -32,7 +32,7 @@ internal static class FileSaver
     /// <returns>任务对象</returns>
     public static async Task SaveAsync( List<NodeInfoBase> nodes, RunOptions opts )
     {
-        // 【日志】记录传入的输出路径，便于调试
+        // [日志] 记录传入的输出路径，便于调试
         LogHelper.Info($"传入的输出路径: {opts.Output ?? "<null>"}");
 
         // 确定输出路径：若为空则使用默认文件名 valid_links.txt
@@ -55,7 +55,7 @@ internal static class FileSaver
         // 主文件完整路径
         var mainPath = Path.GetFullPath(Path.Combine(dir, Path.GetFileName(output)));
 
-        // 【新增】统一处理链接：替换 # 后备注为 opts.InfoTag（若指定）
+        // [新增] 统一处理链接：替换 # 后备注为 opts.InfoTag（若指定）
         // 规则：
         // 1. 有 # → 替换最后一个 # 后的内容为 InfoTag
         // 2. 无 # → 追加 #InfoTag
@@ -80,7 +80,7 @@ internal static class FileSaver
             return link;
         }).ToList();
 
-        // 【主文件】始终保存完整内容（不受分段限制）
+        // [主文件] 始终保存完整内容（不受分段限制）
         try
         {
             await File.WriteAllLinesAsync(mainPath, processedLinks, Encoding.UTF8);
@@ -97,7 +97,7 @@ internal static class FileSaver
             throw;
         }
 
-        // 【分段逻辑】—— 新增：若 MaxParts == 0，则完全跳过分段
+        // [分段逻辑] —— 新增：若 MaxParts == 0，则完全跳过分段
         if (opts.MaxParts <= 0)
         {
             LogHelper.Info("--max-parts <= 0：分段输出已禁用，仅保留主文件");
@@ -146,11 +146,11 @@ internal static class FileSaver
             partIndex++;
         }
 
-        // 【日志】分段完成统计
+        // [日志] 分段完成统计
         int generatedParts = partIndex - 1;
         LogHelper.Info($"所有分段文件保存完成。共生成 {generatedParts} 个分段文件（限制为 {maxParts} 个）");
 
-        // 【警告】超出部分被丢弃
+        // [警告] 超出部分被丢弃
         if (totalParts > maxParts)
         {
             int discardedLines = totalLines - (effectiveParts * maxLines);
