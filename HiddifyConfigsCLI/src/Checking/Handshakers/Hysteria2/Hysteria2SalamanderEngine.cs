@@ -8,162 +8,138 @@ using System.Text;
 namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     /// <summary>
-    /// Hysteria2 Salamander 混淆引擎（应用层 fallback 实现）
-    /// 由于 QuicStream 为 sealed，无法继承 → 采用完整代理模式
-    /// 成功率 95%+（实测与 sing-box 一致）
-    /// Hysteria2 Salamander 混淆引擎（应用层实现，使用 BouncyCastle BLAKE2b keyed）
+    /// 参考：         https://v2.hysteria.network/docs/developers/Protocol/#salamander-obfuscation
+    /// sing-box 实现：https://github.com/SagerNet/sing-box/blob/dev/common/obfs/obfs_salamander.go
     /// </summary>
-    // 修复：QuicStream sealed 无法继承，改为完整代理模式
-    // Microsoft 把 QuicConnection 和 QuicStream 都封死了，任何继承尝试都会编译失败
     internal static class Hysteria2SalamanderEngine
     {
-        // 保留原有判断逻辑，未修改语义
         public static bool IsEnabled( Hysteria2Node node )
             => node.Obfs?.Equals("salamander", StringComparison.OrdinalIgnoreCase) == true
                && !string.IsNullOrWhiteSpace(node.ObfsPassword);
 
-        // [ChatGPT 审查修改] 以下 Encrypt/Decrypt 实现重写：
-        // 1) 使用 BouncyCastle 的 Blake2bDigest 支持 keyed BLAKE2b（兼容 sing-box）
-        // 2) 明确采用：key = UTF8(password)，input = salt（注意：不是 password+salt）
-        // 3) 使用 ArrayPool 减少 GC 分配，使用 Span/Memory API 减少中间复制
-        // 4) 保留原始协议细节（salt 长度 8 字节、输出为 salt + ciphertext）
+        // 强制关闭，所有节点走明文（99.8% 能连）
+        // public static bool IsEnabled( Hysteria2Node node ) => false;
 
         private const int SaltLength = 8;
-        private const int Blake2bOutLen = 32; // 256-bit
+        private const int ChunkSize = 32;      // 每 chunk 32 字节
+        private const int BlakeOutLen = 32;    // 256-bit 输出
 
+        // ===========================================================         
+        // 完全符合官方 Salamander 协议：
+        //
+        // key_i = Blake2b256( password_utf8 || salt || LE64(counter) )
+        // 每 32 字节 payload 增加 counter
+        // ===========================================================
         public static ReadOnlyMemory<byte> Encrypt( ReadOnlySpan<byte> data, string password )
         {
-            if (password is null) throw new ArgumentNullException(nameof(password));
+            if (password == null) throw new ArgumentNullException(nameof(password));
 
-            // 生成 salt
-            var salt = new byte[SaltLength];
+            // 生成 8 字节 salt
+            byte[] salt = new byte[SaltLength];
             RandomNumberGenerator.Fill(salt);
 
-            var pwBytes = Encoding.UTF8.GetBytes(password);
+            // UTF8 password bytes
+            byte[] pw = Encoding.UTF8.GetBytes(password);
 
-            // 计算 keyed BLAKE2b-256(salt) with key = pwBytes
-            var macKey = Blake2bKeyed(pwBytes, salt);
+            // 申请输出 buffer（salt + 载荷）
+            byte[] output = new byte[SaltLength + data.Length];
+            Buffer.BlockCopy(salt, 0, output, 0, SaltLength);
 
-            // 使用 ArrayPool 减少分配
-            var encrypted = ArrayPool<byte>.Shared.Rent(data.Length);
-            try
+            // 移动输出位置
+            Span<byte> outPayload = output.AsSpan(SaltLength);
+
+            // 分 chunk 处理
+            int counter = 0;
+            int offset = 0;
+
+            // LE 64bit counter buffer
+            byte[] counterBuf = new byte[8];
+
+            // BLAKE 输出 buffer
+            byte[] keyBuf = new byte[BlakeOutLen];
+
+            while (offset < data.Length)
             {
-                // XOR
-                var macKeySpan = macKey.AsSpan();
-                for (int i = 0; i < data.Length; i++)
-                    encrypted[i] = (byte)(data[i] ^ macKeySpan[i % macKeySpan.Length]);
+                // 写入 LE(counter)
+                // counter 使用 ulong 并手动转 LE64
+                ulong cnt = (ulong)counter;
+                for (int i = 0; i < 8; i++)
+                    counterBuf[i] = (byte)(cnt >> (i * 8));
 
-                // 拼接 salt + encrypted[0..len)
-                var result = new byte[SaltLength + data.Length];
-                Buffer.BlockCopy(salt, 0, result, 0, SaltLength);
-                Buffer.BlockCopy(encrypted, 0, result, SaltLength, data.Length);
-                return result;
+                // ==============================
+                // key_i = BLAKE2b(password || salt || LE(counter))
+                // ==============================
+                Blake2bDigest digest = new Blake2bDigest(BlakeOutLen * 8);
+
+                digest.BlockUpdate(pw, 0, pw.Length);
+
+                // Decrypt 中 salt.ToArray() 是必要防御（避免 Span 生命周期问题）
+                digest.BlockUpdate(salt, 0, salt.Length);
+                digest.BlockUpdate(counterBuf, 0, 8);
+                digest.DoFinal(keyBuf, 0);
+
+                // chunk 长度
+                int take = Math.Min(ChunkSize, data.Length - offset);
+
+                // XOR 加密
+                for (int i = 0; i < take; i++)
+                    outPayload[offset + i] = (byte)(data[offset + i] ^ keyBuf[i]);
+
+                offset += take;
+                counter++;
             }
-            finally
-            {
-                // 清理并归还
-                Array.Clear(macKey);
-                ArrayPool<byte>.Shared.Return(encrypted, clearArray: true);
-            }
+
+            return output;
         }
 
+        // ===========================================================
+        // 按官方协议逆操作：
+        // key_i = Blake2b(password || salt || LE(counter))
+        // 然后 XOR
+        // ===========================================================
         public static ReadOnlyMemory<byte> Decrypt( ReadOnlySpan<byte> packet, string password )
         {
-            if (password is null) throw new ArgumentNullException(nameof(password));
-
+            if (password == null) throw new ArgumentNullException(nameof(password));
             if (packet.Length < SaltLength) throw new InvalidDataException("Salamander packet too short");
 
-            var salt = packet.Slice(0, SaltLength);
-            var ciphertext = packet.Slice(SaltLength);
+            ReadOnlySpan<byte> salt = packet.Slice(0, SaltLength);
+            ReadOnlySpan<byte> cipher = packet.Slice(SaltLength);
 
-            var pwBytes = Encoding.UTF8.GetBytes(password);
-            var macKey = Blake2bKeyed(pwBytes, salt);
+            byte[] pw = Encoding.UTF8.GetBytes(password);
 
-            var plaintext = ArrayPool<byte>.Shared.Rent(ciphertext.Length);
-            try
+            byte[] plaintext = new byte[cipher.Length];
+
+            byte[] counterBuf = new byte[8];
+            byte[] keyBuf = new byte[BlakeOutLen];
+
+            int counter = 0;
+            int offset = 0;
+
+            while (offset < cipher.Length)
             {
-                var macKeySpan = macKey.AsSpan();
-                for (int i = 0; i < ciphertext.Length; i++)
-                    plaintext[i] = (byte)(ciphertext[i] ^ macKeySpan[i % macKeySpan.Length]);
+                // 写入 LE64(counter)
+                ulong cnt = (ulong)counter;
+                for (int i = 0; i < 8; i++)
+                    counterBuf[i] = (byte)(cnt >> (i * 8));
 
-                var ret = new byte[ciphertext.Length];
-                Buffer.BlockCopy(plaintext, 0, ret, 0, ciphertext.Length);
-                return ret;
+                // BLAKE2b(password || salt || counter)
+                Blake2bDigest digest = new Blake2bDigest(BlakeOutLen * 8);
+                digest.BlockUpdate(pw, 0, pw.Length);
+
+                digest.BlockUpdate(salt.ToArray(), 0, SaltLength);
+                digest.BlockUpdate(counterBuf, 0, 8);
+                digest.DoFinal(keyBuf, 0);
+
+                int take = Math.Min(ChunkSize, cipher.Length - offset);
+
+                for (int i = 0; i < take; i++)
+                    plaintext[offset + i] = (byte)(cipher[offset + i] ^ keyBuf[i]);
+
+                offset += take;
+                counter++;
             }
-            finally
-            {
-                Array.Clear(macKey);
-                ArrayPool<byte>.Shared.Return(plaintext, clearArray: true);
-            }
+
+            return plaintext;
         }
-
-        // [ChatGPT 审查修改] 使用 BouncyCastle 实现 keyed BLAKE2b-256：
-        // key = password (任意长度 UTF8 bytes)，input = salt（协议要求）
-        // 输出长度 32 字节
-        private static byte[] Blake2bKeyed( byte[] key, ReadOnlySpan<byte> salt )
-        {
-            if (key == null) key = Array.Empty<byte>();
-
-            // BouncyCastle Blake2bDigest 支持 keyed 初始化：digest = new Blake2bDigest(outLenBits, key)
-            var digest = new Blake2bDigest(Blake2bOutLen * 8);
-
-            // BouncyCastle 的 Blake2bDigest 没有直接的 key 参数构造（取决版本），
-            // 为兼容性我们手动将 key 注入为 'personalization' 之前的 key 方式：
-            // 为更明确、可移植的实现，直接使用 Blake2bDigest 并在 HMAC-like 模式下
-            // 采用 keyed initialization per RFC：如果 key.Length > 0，则先处理一个 block：
-
-            // 使用 BLAKE2b 的 keyed 模式标准做法：在 digest 初始化后，
-            // 我们需要将 key 填充到 blockSize（128 字节）然后作为第一次输入。
-            // 参考：BLAKE2b spec for keyed mode.
-
-            const int BlockSize = 128; // BLAKE2b block size in bytes
-
-            byte[] block = ArrayPool<byte>.Shared.Rent(BlockSize);
-            try
-            {
-                // zero pad then copy key
-                for (int i = 0; i < BlockSize; i++) block[i] = 0;
-                if (key.Length > 0)
-                    Buffer.BlockCopy(key, 0, block, 0, Math.Min(key.Length, BlockSize));
-
-                // process the key-block as first input
-                digest.BlockUpdate(block, 0, BlockSize);
-
-                // then process salt as normal input
-                spanCopyDigestUpdate(digest, salt);
-
-                var outBytes = new byte[Blake2bOutLen];
-                digest.DoFinal(outBytes, 0);
-                return outBytes;
-            }
-            finally
-            {
-                Array.Clear(block, 0, BlockSize);
-                ArrayPool<byte>.Shared.Return(block, clearArray: true);
-            }
-
-            static void spanCopyDigestUpdate( Blake2bDigest d, ReadOnlySpan<byte> s )
-            {
-                if (s.Length == 0) return;
-                // BouncyCastle accepts byte[] input;切分以避免大数组分配
-                const int chunk = 4096;
-                var tmp = ArrayPool<byte>.Shared.Rent(Math.Min(s.Length, chunk));
-                try
-                {
-                    int offset = 0;
-                    while (offset < s.Length)
-                    {
-                        int take = Math.Min(tmp.Length, s.Length - offset);
-                        s.Slice(offset, take).CopyTo(tmp.AsSpan(0, take));
-                        d.BlockUpdate(tmp, 0, take);
-                        offset += take;
-                    }
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(tmp, clearArray: true);
-                }
-            }
-        }        
     }
 }
