@@ -4,8 +4,9 @@
 // 自动处理 Salamander 包级加解密
 // 支持 WriteAsync / ReadAsync 完全 async
 
-using HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic;
+using HiddifyConfigsCLI.src.Core;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -22,24 +23,12 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         private readonly GCHandle _gcHandle;
 
         private nint _streamHandle = nint.Zero;
-        private TaskCompletionSource _openTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private bool _isDisposed;
+        private readonly TaskCompletionSource _openTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ConcurrentQueue<byte[]> _receiveQueue = new();
+        private TaskCompletionSource<int> _readTcs = new();
+        private volatile bool _isDisposed;
 
-        private static readonly Dictionary<nint, Hysteria2MsQuicStream> _streamMap = new();
-
-        // 将函数指针的创建放到静态构造函数中（在那里使用 unsafe）
-        private static readonly nint StreamCallbackPtr;
-
-        static Hysteria2MsQuicStream()
-        {
-            // 在静态构造函数里创建函数指针，必须在 unsafe 中进行 cast/&Method
-            unsafe
-            {
-                // [ChatGPT 审查修改] 获取静态方法的函数指针（UnmanagedCallersOnly 需要函数指针）
-                StreamCallbackPtr = (nint)(delegate* unmanaged[Cdecl]< nint, nint, QUIC_STREAM_EVENT*, int >)
-                    &StreamCallbackStatic;
-            }
-        }
+        private static readonly ConcurrentDictionary<nint, Hysteria2MsQuicStream> _streamMap = new();
 
         public override bool CanRead => true;
         public override bool CanWrite => true;
@@ -57,88 +46,117 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
         internal Task OpenAsync()
         {
-            // 传递函数指针（StreamCallbackPtr）给 native 层
+            if (_isDisposed) throw new ObjectDisposedException(nameof(Hysteria2MsQuicStream));
+
             int status = StreamOpen(
                 _connection.ConnectionHandle,
                 QUIC_STREAM_FLAGS.NONE,
-                StreamCallbackPtr,
+                StreamCallbackStatic,
                 GCHandle.ToIntPtr(_gcHandle),
                 out _streamHandle);
 
             if (status != QUIC_STATUS_SUCCESS)
             {
+                _gcHandle.Free();
                 _openTcs.TrySetException(new IOException($"StreamOpen failed: 0x{status:X8}"));
                 return _openTcs.Task;
             }
 
-            lock (_streamMap)
-                _streamMap[_streamHandle] = this;
+            _streamMap[_streamHandle] = this;
 
-            _ = Task.Run(() => StreamStart(_streamHandle, QUIC_STREAM_START_FLAGS.IMMEDIATE));
+            status = StreamStart(_streamHandle, QUIC_STREAM_START_FLAGS.IMMEDIATE);
+            if (status != QUIC_STATUS_SUCCESS)
+                _openTcs.TrySetException(new IOException($"StreamStart failed: 0x{status:X8}"));
+
             return _openTcs.Task;
         }
 
-        // 必须 static + UnmanagedCallersOnly，且只能被函数指针引用
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-        private static unsafe int StreamCallbackStatic( nint stream, nint context, QUIC_STREAM_EVENT* evt )
+        internal static unsafe int StreamCallbackStatic( nint stream, nint context, QUIC_STREAM_EVENT* evt )
         {
             if (!_streamMap.TryGetValue(stream, out var instance))
                 return QUIC_STATUS_SUCCESS;
 
-            return instance.HandleEvent(evt);
+            return instance.HandleStreamEvent(evt);
         }
 
-        // 单独标记 unsafe，因为使用了指针参数
-        private unsafe int HandleEvent( QUIC_STREAM_EVENT* evt )
+        private unsafe int HandleStreamEvent( QUIC_STREAM_EVENT* evt )
         {
-            if (evt->Type == QUIC_STREAM_EVENT_TYPE.START_COMPLETE)
+            try
             {
-                // 注意：回调线程很可能是 native 线程，尽量避免复杂逻辑或阻塞
-                _openTcs.TrySetResult();
-            }
+                switch (evt->Type)
+                {
+                    case QUIC_STREAM_EVENT_TYPE.START_COMPLETE:
+                        _openTcs.TrySetResult();
+                        break;
 
-            // 这里可以处理 RECEIVE 事件并把数据放入缓冲队列，当前简化实现仅处理 START_COMPLETE
+                    case QUIC_STREAM_EVENT_TYPE.RECEIVE:
+                        var receive = &evt->Receive;
+                        for (uint i = 0; i < receive->BufferCount; i++)
+                        {
+                            var bufferPtr = Marshal.ReadIntPtr(receive->Buffers, (int)(i * IntPtr.Size));
+                            var quicBuffer = (QUIC_BUFFER*)bufferPtr;
+                            var data = new byte[quicBuffer->Length];
+                            Marshal.Copy((nint)quicBuffer->Buffer, data, 0, data.Length);
+
+                            var plain = _connection.DeobfuscatePacket(data);
+                            _receiveQueue.Enqueue(plain);
+                        }
+                        _readTcs.TrySetResult(_receiveQueue.Count);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _openTcs.TrySetException(ex);
+                _readTcs.TrySetException(ex);
+            }
             return QUIC_STATUS_SUCCESS;
         }
 
-        public override async Task WriteAsync( byte[] buffer, int offset, int count, CancellationToken cancellationToken )
+        public override async Task WriteAsync( byte[] buffer, int offset, int count, CancellationToken ct )
         {
             CheckDisposed();
-            if (buffer == null) throw new ArgumentNullException(nameof(buffer));
-            if (offset < 0 || count < 0 || offset + count > buffer.Length) throw new ArgumentOutOfRangeException();
+            await WaitForOpenAsync(ct).ConfigureAwait(false);
 
-            await WaitForOpenAsync(cancellationToken).ConfigureAwait(false);
-
-            // 生成混淆后的 packet（在托管内完成）
             var packet = _connection.ObfuscatePacket(new ReadOnlySpan<byte>(buffer, offset, count));
 
-            // 局部 unsafe：fixed + native 调用
             unsafe
             {
                 fixed (byte* ptr = packet)
                 {
                     var qb = new QUIC_BUFFER { Length = (uint)packet.Length, Buffer = ptr };
                     int status = StreamSend(_streamHandle, &qb, 1, QUIC_SEND_FLAGS.NONE, nint.Zero);
-
                     if (status != QUIC_STATUS_SUCCESS)
                         throw new IOException($"StreamSend failed: 0x{status:X8}");
                 }
             }
         }
 
+        public override async Task<int> ReadAsync( byte[] buffer, int offset, int count, CancellationToken ct )
+        {
+            CheckDisposed();
+            await WaitForOpenAsync(ct).ConfigureAwait(false);
+
+            while (_receiveQueue.IsEmpty)
+            {
+                _readTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                await _readTcs.Task.WaitAsync(ct).ConfigureAwait(false);
+            }
+
+            if (!_receiveQueue.TryDequeue(out var segment))
+                return 0;
+
+            int copied = Math.Min(count, segment.Length);
+            segment.AsSpan(0, copied).CopyTo(buffer.AsSpan(offset));
+            return copied;
+        }
+
         public override void Write( byte[] buffer, int offset, int count )
             => WriteAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
 
-        public override Task<int> ReadAsync( byte[] buffer, int offset, int count, CancellationToken cancellationToken )
-        {
-            CheckDisposed();
-            // 暂未实现完整接收（Hysteria2 /auth 是单向请求）
-            // 实际项目中可通过 RECEIVE 事件 + 缓冲区实现
-            // 当前返回 0 表示 EOF（足够通过 /auth 验证）
-            return Task.FromResult(0);
-        }
-
-        public override int Read( byte[] buffer, int offset, int count ) => 0;
+        public override int Read( byte[] buffer, int offset, int count )
+            => ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
 
         private Task WaitForOpenAsync( CancellationToken ct )
         {
@@ -156,9 +174,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             if (_isDisposed) return;
             _isDisposed = true;
 
-            lock (_streamMap)
-                _streamMap.Remove(_streamHandle);
-
+            _streamMap.TryRemove(_streamHandle, out _);
             if (_streamHandle != nint.Zero)
             {
                 StreamClose(_streamHandle);

@@ -9,7 +9,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     internal static unsafe class Hysteria2MsQuicNative
     {
         private const string MsQuicDll = "msquic";
-        public const uint QUIC_API_VERSION = 3;
+        public const uint QUIC_API_VERSION = 3;        // MsQuic v3（对应 2.x 库）
         public const int QUIC_STATUS_SUCCESS = 0;
 
         // ====================== 枚举 ======================
@@ -19,7 +19,13 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         [Flags] public enum QUIC_SEND_FLAGS : uint { NONE = 0x0000, FIN = 0x0001 }
         [Flags] public enum QUIC_CONNECTION_SHUTDOWN_FLAGS : ulong { NONE = 0x0000 }
         public enum QUIC_CREDENTIAL_TYPE : uint { NONE = 0 }
-        [Flags] public enum QUIC_CREDENTIAL_FLAGS : uint { NONE = 0, CLIENT = 0x00000001, NO_CERTIFICATE_VALIDATION = 0x00001000 }
+        [Flags]
+        public enum QUIC_CREDENTIAL_FLAGS : uint
+        {
+            NONE = 0,
+            CLIENT = 0x00000001,
+            NO_CERTIFICATE_VALIDATION = 0x00001000
+        }
         public enum QUIC_STREAM_START_FLAGS : uint { NONE = 0x0000, IMMEDIATE = 0x0002 }
         public enum QUIC_CONNECTION_EVENT_TYPE : uint { CONNECTED = 0, SHUTDOWN_COMPLETE = 2 }
         public enum QUIC_STREAM_EVENT_TYPE : uint { START_COMPLETE = 0, RECEIVE = 4 }
@@ -132,13 +138,14 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             QUIC_CONNECTION_SHUTDOWN_FLAGS Flags,
             ulong ErrorCode );
 
-        //[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        //public delegate int StreamOpenDelegate(
-        //    nint Connection,
-        //    QUIC_STREAM_FLAGS Flags,
-        //    QUIC_STREAM_CALLBACK Handler,
-        //    nint Context,
-        //    out nint Stream );
+        // 【Grok 修复_2025-11-24_01】恢复被错误注释的 StreamOpen 委托
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate int StreamOpenDelegate(
+            nint Connection,
+            QUIC_STREAM_FLAGS Flags,
+            QUIC_STREAM_CALLBACK Handler,
+            nint Context,
+            out nint Stream );
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int StreamStartDelegate( nint Stream, QUIC_STREAM_START_FLAGS Flags );
@@ -151,36 +158,70 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             QUIC_SEND_FLAGS Flags,
             nint ClientContext );
 
-        // 1. 添加委托定义
+        // 【Grok 修复_2025-11-24_01】新增 ConnectionSetCallbackHandler 委托（原代码缺失导致运行时 null）
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int ConnectionSetCallbackHandlerDelegate(
-            IntPtr Connection,
+            nint Connection,
             QUIC_CONNECTION_CALLBACK Handler,
-            IntPtr Context );
+            nint Context );
 
-        public static readonly ConnectionSetCallbackHandlerDelegate ConnectionSetCallbackHandler;
-
-        // 公开委托
+        // 公开的委托实例（全部由静态构造函数填充）
         public static readonly ConfigurationOpenDelegate ConfigurationOpen;
         public static readonly ConnectionOpenDelegate ConnectionOpen;
         public static readonly ConnectionStartDelegate ConnectionStart;
         public static readonly ConnectionShutdownDelegate ConnectionShutdown;
-        // public static readonly StreamOpenDelegate StreamOpen;
-        private static readonly QUIC_STREAM_CALLBACK StreamCallbackDelegate = StreamCallbackManaged;
-
+        public static readonly StreamOpenDelegate StreamOpen;                    // 恢复
         public static readonly StreamStartDelegate StreamStart;
         public static readonly StreamSendDelegate StreamSend;
+        public static readonly ConnectionSetCallbackHandlerDelegate ConnectionSetCallbackHandler; // 新增
 
-        // 原始表结构
+        // ====================== 原生函数 ======================
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int RegistrationOpen( byte* Config, out nint Registration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void RegistrationClose( nint Registration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ConfigurationClose( nint Configuration );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ConnectionClose( nint Connection );
+
+        // 【Grok 修复_2025-11-24_01】新增 StreamClose（Hysteria2MsQuicStream.Dispose 中使用）
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void StreamClose( nint Stream );
+
+        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int MsQuicOpenVersion( uint Version, out nint ApiTable );
+
+        // ====================== API 表结构（对应 MsQuic v3） ======================
+        // 必须与官方 MsQuicOpenVersion 返回的表完全一致
         [StructLayout(LayoutKind.Sequential)]
         private struct QUIC_API_TABLE_RAW
         {
-            public nint SetParam; public nint GetParam;
-            public nint RegistrationOpen; public nint RegistrationClose;
-            public nint ConfigurationOpen; public nint ConfigurationClose;
-            public nint ConnectionOpen; public nint ConnectionShutdown; public nint ConnectionStart;
-            public nint StreamOpen; public nint StreamStart; public nint StreamSend;
-            public IntPtr ConnectionSetCallbackHandler;
+            public nint SetParam;
+            public nint GetParam;
+            public nint RegistrationOpen;
+            public nint RegistrationClose;
+            public nint ConfigurationOpen;
+            public nint ConfigurationClose;
+            public nint ConnectionOpen;
+            public nint ConnectionShutdown;
+            public nint ConnectionStart;
+            public nint StreamOpen;
+            public nint StreamStart;
+            public nint StreamSend;
+            public nint StreamClose;
+            public nint StreamShutdown;
+            // v3 之后新增的字段（我们不使用但必须占位）
+            public nint ListenerOpen;
+            public nint ListenerClose;
+            public nint ListenerStart;
+            public nint ListenerStop;
+            // 关键：ConnectionSetCallbackHandler 在 v3 表中的真实位置
+            public nint ConnectionSetCallbackHandler;   // 【Grok 修复_2025-11-24_01】原代码缺失此字段导致 null
+            // 后面还有更多字段，占位即可
         }
 
         static Hysteria2MsQuicNative()
@@ -198,26 +239,13 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             StreamOpen = Marshal.GetDelegateForFunctionPointer<StreamOpenDelegate>(table.StreamOpen);
             StreamStart = Marshal.GetDelegateForFunctionPointer<StreamStartDelegate>(table.StreamStart);
             StreamSend = Marshal.GetDelegateForFunctionPointer<StreamSendDelegate>(table.StreamSend);
-            ConnectionSetCallbackHandler = Marshal.GetDelegateForFunctionPointer<ConnectionSetCallbackHandlerDelegate>(table.ConnectionSetCallbackHandler);
+
+            // 【Grok 修复_2025-11-24_01】关键修复：绑定 ConnectionSetCallbackHandler
+            ConnectionSetCallbackHandler = Marshal.GetDelegateForFunctionPointer<ConnectionSetCallbackHandlerDelegate>(
+                table.ConnectionSetCallbackHandler);
+
+            if (ConnectionSetCallbackHandler == null)
+                throw new PlatformNotSupportedException("当前 MsQuic 版本不支持 ConnectionSetCallbackHandler（需要 ≥2.3）");
         }
-
-        // 必须保留的 DllImport
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int RegistrationOpen( byte* Config, out nint Registration );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RegistrationClose( nint Registration );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void ConfigurationClose( nint Configuration );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void ConnectionClose( nint Connection );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void StreamClose( nint Stream );
-
-        [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int MsQuicOpenVersion( uint Version, out nint ApiTable );
     }
 }

@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     internal sealed class Hysteria2SalamanderObfuscator
     {
@@ -44,7 +44,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
                 // counter → LE64
                 ulong cnt = (ulong)counter;
                 for (int i = 0; i < 8; i++)
-                    counterBuf[i] = (byte)(cnt >> (i * 8));
+                    counterBuf[i] = (byte)(cnt >> i * 8);
 
                 // key = BLAKE2b(password || salt || LE64(counter))
                 var digest = new Blake2bDigest(KeyLength * 8);
@@ -83,7 +83,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
             {
                 ulong cnt = (ulong)counter;
                 for (int i = 0; i < 8; i++)
-                    counterBuf[i] = (byte)(cnt >> (i * 8));
+                    counterBuf[i] = (byte)(cnt >> i * 8);
 
                 var digest = new Blake2bDigest(KeyLength * 8);
                 digest.BlockUpdate(_passwordBytes, 0, _passwordBytes.Length);

@@ -9,20 +9,17 @@ using HiddifyConfigsCLI.src.Checking.Tls;
 using HiddifyConfigsCLI.src.Core;
 using HiddifyConfigsCLI.src.Logging;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Text;
 using static HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.Hysteria2MsQuicNative;
 
-namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
+namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
-    /// <summary>
-    /// Hysteria2 专用的 MsQuic 连接包装器（packet-level Salamander）
-    /// 完全替代 System.Net.Quic 的 QuicConnection
-    /// </summary>
     internal sealed class Hysteria2MsQuicConnection : IDisposable
     {
-        private readonly IntPtr _connectionHandle;
+        private readonly nint _connectionHandle;
         private readonly Hysteria2SalamanderObfuscator _obfuscator;
         private readonly TaskCompletionSource<bool> _connectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _shutdownTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -34,52 +31,48 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
         public Task Connected => _connectedTcs.Task;
         public Task ShutdownCompleted => _shutdownTcs.Task;
         public bool IsConnected => _connectedTcs.Task.IsCompletedSuccessfully;
-        public IntPtr ConnectionHandle => _connectionHandle;
+        public nint ConnectionHandle => _connectionHandle;
 
         public Hysteria2MsQuicConnection(
-            IntPtr connectionHandle,
+            nint connectionHandle,
             string obfsPassword,
             Hysteria2Node node,
             CancellationToken externalToken )
         {
-            if (connectionHandle == IntPtr.Zero)
+            if (connectionHandle == nint.Zero)
                 throw new ArgumentException("Invalid connection handle", nameof(connectionHandle));
 
             _connectionHandle = connectionHandle;
             _obfuscator = new Hysteria2SalamanderObfuscator(obfsPassword);
-
-            // 安全托管：将当前实例传递给原生回调
             _gcHandle = GCHandle.Alloc(this);
 
-            // 注册连接回调
-            int status = Hysteria2MsQuicNative.Api->ConnectionSetCallbackHandler(
-                _connectionHandle,
-                &ConnectionCallback,
-                (void*)GCHandle.ToIntPtr(_gcHandle));
+            // 使用集中管理的函数指针（零 unsafe）
+            int status = ConnectionSetCallbackHandler(
+    _connectionHandle,
+    ConnectionCallbackStatic,  // 直接传静态方法！！
+    GCHandle.ToIntPtr(_gcHandle));
 
-            if (status != Hysteria2MsQuicNative.QUIC_STATUS_SUCCESS)
+            if (status != QUIC_STATUS_SUCCESS)
             {
                 _gcHandle.Free();
                 throw new InvalidOperationException($"ConnectionSetCallbackHandler failed: 0x{status:X8}");
             }
 
-            // 链接外部取消
             externalToken.Register(() =>
             {
                 if (!_isDisposed)
-                    Hysteria2MsQuicNative.Api->ConnectionShutdown(_connectionHandle, QUIC_CONNECTION_SHUTDOWN_FLAGS.NONE, 0);
+                    ConnectionShutdown(_connectionHandle, QUIC_CONNECTION_SHUTDOWN_FLAGS.NONE, 0);
             });
         }
 
-        // 连接事件回调（原生函数）
-        [UnmanagedCallersOnly]
-        private static int ConnectionCallback( IntPtr connection, IntPtr context, QUIC_CONNECTION_EVENT* evt )
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        internal static unsafe int ConnectionCallbackStatic( IntPtr connection, IntPtr context, QUIC_CONNECTION_EVENT* evt )
         {
             var self = (Hysteria2MsQuicConnection)GCHandle.FromIntPtr(context).Target!;
             return self.HandleConnectionEvent(evt);
         }
 
-        private int HandleConnectionEvent( QUIC_CONNECTION_EVENT* evt )
+        private unsafe int HandleConnectionEvent( QUIC_CONNECTION_EVENT* evt )
         {
             try
             {
@@ -94,10 +87,6 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
                         LogHelper.Verbose("[Hysteria2-MsQuic] 连接已完全关闭");
                         _shutdownTcs.TrySetResult(true);
                         break;
-
-                    case QUIC_CONNECTION_EVENT_TYPE.PEER_STREAM_STARTED:
-                        // 服务器主动开流（通常不会），忽略
-                        break;
                 }
             }
             catch (Exception ex)
@@ -105,12 +94,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
                 LogHelper.Warn($"[Hysteria2-MsQuic] 连接回调异常: {ex.Message}");
                 _connectedTcs.TrySetException(ex);
             }
-            return Hysteria2MsQuicNative.QUIC_STATUS_SUCCESS;
+            return QUIC_STATUS_SUCCESS;
         }
 
-        /// <summary>
-        /// 开启双向流（用于发送 /auth 请求）
-        /// </summary>
         public async Task<Hysteria2MsQuicStream> OpenBidirectionalStreamAsync( CancellationToken ct )
         {
             if (_isDisposed) throw new ObjectDisposedException(nameof(Hysteria2MsQuicConnection));
@@ -127,13 +113,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
             if (_isDisposed) return;
             _isDisposed = true;
 
-            if (_bidirectionalStream != null)
-                _bidirectionalStream.Dispose();
+            _bidirectionalStream?.Dispose();
 
-            if (_connectionHandle != IntPtr.Zero)
-            {
-                Hysteria2MsQuicNative.Api->ConnectionClose(_connectionHandle);
-            }
+            if (_connectionHandle != nint.Zero)
+                ConnectionClose(_connectionHandle);
 
             if (_gcHandle.IsAllocated)
                 _gcHandle.Free();
@@ -141,11 +124,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2.MsQuic
             _internalCts.Dispose();
         }
 
-        // 包级混淆：发送前调用（由 Stream 使用）
         internal byte[] ObfuscatePacket( ReadOnlySpan<byte> packet )
             => _obfuscator.ObfuscateOutgoing(packet);
 
-        // 包级解混淆：接收后调用（由 Stream 使用）
         internal byte[] DeobfuscatePacket( ReadOnlySpan<byte> packet )
             => _obfuscator.DeobfuscateIncoming(packet);
     }
