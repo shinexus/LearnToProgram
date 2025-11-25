@@ -32,6 +32,11 @@ jobs:
           Write-Host "预期 EXE Dir  = $exeDir"
           Write-Host "预期 EXE Path = $exe"
 
+          # --- 明确 valid_links 完整路径（基于 workspace） ---
+          $valid_linksDir = Join-Path $env:GITHUB_WORKSPACE "HiddifyConfigsCLI/valid_links"
+
+          Write-Host "预期 valid_links Dir = $valid_linksDir"
+
           if (!(Test-Path $exe)) {
             Write-Error "EXE 不存在: $exe"
             exit 1
@@ -42,8 +47,9 @@ jobs:
           $input = "https://raw.githubusercontent.com/shinexus/LearnToProgram/refs/heads/master/HiddifyConfigsCLI/config/urls.txt"
 
           # 输出 绝对路径
-          $outputFile = Join-Path $exeDir "valid_links.txt"
           # $outputFile = Join-Path $exeDir "_test.txt"
+          # $outputFile = Join-Path $exeDir "valid_links.txt"          
+          $outputFile = Join-Path $valid_linksDir "valid_links.txt"
           
           # 参数数组
           $params = @(
@@ -77,12 +83,12 @@ jobs:
           Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter "valid_links*" -ErrorAction SilentlyContinue |
             Select-Object FullName, Length | Format-Table
 
-          Write-Host "运行后：列出 EXE 目录下 valid_links*："
-          Get-ChildItem -Path $exeDir -Filter "valid_links*" -ErrorAction SilentlyContinue |
+          Write-Host "运行后：列出 valid_linksDir 目录下 valid_links*："
+          Get-ChildItem -Path  $valid_linksDir -Filter "valid_links*" -ErrorAction SilentlyContinue |
             Select-Object Name, FullName, Length | Format-Table
 
           # --- 如果找到了主文件，打印前 50 行和文件字节数以供核验 ---
-          $mainCandidates = Get-ChildItem -Path $exeDir -Filter "valid_links_*.txt" -ErrorAction SilentlyContinue
+          $mainCandidates = Get-ChildItem -Path  $valid_linksDir -Filter "valid_links_*.txt" -ErrorAction SilentlyContinue
           if ($mainCandidates) {
             foreach ($f in $mainCandidates) {
               Write-Host "---- file: $($f.FullName) (Length=$($f.Length) bytes) ----"
@@ -91,7 +97,7 @@ jobs:
               Write-Host "---- End of preview ----"
             }
           } else {
-            Write-Host "未在 EXE 目录发现 valid_links 文件，尝试在 workspace 全局搜索。"
+            Write-Host "未在 valid_linksDir 目录发现 valid_links 文件，尝试在 workspace 全局搜索。"
             $global = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter "valid_links*" -ErrorAction SilentlyContinue
             foreach ($g in $global) {
               Write-Host "---- file: $($g.FullName) (Length=$($g.Length) bytes) ----"
@@ -117,7 +123,7 @@ jobs:
         if: always()
         with:
           name: valid-links
-          path: HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*
+          path: HiddifyConfigsCLI/valid_links/valid_links*
           retention-days: 7
           if-no-files-found: warn
 
@@ -135,7 +141,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
           # 添加生成的文件
-          git add "HiddifyConfigsCLI/bin/Debug/net9.0/valid_links*"
+          git add "HiddifyConfigsCLI/valid_links/valid_links*"
 
           # 若无变化则退出
           git diff --cached --quiet
