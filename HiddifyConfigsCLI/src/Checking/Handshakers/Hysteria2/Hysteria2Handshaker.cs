@@ -31,13 +31,17 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 int targetPort = Hysteria2PortResolver.Resolve(node);
                 var endpoint = new IPEndPoint(address, targetPort);
 
-                await using var connection = await Hysteria2ConnectionFactory.ConnectAsync(node, endpoint, cts.Token);
+                // 尝试使用 ChatGPT 修改过的 MsQuic
+                // await using var connection = await Hysteria2ConnectionFactory.ConnectAsync(node, endpoint, cts.Token);
+                using var connection = await Hysteria2MsQuicFactory.ConnectAsync(node, endpoint, cts.Token);
+
                 if (connection == null)
                     return (false, sw.Elapsed, null);
 
-                LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.RemoteEndPoint}");
+                LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.ToString}");
 
-                await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
+                // await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
+                await using var stream = await connection.OpenBidirectionalStreamAsync(cts.Token);
 
                 byte[] request = Hysteria2RequestBuilder.BuildAuthRequest(node);
                 if (Hysteria2SalamanderEngine.IsEnabled(node))
@@ -51,7 +55,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                     await stream.WriteAsync(request, cts.Token);
                 }
 
-                var parseResult = await Hysteria2ResponseParser.ParseAsync(stream, node, cts.Token);
+                // 使用 ChatGPT 修改的 MsQuic
+                // var parseResult = await Hysteria2ResponseParser.ParseAsync(stream, node, cts.Token);
+                var parseResult = await Hysteria2MsQuicResponseParser.ParseAsync(stream, node, cts.Token);
+
                 sw.Stop();
 
                 if (!parseResult.Success)

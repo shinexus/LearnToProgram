@@ -18,7 +18,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     internal static class Hysteria2MsQuicFactory
     {
-        // 【Grok 修复_2025-11-24_02】正确实现 AsyncLazy：返回 Task<GlobalResources>
+        // 正确实现 AsyncLazy：返回 Task<GlobalResources>
         // 原代码错误地将 Lazy<Task<T>> 当作 AsyncLazy<T> 使用，导致 await 语法错误
         private static readonly AsyncLazy<GlobalResources> _global
             = new AsyncLazy<GlobalResources>(InitializeGlobalAsync);
@@ -38,7 +38,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             }
         }
 
-        // 【Grok 修复_2025-11-24_02】改为真正的 async 方法，所有 unsafe 代码块已隔离
+        // 改为真正的 async 方法，所有 unsafe 代码块已隔离
         private static async Task<GlobalResources> InitializeGlobalAsync()
         {
             // 【Grok 修复_2025-11-24_03】仅在此方法内部使用 unsafe 块，类保持安全
@@ -103,7 +103,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             return new GlobalResources(reg, cfg);
         }
 
-        // 【Grok 修复_2025-11-24_02】正确 await Task<GlobalResources>
+        // 正确 await Task<GlobalResources>
         public static async Task<Hysteria2MsQuicConnection> ConnectAsync(
             Hysteria2Node node,
             IPEndPoint endpoint,
@@ -127,7 +127,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
             var connection = new Hysteria2MsQuicConnection(node.ObfsPassword!, node, ct);
 
-            // 【Grok 修复_2025-11-24_02】SNI 字符串必须以 null 结尾，且使用 fixed 固定托管数组
+            // SNI 字符串必须以 null 结尾，且使用 fixed 固定托管数组
             byte[] sniBytes = Encoding.UTF8.GetBytes(effectiveSni + '\0');
 
             unsafe
@@ -156,7 +156,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         }
     }
 
-    // 【Grok 修复_2025-11-24_02】标准 AsyncLazy 实现（支持 .NET 9）
+    // 标准 AsyncLazy 实现（支持 .NET 9）
     internal sealed class AsyncLazy<T> where T : class
     {
         private readonly Lazy<Task<T>> _lazy;
