@@ -125,7 +125,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             if (status != QUIC_STATUS_SUCCESS)
                 throw new InvalidOperationException($"ConnectionOpen failed: 0x{status:X8}");
 
-            var connection = new Hysteria2MsQuicConnection(connHandle, node.ObfsPassword!, node, ct);
+            var connection = new Hysteria2MsQuicConnection(node.ObfsPassword!, node, ct);
 
             // 【Grok 修复_2025-11-24_02】SNI 字符串必须以 null 结尾，且使用 fixed 固定托管数组
             byte[] sniBytes = Encoding.UTF8.GetBytes(effectiveSni + '\0');

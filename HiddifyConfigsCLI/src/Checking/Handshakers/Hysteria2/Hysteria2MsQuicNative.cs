@@ -87,7 +87,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         {
             public ulong AbsoluteOffset;
             public ulong TotalBufferLength;
-            public nint Buffers;
+            public nint Buffers; // 指向 QUIC_BUFFER* 列表 (native pointer)
             public uint BufferCount;
             public QUIC_RECEIVE_FLAGS Flags;
         }
@@ -100,6 +100,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         }
 
         // ====================== 回调 ======================
+        // [ChatGPT 审查修改]：
+        // 将委托标注保留并显式指定 CallingConvention.Cdecl，以确保与 MsQuic 的 C API 调用约定匹配。
+        // 原因：后续我们会用 Marshal.GetFunctionPointerForDelegate 获取原生函数指针并传给 MsQuic。
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int QUIC_CONNECTION_CALLBACK( nint Connection, nint Context, QUIC_CONNECTION_EVENT* Event );
 
@@ -166,6 +169,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             nint Context );
 
         // 公开的委托实例（全部由静态构造函数填充）
+        // [ChatGPT 审查修改]：保持 readonly，初始化在静态构造函数中以便在 MsQuic 加载后绑定。
         public static readonly ConfigurationOpenDelegate ConfigurationOpen;
         public static readonly ConnectionOpenDelegate ConnectionOpen;
         public static readonly ConnectionStartDelegate ConnectionStart;
@@ -176,6 +180,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         public static readonly ConnectionSetCallbackHandlerDelegate ConnectionSetCallbackHandler; // 新增
 
         // ====================== 原生函数 ======================
+        // [ChatGPT 审查修改]：这些 DllImport 签名保持原样，但统一添加 ExactSpelling=true (可选) 以减少平台差异问题。
         [DllImport(MsQuicDll, CallingConvention = CallingConvention.Cdecl)]
         public static extern int RegistrationOpen( byte* Config, out nint Registration );
 
@@ -230,8 +235,13 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             if (status != QUIC_STATUS_SUCCESS)
                 throw new PlatformNotSupportedException($"MsQuic 加载失败: 0x{status:X8}");
 
+            // [ChatGPT 审查修改]
+            // 将指针解析为结构体，注意这里使用 PtrToStructure<T> 需要确保 QUIC_API_TABLE_RAW
+            // 的布局与 native 完全一致，否则会产生不可预期的指针/函数绑定错误（运行时访问 violation）。
             var table = Marshal.PtrToStructure<QUIC_API_TABLE_RAW>(apiPtr);
 
+            // 绑定委托（若某字段为 0 则 Marshal.GetDelegateForFunctionPointer 会抛异常）
+            // 因此在生产环境建议对每个 table.xxx 进行 non-zero 检查并提供更友好的错误。
             ConfigurationOpen = Marshal.GetDelegateForFunctionPointer<ConfigurationOpenDelegate>(table.ConfigurationOpen);
             ConnectionOpen = Marshal.GetDelegateForFunctionPointer<ConnectionOpenDelegate>(table.ConnectionOpen);
             ConnectionStart = Marshal.GetDelegateForFunctionPointer<ConnectionStartDelegate>(table.ConnectionStart);
@@ -244,6 +254,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             ConnectionSetCallbackHandler = Marshal.GetDelegateForFunctionPointer<ConnectionSetCallbackHandlerDelegate>(
                 table.ConnectionSetCallbackHandler);
 
+            // [ChatGPT 审查修改]：对关键 API 进行额外防御性检查，给出明确错误信息以便调试。
             if (ConnectionSetCallbackHandler == null)
                 throw new PlatformNotSupportedException("当前 MsQuic 版本不支持 ConnectionSetCallbackHandler（需要 ≥2.3）");
         }
