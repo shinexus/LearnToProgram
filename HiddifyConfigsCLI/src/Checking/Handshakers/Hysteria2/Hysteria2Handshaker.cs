@@ -40,6 +40,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
                 LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.ToString}");
 
+                // 尝试使用 ChatGPT 修改过的 MsQuic
                 // await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
                 await using var stream = await connection.OpenBidirectionalStreamAsync(cts.Token);
 

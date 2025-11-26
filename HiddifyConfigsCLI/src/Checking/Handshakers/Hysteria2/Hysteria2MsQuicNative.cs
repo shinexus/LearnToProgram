@@ -1,6 +1,7 @@
 ﻿// HiddifyConfigsCLI.src.Checking/Handshakers/Hysteria2/MsQuic/Hysteria2MsQuicNative.cs
 // Grok 写的代码，我一点也不懂。
 
+using HiddifyConfigsCLI.src.Logging;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -231,7 +232,14 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
         static Hysteria2MsQuicNative()
         {
+            // 调试信息
+            LogHelper.Debug("[Hysteria2MsQuicNative] 正在加载 MsQuic...");
             int status = MsQuicOpenVersion(QUIC_API_VERSION, out nint apiPtr);
+
+            // 调试信息
+            // 0x80004002 MsQuic DLL 加载成功，API 版本（QUIC_API_VERSION = 3）不可用或不兼容，apiPtr = 0 说明 MsQuic 没有返回有效的函数表指针。
+            LogHelper.Debug($"[Hysteria2MsQuicNative] MsQuicOpenVersion status=0x{status:X8}, apiPtr={apiPtr}");
+
             if (status != QUIC_STATUS_SUCCESS)
                 throw new PlatformNotSupportedException($"MsQuic 加载失败: 0x{status:X8}");
 
