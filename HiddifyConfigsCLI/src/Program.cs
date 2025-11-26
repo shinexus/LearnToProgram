@@ -11,6 +11,9 @@ using HiddifyConfigsCLI.src.Logging;
 using HiddifyConfigsCLI.src.Parsing;
 using HiddifyConfigsCLI.src.Processing;
 using HiddifyConfigsCLI.src.Sources.Telegram;
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace HiddifyConfigsCLI.src;

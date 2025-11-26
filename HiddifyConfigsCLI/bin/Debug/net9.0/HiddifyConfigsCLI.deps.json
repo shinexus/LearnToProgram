@@ -10,8 +10,7 @@
         "dependencies": {
           "BouncyCastle.Cryptography": "2.4.0",
           "CommandLineParser": "2.9.1",
-          "Microsoft.Native.Quic.MsQuic.OpenSSL": "2.5.5",
-          "Microsoft.Native.Quic.MsQuic.Schannel": "2.5.5",
+          "Microsoft.NET.ILLink.Tasks": "9.0.11",
           "NSec.Cryptography": "25.4.0",
           "YamlDotNet": "16.3.0"
         },
@@ -114,8 +113,7 @@
           }
         }
       },
-      "Microsoft.Native.Quic.MsQuic.OpenSSL/2.5.5": {},
-      "Microsoft.Native.Quic.MsQuic.Schannel/2.5.5": {},
+      "Microsoft.NET.ILLink.Tasks/9.0.11": {},
       "NSec.Cryptography/25.4.0": {
         "dependencies": {
           "libsodium": "1.0.20.1"
@@ -164,19 +162,12 @@
       "path": "libsodium/1.0.20.1",
       "hashPath": "libsodium.1.0.20.1.nupkg.sha512"
     },
-    "Microsoft.Native.Quic.MsQuic.OpenSSL/2.5.5": {
+    "Microsoft.NET.ILLink.Tasks/9.0.11": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ejdcSTqugAqqiCX1lvdOhfTNCUHLnPTlGAFzHPnvvA631Ua6bBPNRWLOENb3K7zzAn+uaikaZFNTus6GDol8RQ==",
-      "path": "microsoft.native.quic.msquic.openssl/2.5.5",
-      "hashPath": "microsoft.native.quic.msquic.openssl.2.5.5.nupkg.sha512"
-    },
-    "Microsoft.Native.Quic.MsQuic.Schannel/2.5.5": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-e3UW1pnkeFyKljbHpHVjJkIaKhJiJuV9BClY+JDBSem5DR9lfAD/hpiYkh3Vd/XtR6W4ljs65gNB/HsDPerF0Q==",
-      "path": "microsoft.native.quic.msquic.schannel/2.5.5",
-      "hashPath": "microsoft.native.quic.msquic.schannel.2.5.5.nupkg.sha512"
+      "sha512": "sha512-vvB9rtDmWaXgYkViT00KORBVmA3pcYsHlgd9vOPqL9sf5bKy3rvLMF1+sI1uUfVj28S3itirHlHmX5/kcpZKNw==",
+      "path": "microsoft.net.illink.tasks/9.0.11",
+      "hashPath": "microsoft.net.illink.tasks.9.0.11.nupkg.sha512"
     },
     "NSec.Cryptography/25.4.0": {
       "type": "package",

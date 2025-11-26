@@ -9,7 +9,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     internal static unsafe class Hysteria2MsQuicNative
     {
+        // 傻逼 Microsoft
         private const string MsQuicDll = "msquic";
+        
         public const uint QUIC_API_VERSION = 3;        // MsQuic v3（对应 2.x 库）
         public const int QUIC_STATUS_SUCCESS = 0;
 
@@ -208,30 +210,43 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         {
             public nint SetParam;
             public nint GetParam;
-            public nint RegistrationOpen;
+
+            public nint RegistrationOpen;            
             public nint RegistrationClose;
+
             public nint ConfigurationOpen;
+            public nint ConfigurationLoadCredential;
             public nint ConfigurationClose;
+
             public nint ConnectionOpen;
+            public nint ConnectionClose;           // ← 必须在这里！你在原代码里放到了 Shutdown 后面
             public nint ConnectionShutdown;
             public nint ConnectionStart;
+
             public nint StreamOpen;
+            public nint StreamClose;               // ← 必须在这里！不能放在 Send 后面
             public nint StreamStart;
-            public nint StreamSend;
-            public nint StreamClose;
             public nint StreamShutdown;
-            // v3 之后新增的字段（我们不使用但必须占位）
+            public nint StreamSend;
+
             public nint ListenerOpen;
             public nint ListenerClose;
             public nint ListenerStart;
             public nint ListenerStop;
-            // 关键：ConnectionSetCallbackHandler 在 v3 表中的真实位置
-            public nint ConnectionSetCallbackHandler;   // 【Grok 修复_2025-11-24_01】原代码缺失此字段导致 null
-            // 后面还有更多字段，占位即可
+
+            // 关键：ConnectionSetCallbackHandler 就在这里！（v2.3 引入，v3 表固定位置）
+            public nint ConnectionSetCallbackHandler;
+
+            // 后面还有几十个字段，我们不需要，用 nint 占位即可（不会错位）
+            public nint Padding1;  // DatagramSend 等
+            public nint Padding2;
+            public nint Padding3;
+            // ... 省略 20+ 个字段，反正我们只取前面的
         }
 
         static Hysteria2MsQuicNative()
         {
+            
             // 调试信息
             LogHelper.Debug("[Hysteria2MsQuicNative] 正在加载 MsQuic...");
             int status = MsQuicOpenVersion(QUIC_API_VERSION, out nint apiPtr);
