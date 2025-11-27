@@ -93,7 +93,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             nint reg = nint.Zero;
             
             // 完全托管，无需 unsafe，无需 fixed，无需 stackalloc
-            int status = Hysteria2MsQuicNative.RegistrationOpen ( ApiTable, nint.Zero, out reg );
+            int status = RegistrationOpen ( ApiTable, nint.Zero, out reg );
             if ( status != QUIC_STATUS_SUCCESS )
                 throw new InvalidOperationException ( $"RegistrationOpen failed: 0x{status:X8}" );
 

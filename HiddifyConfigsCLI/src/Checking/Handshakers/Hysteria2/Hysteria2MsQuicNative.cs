@@ -303,7 +303,7 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         {
 
             // 调试信息
-            // LogHelper.Debug($"[Hysteria2MsQuicNative] 正在加载 MsQuic...");
+            // LogHelper.Debug ( $"[MsQuic] 当前加载的 msquic.dll 路径: {typeof ( Hysteria2MsQuicNative ).Assembly.Location} 附近？" );
 
             // 注意：QUIC_API_VERSION = 2
             int status = MsQuicOpenVersion(QUIC_API_VERSION, out nint apiPtr);
