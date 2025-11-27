@@ -1,5 +1,10 @@
 ﻿// HiddifyConfigsCLI.src.Checking/Handshakers/Hysteria2/MsQuic/Hysteria2MsQuicNative.cs
 // Grok 写的代码，我一点也不懂。
+// 重构直接 DllImport 的 MsQuic 函数（如 RegistrationOpen），转为通过 API table 委托绑定。
+// 原因：MsQuic 不导出这些函数，直接 DllImport 导致 EntryPointNotFoundException。所有操作必须用 table 中的指针。
+// 新增：RegistrationOpenDelegate + 绑定；更新 QUIC_API_TABLE_RAW 以匹配 v2 完整顺序（基于官方 msquic.h v2.6.0）。
+// 废弃旧 DllImport：用 /* 废弃 */ 包围，用户可后续删除。
+// 测试：Hysteria2Handshaker 初始化时调用 GetRegistration()，确保无异常
 
 using HiddifyConfigsCLI.src.Logging;
 using System.Runtime.CompilerServices;
