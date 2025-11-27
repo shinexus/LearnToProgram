@@ -11,8 +11,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     {
         // 傻逼 Microsoft
         private const string MsQuicDll = "msquic";
-        
-        public const uint QUIC_API_VERSION = 3;        // MsQuic v3（对应 2.x 库）
+
+        // 对应编译 MsQuic.dll v2.6.0.0 只能使用 api v2
+        // 对应编译 MsQuic.dll v2.6.0.0 如果使用 api v3 会出现 MsQuicOpenVersion status=0x80004002, apiPtr=0
+        public const uint QUIC_API_VERSION = 2;        // MsQuic v3（对应 2.x 库）
         public const int QUIC_STATUS_SUCCESS = 0;
 
         // ====================== 枚举 ======================
@@ -246,9 +248,11 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
         static Hysteria2MsQuicNative()
         {
-            
+
             // 调试信息
-            LogHelper.Debug("[Hysteria2MsQuicNative] 正在加载 MsQuic...");
+            // LogHelper.Debug($"[Hysteria2MsQuicNative] 正在加载 MsQuic...");
+
+            // 注意：QUIC_API_VERSION = 2
             int status = MsQuicOpenVersion(QUIC_API_VERSION, out nint apiPtr);
 
             // 调试信息

@@ -13,54 +13,14 @@ using HiddifyConfigsCLI.src.Processing;
 using HiddifyConfigsCLI.src.Sources.Telegram;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace HiddifyConfigsCLI.src;
 
-internal class Program
-{
-    // ──────────────────────────────────────────────────────────────
-    // MsQuic 强制加载（终极版）—— 支持 native/ 目录 + runtimes/ 回退
-    // ──────────────────────────────────────────────────────────────
-    static Program()
-    {
-        // 程序一启动就先把我们自己的完整版 msquic.dll 接管掉
-        EnsureMsQuicLoaded();
-    }
-
-    /// <summary>
-    /// 强制加载项目根目录 native\win-x64\msquic.dll（本地 + GitHub Actions 通用）
-    /// </summary>
-    internal static void EnsureMsQuicLoaded()
-    {
-        // 1. 优先从项目根目录的 native 目录加载（最推荐的放置方式）
-        string candidate1 = Path.Combine(AppContext.BaseDirectory, "native", "win-x64", "msquic.dll");
-
-        // 2. 回退到旧的 runtimes 路径（兼容以前的项目）
-        string candidate2 = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native", "msquic.dll");
-
-        string dllPath = File.Exists(candidate1) ? candidate1 : candidate2;
-
-        if (!File.Exists(dllPath))
-            throw new FileNotFoundException($"[MsQuic] 未找到完整版 msquic.dll，请放入以下任一位置：\n   {candidate1}\n   {candidate2}");
-
-        IntPtr handle = NativeLibrary.Load(dllPath);
-        if (handle == IntPtr.Zero)
-            throw new InvalidOperationException($"[MsQuic] 加载失败：{dllPath}");
-
-        var ver = FileVersionInfo.GetVersionInfo(dllPath);
-        Console.WriteLine($"[MsQuic 终极接管] 已加载：{dllPath}");
-        Console.WriteLine($"[MsQuic] 版本 {ver.FileVersion} —— 0x80004002 永别了！");
-
-        // 全局拦截：以后任何 DllImport("msquic") 都强制走我们自己的句柄
-        NativeLibrary.SetDllImportResolver(
-            Assembly.GetExecutingAssembly(),
-            ( libName, _, __ ) => libName.Equals("msquic", StringComparison.OrdinalIgnoreCase) ? handle : IntPtr.Zero);
-    }
-
-
-    // 以下是业务代码
+internal partial class Program
+{    
     // [新增] 全局配置对象，解析后保存，供所有模块使用
     public static RunOptions? Options { get; private set; }
 
