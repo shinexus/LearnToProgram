@@ -26,68 +26,74 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     internal sealed class Hysteria2MsQuicConnection : IDisposable
     {
         // 全局共享 Registration（来自 Factory，已初始化）
-        private static readonly nint GlobalRegistration = GetGlobalRegistration ();
+        // 消除 GetResult() 潜在风险
+        // private static readonly nint GlobalRegistration = GetGlobalRegistration ();
+        private static readonly nint GlobalRegistration;
+
+        /// <summary>
+        /// 静态构造函数（区别于 实例构造函数）
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        // 修复 1：避免死锁，改用 Task.Run 同步等待
+        static Hysteria2MsQuicConnection ( )
+        {
+            try
+            {
+                // 直接同步等待，不要套 Task.Run！
+                GlobalRegistration = Hysteria2MsQuicFactory.GlobalResourcesTask
+                    .ConfigureAwait ( false )
+                    .GetAwaiter ( )
+                    .GetResult ( )
+                    .Registration;
+
+                if ( GlobalRegistration == nint.Zero )
+                    throw new InvalidOperationException ( "MsQuic GlobalRegistration 为零指针" );
+
+                LogHelper.Debug ( $"[Hysteria2MsQuicConnection] 全局 Registration 已就绪: 0x{GlobalRegistration:X16}" );
+            }
+            catch ( Exception ex )
+            {
+                LogHelper.Error ( $"[Hysteria2MsQuicConnection] 初始化全局 Registration 失败: {ex}" );
+                throw;
+            }
+        }
 
         // Connection handle
         internal nint ConnectionHandle { get; private set; } = nint.Zero;
+        // 让外部类（Hysteria2MsQuicFactory）可以访问
+        internal void SetConnectionHandle ( nint handle )
+        {
+            ConnectionHandle = handle;
+        }
 
         private readonly Hysteria2SalamanderObfuscator _obfuscator;
-        private readonly TaskCompletionSource<bool> _connectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource<bool> _shutdownTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly CancellationTokenSource _internalCts = new();
+        private readonly TaskCompletionSource<bool> _connectedTcs = new ( TaskCreationOptions.RunContinuationsAsynchronously );
+        private readonly TaskCompletionSource<bool> _shutdownTcs = new ( TaskCreationOptions.RunContinuationsAsynchronously );
+        private readonly CancellationTokenSource _internalCts = new ( );
+
         private readonly GCHandle _gcHandle;
+        // 让外部类（Hysteria2MsQuicFactory）可以访问
+        internal nint GCHandlePtr => GCHandle.ToIntPtr ( _gcHandle );
+
+        private readonly CancellationTokenRegistration _externalCancelReg; // 保存注册
         private volatile bool _isDisposed;
         private Hysteria2MsQuicStream? _bidirectionalStream;
 
-        // 关键：从 Factory 获取已初始化好的 Registration
-        private static nint GetGlobalRegistration ()
-        {
-            var task = Hysteria2MsQuicFactory.GlobalResourcesTask;
-            if ( task.IsCompletedSuccessfully )
-                return task.Result.Registration;
-
-            // 同步阻塞等待（初始化很快，且只发生一次）
-            return task.GetAwaiter ().GetResult ().Registration;
-        }
         /// <summary>
         /// 构造函数：仅负责创建 Connection（Registration 已全局共享）
+        /// 这是实例构造函数（区别于 静态构造函数）
         /// </summary>
         public Hysteria2MsQuicConnection ( string obfsPassword, Hysteria2Node node, CancellationToken externalToken )
         {
             _gcHandle = GCHandle.Alloc ( this );
             _obfuscator = new Hysteria2SalamanderObfuscator ( obfsPassword );
 
-            // 1. ConnectionOpen（使用全局 Registration）
-            int openStatus = ConnectionOpen (
-                GlobalRegistration,
-                NativeCallbacks.ConnectionDelegate,
-                GCHandle.ToIntPtr ( _gcHandle ),
-                out nint connHandle );
-
-            if ( openStatus != QUIC_STATUS_SUCCESS )
-            {
-                _gcHandle.Free ();
-                throw new InvalidOperationException ( $"ConnectionOpen failed: 0x{openStatus:X8}" );
-            }
-
-            ConnectionHandle = connHandle;
-
-            // 2. 设置回调（必须调用）
-            int setCbStatus = ConnectionSetCallbackHandler (
-                ConnectionHandle,
-                NativeCallbacks.ConnectionDelegate,
-                GCHandle.ToIntPtr ( _gcHandle ) );
-
-            if ( setCbStatus != QUIC_STATUS_SUCCESS )
-            {
-                ConnectionClose ( ConnectionHandle );
-                ConnectionHandle = nint.Zero;
-                _gcHandle.Free ();
-                throw new InvalidOperationException ( $"ConnectionSetCallbackHandler failed: 0x{setCbStatus:X8}" );
-            }
+            //
+            // 此处不可创建连接，否则与 Hysteria2MsQuicFactory 冲突导致异常
+            // 
 
             // 3. 外部取消时关闭连接
-            externalToken.Register ( () =>
+            externalToken.Register ( ( ) =>
             {
                 if ( !_isDisposed && ConnectionHandle != nint.Zero )
                     ConnectionShutdown ( ConnectionHandle, QUIC_CONNECTION_SHUTDOWN_FLAGS.NONE, 0 );
@@ -111,6 +117,27 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                         LogHelper.Verbose ( "[Hysteria2-MsQuic] 连接已建立（TLS 握手完成）" );
                         _connectedTcs.TrySetResult ( true );
                         break;
+
+                    case QUIC_CONNECTION_EVENT_TYPE.SHUTDOWN_INITIATED_BY_PEER:
+                        {
+                            ulong code = evt->Data.ShutdownByPeer.ErrorCode;
+                            string reason = code switch
+                            {
+                                0x101 => "ALPN 不匹配（服务器不支持 hysteria2）",
+                                0x10a => "握手超时",
+                                0x100 => "无错误关闭",
+                                _ => $"未知错误 0x{code:X}"
+                            };
+                            _connectedTcs.TrySetException ( new AuthenticationException ( $"对端拒绝连接: {reason}" ) );
+                            break;
+                        }
+
+                    case QUIC_CONNECTION_EVENT_TYPE.SHUTDOWN_INITIATED_BY_TRANSPORT:
+                        {
+                            ulong code = evt->Data.ShutdownByTransport.ErrorCode;
+                            _connectedTcs.TrySetException ( new AuthenticationException ( $"传输层关闭连接，错误码=0x{code:X}" ) );
+                            break;
+                        }
 
                     case QUIC_CONNECTION_EVENT_TYPE.SHUTDOWN_COMPLETE:
                         LogHelper.Verbose ( "[Hysteria2-MsQuic] 连接已完全关闭" );
@@ -136,17 +163,17 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             if ( !IsConnected ) await Connected.WaitAsync ( ct ).ConfigureAwait ( false );
 
             var stream = new Hysteria2MsQuicStream ( this, _obfuscator, ct );
-            await stream.OpenAsync ().ConfigureAwait ( false );
+            await stream.OpenAsync ( ).ConfigureAwait ( false );
             _bidirectionalStream = stream;
             return stream;
         }
 
-        public void Dispose ()
+        public void Dispose ( )
         {
             if ( _isDisposed ) return;
             _isDisposed = true;
 
-            _bidirectionalStream?.Dispose ();
+            _bidirectionalStream?.Dispose ( );
 
             if ( ConnectionHandle != nint.Zero )
             {
@@ -156,9 +183,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             }
 
             if ( _gcHandle.IsAllocated )
-                _gcHandle.Free ();
+                _gcHandle.Free ( );
 
-            _internalCts.Dispose ();
+            _internalCts.Dispose ( );
         }
 
         internal byte[] ObfuscatePacket ( ReadOnlySpan<byte> packet )

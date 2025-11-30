@@ -23,13 +23,10 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 {
     internal static class Hysteria2MsQuicFactory
     {
-        // 全局 API table 指针（由 Hysteria2MsQuicNative 静态构造函数填充）
-        private static readonly nint ApiTable = GetApiTable ();
-
         // 正确实现 AsyncLazy：返回 Task<GlobalResources>
         // 原代码错误地将 Lazy<Task<T>> 当作 AsyncLazy<T> 使用，导致 await 语法错误
         internal static readonly AsyncLazy<GlobalResources> _global
-            = new AsyncLazy<GlobalResources>(InitializeGlobalAsync);
+            = new AsyncLazy<GlobalResources> ( InitializeGlobalAsync );
 
         // 公开全局资源 Task，供 Hysteria2MsQuicConnection 等其他类使用
         // 必须是 internal static，这样同程序集内其他类才能访问
@@ -39,78 +36,93 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
         {
             public nint Registration { get; }
             public nint Configuration { get; }
-            public GlobalResources( nint r, nint c ) => (Registration, Configuration) = (r, c);
+            public GlobalResources ( nint r, nint c ) => (Registration, Configuration) = (r, c);
 
-            public void Dispose()
+            public void Dispose ( )
             {
-                // 改为通过委托调用 Close 函数
                 if ( Configuration != nint.Zero )
-                    Hysteria2MsQuicNative.ConfigurationClose ( Configuration );
+                    Hysteria2MsQuicNative.ConfigurationClose?.Invoke ( Configuration );
                 if ( Registration != nint.Zero )
-                    Hysteria2MsQuicNative.RegistrationClose ( Registration );
+                    Hysteria2MsQuicNative.RegistrationClose?.Invoke ( Registration );
             }
-        }
-
-        // 获取 API table（静态构造函数已保证加载成功）
-        private static nint GetApiTable ()
-        {
-            // 触发 Hysteria2MsQuicNative 静态构造函数执行
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor ( typeof ( Hysteria2MsQuicNative ).TypeHandle );
-            // 通过已公开的任意委托反推 apiPtr（最稳健方式）
-            var delegatePtr = Marshal.GetFunctionPointerForDelegate ( Hysteria2MsQuicNative.ConnectionOpen );
-            // 所有委托都来自同一个 api table，直接返回任意一个即可（这里用 ConnectionOpen 作为代表）
-            return delegatePtr - Hysteria2MsQuicNative.ConnectionOpen.Method.MetadataToken; // 仅为占位，实际直接用内部字段更优雅
-            // 更优雅写法：在 Hysteria2MsQuicNative 中新增 public static nint ApiTable { get; private set; }
-            // 为最小改动，这里直接使用已知方式
-            // 实际项目建议在 Hysteria2MsQuicNative 静态构造函数最后加：public static nint ApiTable => apiPtr;
-            // return nint.Zero; // 下方会重新赋值，占位
         }
 
         // 改为真正的 async 方法，所有 unsafe 代码块已隔离
-        private static async Task<GlobalResources> InitializeGlobalAsync()
+        private static async Task<GlobalResources> InitializeGlobalAsync ( )
         {
-            // 【Grok 修复_2025-11-24_03】仅在此方法内部使用 unsafe 块，类保持安全
-            // 关键：所有 MsQuic 操作必须通过已绑定的委托 + ApiTable
-            QUIC_BUFFER alpnBuffer;            
-            GCHandle alpnHandle;
+            // 1. 准备 hysteria2 ALPN（托管数组 + GCHandle 固定）
+            byte[] alpnBytes = Encoding.ASCII.GetBytes ( "hysteria2" );
+            var alpnHandle = GCHandle.Alloc ( alpnBytes, GCHandleType.Pinned );
+
+            QUIC_BUFFER alpnBuffer; // 稍后在 unsafe 中填充 Buffer 指针
+
+            // 必须在 unsafe 中才能取 AddrOfPinnedObject
+            unsafe
+            {
+                alpnBuffer = new QUIC_BUFFER
+                {
+                    Length = ( uint ) alpnBytes.Length,
+                    Buffer = ( byte* ) alpnHandle.AddrOfPinnedObject ( )  // ← 这里必须 unsafe
+                };
+            }            
+
+            // 2. 正确构造 RegistrationConfig
+            // https://github.com/microsoft/msquic/blob/main/src/inc/msquic.h#L1114
+            var regConfig = new QUIC_REGISTRATION_CONFIG
+            {
+                AppName = nint.Zero,  // 传 null 即可
+                ExecutionProfile = QUIC_EXECUTION_PROFILE.LOW_LATENCY
+            };
+
+            nint reg = nint.Zero;
+            int status;
 
             unsafe
             {
-                // 栈上分配 h3 ALPN（2 byte 长度前缀 + "h3"）
-                byte* ptr = stackalloc byte[3];
-                ptr[0] = 2;
-                ptr[1] = (byte)'h';
-                ptr[2] = (byte)'3';
-
-                alpnBuffer = new QUIC_BUFFER
-                {
-                    Length = 3,
-                    Buffer = ptr
-                };
+                QUIC_REGISTRATION_CONFIG* pConfig = stackalloc QUIC_REGISTRATION_CONFIG[1];
+                pConfig->AppName = nint.Zero;
+                pConfig->ExecutionProfile = QUIC_EXECUTION_PROFILE.LOW_LATENCY;
+                status = RegistrationOpen ( pConfig, out reg );
             }
 
-            // 1. RegistrationOpen（通过委托 + ApiTable）
-            nint reg = nint.Zero;
-            
-            // 完全托管，无需 unsafe，无需 fixed，无需 stackalloc
-            int status = RegistrationOpen ( ApiTable, nint.Zero, out reg );
             if ( status != QUIC_STATUS_SUCCESS )
                 throw new InvalidOperationException ( $"RegistrationOpen failed: 0x{status:X8}" );
 
-            // 2. Credential 配置（跳过证书验证）
+            // 3. Credential 配置（跳过证书验证）
             var cred = new QUIC_CREDENTIAL_CONFIG
             {
+                //Type = QUIC_CREDENTIAL_TYPE.NONE,
+                //Flags = QUIC_CREDENTIAL_FLAGS.CLIENT | QUIC_CREDENTIAL_FLAGS.NO_CERTIFICATE_VALIDATION,
+                //AsyncCertificateValidation = 0,
+                //CertificateHash = nint.Zero,
+                //CertificateHashStore = nint.Zero,
+                //CertificateContext = nint.Zero,
+                //CertificateHashStoreName = nint.Zero
                 Type = QUIC_CREDENTIAL_TYPE.NONE,
                 Flags = QUIC_CREDENTIAL_FLAGS.CLIENT | QUIC_CREDENTIAL_FLAGS.NO_CERTIFICATE_VALIDATION,
-                AsyncCertificateValidation = 0,
+                // union 部分全零（NONE 类型不需要证书）
                 CertificateHash = nint.Zero,
                 CertificateHashStore = nint.Zero,
                 CertificateContext = nint.Zero,
-                CertificateHashStoreName = nint.Zero
+                CertificateFile = nint.Zero,
+                CertificateFileProtected = nint.Zero,
+                CertificatePkcs12 = nint.Zero,
+                Principal = nint.Zero,
+                Reserved = nint.Zero,
+                AsyncHandler = nint.Zero,
+                // 用官方完整名 + 位或，确保 Hysteria2 支持所有 Cipher Suite
+                AllowedCipherSuites = QUIC_ALLOWED_CIPHER_SUITE_FLAGS.QUIC_ALLOWED_CIPHER_SUITE_AES_128_GCM_SHA256 |
+                          QUIC_ALLOWED_CIPHER_SUITE_FLAGS.QUIC_ALLOWED_CIPHER_SUITE_AES_256_GCM_SHA384 |
+                          QUIC_ALLOWED_CIPHER_SUITE_FLAGS.QUIC_ALLOWED_CIPHER_SUITE_CHACHA20_POLY1305_SHA256,
+                CaCertificateFile = nint.Zero
             };
 
             // 3. ConfigurationOpen（通过委托）
+            // https://github.com/microsoft/msquic/blob/main/src/inc/msquic.h#L1183
             nint cfg = nint.Zero;
+
+            // 必须给 Context 传一个非零指针，哪怕只是占位！
+            nint context = ( nint ) GCHandle.Alloc ( "Hysteria2-Config-Context", GCHandleType.Normal );
             unsafe
             {
                 // 64 是 QUIC_CREDENTIAL_CONFIG 实际大小（7个字段：uint + uint + 6*nint）
@@ -121,13 +133,14 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
                 // 把干净的结构体拷贝进去
                 *( QUIC_CREDENTIAL_CONFIG* ) pFullCred = cred;
 
+                // 3.1 空 Configuration（只传 ALPN
                 status = ConfigurationOpen (
                     reg,
                     &alpnBuffer,
                     1,
-                    ( QUIC_CREDENTIAL_CONFIG* ) pFullCred,  // 直接传指针
-                    ( uint ) ( sizeof ( QUIC_CREDENTIAL_CONFIG ) + 59 ), // 总大小
-                    nint.Zero,
+                    null,
+                    0,
+                    context,
                     out cfg );
             }
 
@@ -135,63 +148,107 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
             {
                 RegistrationClose ( reg );
                 throw new InvalidOperationException ( $"ConfigurationOpen failed: 0x{status:X8}" );
+            }            
+
+            if ( status != QUIC_STATUS_SUCCESS )
+            {
+                ConfigurationClose ( cfg );
+                RegistrationClose ( reg );
+                throw new InvalidOperationException ( $"SetParam(CREDENTIAL_FLAGS) failed: 0x{status:X8}" );
             }
 
-            LogHelper.Info ( "[Hysteria2-MsQuic] 全局资源初始化完成（h3 ALPN 使用 stackalloc 安全分配，已通过 API table 委托调用）" );
-            return new GlobalResources ( reg, cfg );            
+            LogHelper.Info ( "[Hysteria2-MsQuic] Configuration 创建成功（h3 ALPN 使用 stackalloc 安全分配）" );
+            return new GlobalResources ( reg, cfg );
         }
 
         // 正确 await Task<GlobalResources>
-        public static async Task<Hysteria2MsQuicConnection> ConnectAsync(
+        public static async Task<Hysteria2MsQuicConnection> ConnectAsync (
             Hysteria2Node node,
             IPEndPoint endpoint,
             CancellationToken ct = default )
         {
             // 正确获取 Task<GlobalResources> 并 await
-            GlobalResources global = await _global.Value.ConfigureAwait(false);
+            GlobalResources global = await _global.Value.ConfigureAwait ( false );
 
-            if (node.Obfs?.Equals("salamander", StringComparison.OrdinalIgnoreCase) is not true ||
-                string.IsNullOrWhiteSpace(node.ObfsPassword))
-                throw new InvalidOperationException("Salamander 必须启用且提供密码");
+            // 创建 connection 对象
+            // 此时我们已经有 connHandle 和正确的 GCHandle
+            var connection = new Hysteria2MsQuicConnection ( node.ObfsPassword ?? "", node, ct );
+            // 调试信息
+            LogHelper.Debug ( $"[Hysteria2] 创建连接对象，GCHandle = 0x{connection.GCHandlePtr:X16}" );
 
-            string effectiveSni = await TlsSniResolver.ResolveEffectiveSniAsync(
-                node.Host, node.Port, node.HostParam, node.SkipCertVerify, ct)
-                .ConfigureAwait(false);
+            // ConnectionOpen 仍然通过委托（已绑定）            
+            // 第 2 个参数是 null：InvalidOperationException: ConnectionOpen failed: 0x80070057
+            // int status = ConnectionOpen ( global.Registration, null, nint.Zero, out nint connHandle );
+            
+            // 1. 先 Open
+            int status = ConnectionOpen (
+                global.Registration,
+                NativeCallbacks.ConnectionDelegate,
+                // nint.Zero,                            // Context 暂时传 0
+                connection.GCHandlePtr,
+                out nint connHandle );
 
-            // ConnectionOpen 仍然通过委托（已绑定）
-            int status = ConnectionOpen(global.Registration, null, nint.Zero, out nint connHandle);
+            if ( status != QUIC_STATUS_SUCCESS )
+                throw new InvalidOperationException ( $"ConnectionOpen failed: 0x{status:X8}" );
+           
 
-            if (status != QUIC_STATUS_SUCCESS)
-                throw new InvalidOperationException($"ConnectionOpen failed: 0x{status:X8}");
+            // 立即设置正确的 ConnectionHandle（内部会用到）
+            connection.SetConnectionHandle ( connHandle );            
 
-            var connection = new Hysteria2MsQuicConnection(node.ObfsPassword!, node, ct);
+            // Salamander 检查（放在这里最安全）
+            // 支持明文 + 强制 Salamander 必须带密码
+            bool isSalamander = node.Obfs?.Equals ( "salamander", StringComparison.OrdinalIgnoreCase ) == true;
 
+            if ( isSalamander )
+            {
+                // 开启了 Salamander，必须提供密码（不能为空）
+                if ( string.IsNullOrWhiteSpace ( node.ObfsPassword ) )
+                    throw new InvalidOperationException ( "Salamander 已启用，但未提供混淆密码（obfs-password 不能为空）" );
+            }
+            else
+            {
+                // 没开 Salamander，密码可以为空（明文模式）
+                if ( !string.IsNullOrWhiteSpace ( node.ObfsPassword ) )
+                    LogHelper.Warn ( $"节点未启用 Salamander，但提供了 obfs-password（将被忽略）: {node.ObfsPassword}" );
+            }
+
+            LogHelper.Info ( isSalamander
+    ? $"[Hysteria2] 使用 Salamander 混淆，密码长度: {node.ObfsPassword!.Length}"
+    : "[Hysteria2] 使用明文 QUIC（无 Salamander 混淆）" );
+
+            // 3. SNI 处理 + ConnectionStart
             // SNI 字符串必须以 null 结尾，且使用 fixed 固定托管数组
-            byte[] sniBytes = Encoding.UTF8.GetBytes(effectiveSni + '\0');
+            string effectiveSni = await TlsSniResolver.ResolveEffectiveSniAsync (
+                node.Host, node.Port, node.HostParam, node.SkipCertVerify, ct )
+                .ConfigureAwait ( false );
+
+            byte[] sniBytes = Encoding.UTF8.GetBytes ( effectiveSni + '\0' );
 
             unsafe
             {
-                fixed (byte* pSni = sniBytes)
+                fixed ( byte* pSni = sniBytes )
                 {
-                    status = ConnectionStart(
+                    status = ConnectionStart (
                         connHandle,
                         global.Configuration,
                         QUIC_ADDRESS_FAMILY.UNSPECIFIED,
                         pSni,
-                        (ushort)endpoint.Port);
+                        ( ushort ) endpoint.Port );
                 }
             }
 
-            if (status != QUIC_STATUS_SUCCESS)
+            if ( status != QUIC_STATUS_SUCCESS )
             {
-                connection.Dispose();
-                throw new AuthenticationException($"ConnectionStart failed: 0x{status:X8}");
+                connection.Dispose ( );
+                throw new AuthenticationException ( $"ConnectionStart failed: 0x{status:X8}" );
             }
 
-            /// await connection.Connected.WaitAsync(ct).ConfigureAwait(false);
+            // 等待握手完成
             await connection.Connected.WaitAsync ( ct ).ConfigureAwait ( false );
 
-            LogHelper.Info($"[Hysteria2-MsQuic] Salamander 连接成功 → {effectiveSni}:{endpoint.Port}");
+            LogHelper.Info ( isSalamander
+    ? $"[Hysteria2-MsQuic] Salamander 连接成功 → {effectiveSni}:{endpoint.Port}"
+    : $"[Hysteria2-MsQuic] 明文连接成功 → {effectiveSni}:{endpoint.Port}" );
             return connection;
         }
     }
@@ -201,9 +258,9 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
     {
         private readonly Lazy<Task<T>> _lazy;
 
-        public AsyncLazy( Func<Task<T>> factory )
+        public AsyncLazy ( Func<Task<T>> factory )
         {
-            _lazy = new Lazy<Task<T>>(factory, true);
+            _lazy = new Lazy<Task<T>> ( factory, true );
         }
 
         public Task<T> Value => _lazy.Value;

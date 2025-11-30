@@ -33,14 +33,12 @@ namespace HiddifyConfigsCLI.src.Checking.Handshakers.Hysteria2
 
                 // 尝试使用 ChatGPT 修改过的 MsQuic
                 // await using var connection = await Hysteria2ConnectionFactory.ConnectAsync(node, endpoint, cts.Token);
-                using var connection = await Hysteria2MsQuicFactory.ConnectAsync(node, endpoint, cts.Token);
-
-                if (connection == null)
-                    return (false, sw.Elapsed, null);
+                using var connection = await Hysteria2MsQuicFactory.ConnectAsync(node, endpoint, cts.Token);                
 
                 LogHelper.Verbose($"[Hysteria2] QUIC 已连接 {node.Host}:{targetPort} → {connection.ToString}");
 
                 // 尝试使用 ChatGPT 修改过的 MsQuic
+                // connection 不可能为 null（==0），所有失败都抛异常，已被外层 catch 捕获
                 // await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, cts.Token);
                 await using var stream = await connection.OpenBidirectionalStreamAsync(cts.Token);
 
