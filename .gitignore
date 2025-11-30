@@ -473,3 +473,5 @@ FodyWeavers.xsd
 /HiddifyConfigsCLI/bin/Debug/net9.0/valid_links.txt
 /HiddifyConfigsCLI/bin/Debug/net9.0/valid_links_01.txt
 /HiddifyConfigsCLI/bin/Debug/net9.0/valid_links_02.txt
+/HiddifyConfigsCLI/tests/msquic.h
+/.editorconfig
