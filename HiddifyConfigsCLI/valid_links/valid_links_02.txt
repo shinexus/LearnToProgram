@@ -1,100 +1,100 @@
-﻿vless://6152d37c-d540-4a1a-9285-01a415aada7d@151.101.193.57:80/?security=none&type=ws&host=Awawaeav2.net&path=%2Ftelegram-EXPRESSVPN_420%2Ctelegram-EXPRESSVPN_420%2Ctelegram-EXPRESSVPN_420%2Ctelegram-EXPRESSVPN_420%3Fed%3D2048#
-vless://2c6ba0e4-80c9-4401-9847-cba1df67941c@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://0862aacf-9eb1-46ef-9743-df83346e1a08@151.101.66.228:80/?security=none&type=ws&host=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v05.feadlenetwork19922h.net&encryption=none&type=ws&sni=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v05.feadlenetwork19922h.net&headerType=none#🇺🇸_US_美国->🇫🇷_FR_法国_3
-vless://abfccb05-adf7-4ff5-87d9-ac4472e9bf02@hajlab.ucdavis.edu:80/?security=none&encryption=none&host=wWw.SpEeDtEsT.NeT.ZuLa.Ir.IkCoSaLeS.iR.D662599.v02.drlimit.net&type=ws#@mobilesignal
-vless://0c01ce13-2315-4fb0-bb90-fede266e652a@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://d5ad5040-00fb-4858-df1d-a1a10112189b@chat.deepseek.com:80/?type=ws&path=%2Folem%2Fws%3Fed%3D1024&host=fin.channel.digicyber.click&security=none#
-vless://f5931ddd-a7cc-4057-8e62-73c9e1f54e49@biography.com:80/?path=%2Fnetworkfi%3Fed%3D1024&security=&encryption=none&host=salamdelavaran1404.org&type=ws#
-vless://628a9471-8dd9-4b19-ac3d-6470a7bbdbba@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://cee8c30c-fb13-4a89-abb4-5a32cf716c97@velorium.store:8080/?mode=auto&path=/api&security=none&encryption=none&extra={
-vless://607d9703-8403-415c-a201-05178810530c@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://0862aacf-9eb1-46ef-9743-df83346e1a08@151.101.130.228:80/?security=none&type=ws&host=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v05.feadlenetwork19922h.net&encryption=none&type=ws&sni=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v05.feadlenetwork19922h.net&headerType=none#🇺🇸_US_美国->🇫🇷_FR_法国_1
-vless://c4ce9f87-b7b1-4e49-b06c-f726be2a0f70@151.101.194.228:80/?security=none&sni=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v01.TzZLiMitTNeW.NeT&type=ws#
-vless://53503fd1-275c-4623-d426-601a652ca3fc@zmaoz.faculty.ucdavis.edu:80/?encryption=none&security=none&type=ws&host=foffmelo.com&path=/olem%2Fws%26ed%3D1024
-vless://8d50cc03-996a-4a2a-84a5-65ca9fb9b61c@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@151.101.2.219:80/?encryption=none&host=max-gb1.global.ssl.fastly.net&path=%2F&security=none&type=ws#@Vip_Security
-vless://9a100271-4b0f-4594-8e53-92240cc69153@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://f149f3ea-ac0f-4e29-8db2-89d57b4f6eac@151.101.1.124:80/?security=&type=ws&path=/&host=danuwazero.com&encryption=none#
-vless://94f65755-49b6-4d86-81dd-d8f99e2f480b@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://c4710d0a-c646-4723-8c27-736fd27c167c@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://ed090d8f-07b2-40d8-936b-a8895f50e835@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://cc545c0b-6015-4a64-82ea-2bb39575a5b0@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://6a5fb830-a114-410e-df1f-9c36f841dc41@151.101.128.155:80/?security=none&type=ws&host=UNLIMITEDDEV.channel-telegram-1.ir&path=%40UnlimitedDev----%40UnlimitedDev-----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev----%40UnlimitedDev%3Fed%3D2480#
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@151.101.24.151:80/?path=/&security=none&encryption=none&host=max-gb1.global.ssl.fastly.net&type=ws#EPODONIOS
+﻿vless://838f5273-5d2d-4630-a0f5-9cc8e4aef4d6@172.67.199.19:2086/?path=/&security=none&encryption=none&host=TdWwPlBs61.kOmAtSo.oRg&type=httpupgrade#
+vless://efa18617-d98d-4f39-a7f5-d74ac2d2ed41@speedtest.net:80/?type=ws&host=befreewithus.com&path=/&security=none#
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@135.84.75.50:8880/?security=none&type=ws&path=/%26ed%3D2560%26https%3A%2F%2Ft.me%2Fyoutube%40ZYFXS%26host%3Dvms.lifetime08.workers.dev%23
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@14.102.229.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇺🇸 US-14.102.229.247%3A8880
+vless://57147109-749f-4c9b-c6b3-2dce03f0466f@104.17.148.22:8880/?type=httpupgrade&path=%2FFreeConfig%3Fed%3D2560&host=KhodeAlfred.tehran-gamee.ir&security=none#
+vless://160e8ffb-1f51-4a9f-a5d8-fd89c7ab1e6f@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@31.185.108.30:8880/?security=none&type=ws&path=/&host=vms.lifetime23.workers.dev&packetEncoding=xudp&encryption=none#
+vless://e9979910-79d1-4621-a93c-b2a579c44ba7@104.16.85.3:8880/?host=vngsupply.ip-ddns.com&type=ws&security=&path=/6TvG8D6HimXKgdp2%26ed%3D2560%26encryption%3Dnone%23
+vless://9ab0e179-7327-4934-9184-145ccee76e38@185.146.173.110:2082/?security=none&type=ws&host=2.v.v.v.v.v.v.v.v.v-_-_-v2ray-_-_-v.v.zula.ir.е#%5BOpenRay%5D 🇸🇪 SE-1616
+vless://86c50e3a-5b87-49dd-bd20-03c7f2735e40@cloudflare-dns.com:2095/?security=none&type=ws&path=/fp=randomized&host=cnmfangbinxing.cnmfangbinxing-s.workers.dev&packetEncoding=xudp&sni=cnmfangbinxing.cnmfangbinxing-s.workers.dev#%5BOpenRay%5D Dynamic-22022
+vless://c29d39bd-92a4-45db-bb61-56013998617c@104.18.109.147:80/?encryption=none&host=www.speedtest.net.www.1google.com.bing.com.visa.com.tls.xv98.ip-ddns.com&path=/telegram-xv2ry2&security=none&type=ws#4Jadi-10082
+vless://838f5273-5d2d-4630-a0f5-9cc8e4aef4d6@160.153.0.183:8080/?security=none&type=httpupgrade&host=GpWxAjKj55.tItImOjI-F6.fUn#
+vless://726c7800-a083-4b83-b9cf-9a9872ea1fcb@185.146.173.58:8080/?type=ws&path=/telegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%2Ctelegram-%40Sobi_Vpn%3Fed%3D2048&host=Kanal-polproxy.Vipnufilter.Online.&security=none#
+vless://6b504c50-8535-44cf-8e4e-f8ee674a922e@172.67.152.71:8880/?encryption=none&security=none&type=ws&host=old-moon-16d0.156-a25.workers.dev&path=/pyip=ProxyIP.JP.CMLiussss.net#%5BOpenRay%5D 🇨🇦 CA-20346
+vless://77b90f21-d414-43ae-a81d-ab6769649fc4@104.17.122.212:2082/?security=none&type=ws&path=/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh&host=zeus-panel-8hkm7j.zeus-zew7l5.workers.dev&packetEncoding=xudp&sni=zeus-panel-8hkm7j.zeus-zew7l5.workers.dev&encryption=none#
 vless://e69caed8-6f89-4dbf-a6a7-c75c883cef55@104.17.223.175:2082/?security=none&type=splithttp&host=mcc.rayanfmusic.ir#
-vless://493122ab-39d1-404b-8d08-4e0513c25a96@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://c7a76973-cfcc-42ae-848b-5b48d202f2af@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://7ea23c37-1659-4710-8fcb-2a748b47e030@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://86c50e3a-5b87-49dd-bd20-03c7f2735e40@151.101.2.165:80/?security=none&type=ws&host=amir55.ir&path=/#
-vless://ffe42010-fe17-47c5-b0e2-c508156a1c8b@151.101.64.155:80/?security=none&type=ws&host=vipfast_7.com&path=%2F%3Fed%3D2048#
-vless://6194f73e-67de-445a-b83c-c963e42d5592@speedtest.net:80/?path=%2F&security=none&encryption=none&host=pinghub.global.ssl.fastly.net&type=ws#
-vless://b1f58d90-e65f-4566-91f3-1b96e9a68615@speedtest.net:80/?path=/@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--%3Fed%3D2048&security=none&encryption=none&host=JoiIInNn--DIgiv2Ray.Ir.&type=ws#👉🆔@v2ray_configs_pool
-vless://850479d3-f804-4f12-a541-9bb3d083bf20@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://4a831dcb-25f4-413d-b786-67e52ea2e7a3@speedtest.net:80/?type=ws&host=befreewithus.com&path=/&security=none#
-vless://4c2ce64a-de9a-4a79-8cc3-2cf74a23bdb3@151.101.3.8:80/?security=none&type=ws&host=barkatc2.ir&path=%2FTelegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray%3Fed%3D2048#
-vless://ba3797e0-31a5-4510-ea35-6e409c4953e5@zmaoz.faculty.ucdavis.edu:80/?encryption=none&security=none&type=ws&host=fatmelo.com&path=/olem%2Fws%26ed%3D1024
+vless://16fdc6cf-f521-4ff7-9b4e-fd8a5adf7b1a@162.159.153.2:8880/?security=none&type=splithttp&host=DailyConfigs-hhahVSHBbhh56ha.www.speedtest.net.blackoutconnection.ir.&path=%2FDaily_Configs%2CDaily_Configs%2CDaily_Configs#
+vless://5459f68e-d914-4b31-93a3-ecdf638b7a5b@104.16.51.36:80/?encryption=none&security=none&type=ws&host=barayeiran-mahsang.taraneh.dpdns.org&path=/#
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@159.242.242.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇺🇸 US-159.242.242.247%3A8880
 vless://505997ba-cbdb-466e-a3ad-69c6a4553b38@151.101.25.242:80/?path=%2Fcontainers%2Ffi&security=none&encryption=none&host=pizzabama.global.ssl.fastly.net&type=ws#%40vpnfail_bot free%25v2ray
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@speedtest.net:80/?encryption=none&security=none&sni=max-gb1.global.ssl.fastly.net&type=ws&host=max-gb1.global.ssl.fastly.net&path=%2F#4Kian-5631
-vless://959ae4df-2217-4c08-8762-9fcda1748c8c@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://b1f58d90-e65f-4566-91f3-1b96e9a68610@speedtest.net:80/?path=/@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--%3Fed%3D2048&security=none&encryption=none&host=JoiIInNn--DIgiv2Ray.Ir.&type=ws#👉🆔@v2ray_configs_pool
-vless://be05581d-a8f4-42f4-b8ab-7e8f438ec290@151.101.3.8:80/?path=%2Fdownload%3Fed%3D2048&security=none&encryption=none&host=oFnKGAC26JAs2SXa.xyz&type=ws#
-vless://b14bc0dc-623e-42ca-b45a-383a572fa192@cdn1.mehfa.site:80/?mode=auto&path=/mfa&security=none&encryption=none&extra={
-vless://b1f58d90-e65f-4566-91f3-1b96e9a68614@speedtest.net:80/?path=/@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--%3Fed%3D2048&security=none&encryption=none&host=JoiIInNn--DIgiv2Ray.Ir.&type=ws#👉🆔@v2ray_configs_pool
-vless://c4ed7482-c9bb-4b37-aca0-f5c2071b04c6@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://f222a575-5a5b-496f-b1b8-7e95aefee02b@zmaoz.faculty.ucdavis.edu:80/?encryption=none&security=none&type=ws&host=fatmelo.com&path=/olem%2Fws%26ed%3D1024
-vless://056d10f1-4ebd-40e1-9f78-c7e11fce5258@speedtest.net:80/?path=/download&security=&encryption=none&host=sabzb2.global.ssl.fastly.net&type=ws#EPODONIOS
-vless://46a9de01-147d-4e1f-babf-c50bb2be91ad@151.101.3.8:80/?type=ws&host=befreewithus.com&path=/&security=none#
-vless://e2e51070-28a0-4bce-85c8-670427519e7a@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://b1f58d90-e65f-4566-91f3-1b96e9a68619@speedtest.net:80/?path=/@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--%3Fed%3D2048&security=none&encryption=none&host=JoiIInNn--DIgiv2Ray.Ir.&type=ws#👉🆔@v2ray_configs_pool
-vless://6fb40f20-1581-47ea-b336-62c117037dc6@cdn1.mehfa.site:80/?mode=auto&path=/mfa&security=none&encryption=none&extra={
-vless://ec3caa8b-df48-497a-889e-d5958e9d3f39@151.101.66.133:80/?security=none&type=ws&host=Okhala.com&path=%2Ftelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%3Fed%3D2048#
-vless://5f935144-b86d-4021-b6ac-4302e424ba02@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://c009b9eb-1cd9-4df8-92d2-4aafe17ac136@151.101.3.8:80/?path=/Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray%3Fed%3D2048&security=none&encryption=none&host=barkatc2.ir&type=ws#
-vless://0862aacf-9eb1-46ef-9743-df83346e1a08@151.101.2.228:80/?security=none&type=ws&host=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v04.feadlenetwork19922h.net&encryption=none&type=ws&sni=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v04.feadlenetwork19922h.net&headerType=none#🇺🇸_US_美国->🇫🇷_FR_法国_2
-vless://9627c5e0-9a11-4d36-a470-3ce64797149e@api.us.pngv.top:4999/?security=none&encryption=none&host=play.google.com&headerType=http&type=tcp#EPODONIOS
-vless://ffe42010-fe17-47c5-b0e2-c508156a1c8b@151.101.192.155:80/?security=none&type=ws&host=vipfast_7.com&path=%2F%3Fed%3D2048#
-vless://3048004a-d4e8-404b-a7da-23f54a5e07a1@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://89b3cbba-e6ac-485a-9481-976a0415eab9@140.248.183.178:80/?security=none&type=ws&host=aliii.ir&path=%2FkptMTT8pTmxLWsoJ%3Fed%3D2560#
-vless://5986d144-d618-46bd-9e51-14ecba270c68@151.101.66.228:80/?security=none&type=ws&host=wWw.SpEeDtEsT.NeT.ZuLa.aIr.IkCoSaLeS.iR.D662599.v01.TzZLiMitTNeW.NeT#
-vless://6b5674e4-d58c-437b-8942-a2a8d99ecb1f@151.101.0.155:80/?security=none&type=ws&host=api.nhl197.ir&path=/telegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%2Ctelegram-NUFiLTER%26ed%3D2048
-vless://217b48d6-5dac-4662-9a8c-aa76e92a7cfe@151.101.66.216:80/?security=none&type=ws&host=befreewithus.com&path=ws%2F%3Fed%3D2048#
+vless://e058ec6a-1f07-4c26-aa28-332c27273326@151.101.3.8:80/?type=ws&host=befreewithus.com&path=/&security=none#
+vless://39056ef9-651e-4771-b621-dc07057925b5@104.17.147.22:8080/?security=none&type=ws&host=test.flnsho.store.&path=%2FG%2Fb4t6hy5n%2F%3Fed%3D80120#
+vless://6d1628cb-2fa9-4f6f-82f8-d0896b27b165@104.18.29.181:8080/?security=none&type=ws&host=shuige1.g-y0fale.workers.dev&path=%2F%3Fed%3D2048#
+vless://e43ca713-a646-4406-a4d5-1e7bad20e7da@104.16.106.213:8880/?encryption=none&type=ws&host=autumn-snow-735a.175-9d9.workers.dev&path=%2Fpyip%3DProxyIP.US.CMLiussss.net&security=none#%5BOpenRay%5D 🇨🇦 CA-21884
+vless://df5b0634-2db4-4094-afe5-9b61446a29c4@45.95.241.156:80/?path=%2FIn_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh&security=&encryption=none&host=zeus-panel-f6vc9k.hajmeti40-842e.workers.dev&fp=ios&type=ws&sni=zeus-panel-f6vc9k.hajmeti40-842e.workers.dev#%5BOpenRay%5D 🇮🇲 IM-1
+vless://08c41e17-9d1c-4d4a-9edc-242d3d71c1ac@188.114.97.3:8080/?security=&type=ws&path=%2FgfWh39Z4XwUXaqVY&host=order.fortgift.ir&encryption=none#
+vless://77b90f21-d414-43ae-a81d-ab6769649fc4@104.21.3.21:8880/?security=none&type=ws&path=/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh&host=zeus-panel-8hkm7j.zeus-zew7l5.workers.dev&packetEncoding=xudp&sni=zeus-panel-8hkm7j.zeus-zew7l5.workers.dev&encryption=none#
+vless://902fd911-ca5d-49a6-99ad-47372a266804@104.21.15.212:8880/?encryption=none&type=ws&host=young-wildflower-6b6c.100-52d.workers.dev&path=%2Fpyip%3DProxyIP.JP.CMLiussss.net&security=none#
+vless://79978027-ef16-4137-b18e-905f8c18f845@104.18.36.81:8080/?security=none&type=ws&host=cdnanycasteuorg.fjacz6xe.workers.dev&path=%2F%3Fed%3D2048#
+vless://53fa8faf-ba4b-4322-9c69-a3e5b1555049@45.8.211.139:80/?path=/Channel&security=none&encryption=none&host=reedfree8mahsang2.redorg.ir&type=ws#
+vless://cac6ec8f-99f0-44c5-814f-2f3f65e4db74@170.114.45.6:80/?encryption=none&security=none&type=ws&host=speed.dulacloud.store&path=/dula#
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@194.53.53.30:8880/?security=none&type=ws&path=/&host=vms.lifetime51.workers.dev#
+vless://4c0fe119-90a3-4c1c-a218-5d2085e238c7@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
+vless://8c56b4af-4762-4299-a1f8-799790dbaac7@172.67.179.98:8880/?security=none&type=ws&host=lively-lab-4fd2.150-6f7.workers.dev&path=%2Fpyip%3DProxyIP.SG.CMLiussss.net#%5BOpenRay%5D 🇨🇦 CA-21135
+vless://f0d584bc-342f-4443-ba24-79e4d0e504b1@69.84.182.76:80/?security=none&type=ws&path=%2F#
+vless://723c410e-5789-4b21-abb9-d6ec05547ba9@172.64.94.251:8880/?security=none&type=ws&path=/pyip=ProxyIP.US.CMLiussss.net&host=blue-sky-e65b.221-553.workers.dev&packetEncoding=xudp#
 vless://22848423-43fa-44d3-a38a-26003075eb0e@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://1574e278-682c-41b2-aa64-11812856c65d@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://8cc8bedd-5103-4d22-a79c-a88f1160055a@172.67.187.219:8880/?security=none&type=ws&host=red-unit-60bc.165-1dd.workers.dev&path=%2Fpyip%3DProxyIP.KR.CMLiussss.net#%5BOpenRay%5D 🇨🇦 CA-21935
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@151.101.0.1:80/?encryption=none&security=none&sni=max-gb1.global.ssl.fastly.net&type=ws&host=max-gb1.global.ssl.fastly.net&path=%2F#4Kian-5586
-vless://37fce9ce-9fec-4f30-89a0-fbb1f6f33b3c@104.16.107.139:8880/?security=none&type=ws&path=/pyip=ProxyIP.US.CMLiussss.net&host=white-night-afee.419-acc.workers.dev&packetEncoding=xudp#
-vless://872b8f99-da85-435b-976f-eceda4872b4e@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://0f8c0fbf-ad24-42ea-b226-8b3e60f4df1b@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://a5c6d1da-cac5-4f56-acfa-dd7b5a8925fa@hajlab.ucdavis.edu:80/?path=%2FTelegram-ipV2Ry-Telegram-ipV2Ry-Telegram-ipV2Ry%3Fed%3D2048&security=&encryption=none&host=blackseeseeeeee.ir&type=ws#
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@151.101.108.151:80/?encryption=none&security=none&type=ws&host=max-gb1.global.ssl.fastly.net&path=%2F%3Fhttps%3A%2F%2Ft.me%2FWangCai2🇨🇳#4Kian-5587
-vless://7711fc80-c163-4f35-80c4-d5e61c69659d@104.16.112.97:80/?encryption=none&security=none&type=ws&host=icy-bar-399d-ppal03.pomoyes509.workers.dev&path=/%26ed%3D2560
-vless://b8ce0288-e7c4-482a-be24-364f7d724585@104.21.4.8:8880/?security=&type=ws&path=/?ed%3D2048&host=nl20.vlessx.us&encryption=none#4Kian-10743
-vless://cabbfe13-038b-4dbb-9c45-5079c829abfa@167.82.0.1:80/?path=%2F&security=none&encryption=none&host=max-gb1.global.ssl.fastly.net&type=ws#
-vless://acc88aa8-cb11-47d9-8a7e-081049289cb5@chat.deepseek.com:80/?type=ws&path=%2Folem%2Fws%3Fed%3D1024&host=fin.channel.digicyber.click&security=none#
-vless://8e0e5094-b637-40a3-a896-c9a2fa188297@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://0c3c0b3b-68d1-4707-9e99-3c5b9840de0c@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
+vless://7e948e09-fa6f-4b8e-8c5d-181fa15fbec5@172.67.141.140:8880/?path=/QaaLdIiGgWNoIxOF?ed&security=&encryption=none&host=v2ngsupply2.ip-ddns.com&type=ws#
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@185.176.26.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇰🇿 KZ-185.176.26.247%3A8880
+vless://636b1684-b26c-4a9c-bc6e-8e1197a36d74@190.93.244.0:2086/?security=none&type=ws&host=workerr.hashdiler.workers.dev&path=%2F%3Fed%3D2048#
+vless://6caab115-c88f-4e8b-bdab-d66865b681c8@104.21.90.68:8080/?security=none&type=ws&path=/&host=zeus-panel-6bt45h.ftgwyie7w8321.workers.dev&packetEncoding=xudp#
+vless://e8c61352-444f-4154-ba34-9d3141154a8d@141.101.115.71:8443/?type=tcp&encryption=none&security=none#
+vless://e4a52f75-474e-449e-bcd2-05ea177f1403@104.31.16.160:80/?path=%2F&security=none&encryption=none&host=48.动列员球8.tech&type=ws#
+vless://1773441d-8b07-43c0-81e6-226cce288e13@104.18.15.166:80/?security=none&type=ws&host=cpy2.cpy-teel-1-32f.workers.dev&path=%2F#
+vless://1a148082-3383-4394-d480-fbeeb5d884d6@104.17.148.22:80/?security=none&type=httpupgrade&serviceName=@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray,@icv2ray&host=ac.www.speedtest.net.zula.ir.iranfastfod.iR.&path=%2Ftelegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry%3Fed%3D80#
+vless://e9979910-79d1-4621-a93c-b2a579c44ba7@104.25.220.177:8880/?path=%2Freklaz1FsDrIv7mW%3Fed%3D2560&security=&encryption=none&host=vngsupply.ip-ddns.com&type=ws#
+vless://5475795f-d425-41dc-97f3-a322dfd7515a@104.16.83.176:8880/?security=none&type=ws&host=穆罕默德侯freerxteamirteamop.rxteam.tech.&path=%2F#
+vless://6ec52bc7-fcd7-4841-ab69-70d6e03a6eda@104.17.147.22:8880/?security=&encryption=none&host=www.speedtest.net.zula.ir.cfp1.a2hdhjdxjbxjsjdjd.ddns-ip.net.&type=ws#
+vless://559539cc-68e8-413d-bcf8-621ac2f12cc7@104.17.136.58:2052/?encryption=none&security=none&sni=007.hebav63406.workers.dev&fp=randomized&type=ws&host=007.hebav63406.workers.dev&path=%2F%3Fed%3D2048#007
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@45.67.215.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇷🇺 RU-45.67.215.247%3A8880
+vless://925b31c8-73d3-44d4-e087-af7b7ff7e490@185.146.173.63:8080/?security=none&type=ws&host=6h2.diginoshops3.ir&path=%2FFox%3Fed%3D2048#
+vless://2e27f295-cf36-4dea-9300-fc6dbe042871@151.101.2.165:80/?security=none&type=ws&host=5776.ir&path=%2FVLESS%3Fed%3D80#
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@45.135.235.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇷🇺 RU-45.135.235.247%3A8880
+vless://ef23616d-8a9d-4b22-b2f5-9bda864de179@104.18.241.114:2095/?security=none&type=ws&path=/l25hqs0onbig&host=index.arcane509.workers.dev&ed=2560&packetEncoding=xudp#
+vless://5c62b24a-2dfe-49c1-8c93-cc2c35bd4f26@104.20.19.168:80/?security=none&type=ws&host=worker-floral-sun-5945.miyenep837.workers.DEV&path=%2Fvless-ws%2F%3Fed%3D2048#
+vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@27.50.48.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇸🇬 SG-27.50.48.247%3A8880
+vless://6cde4a90-dbd4-41d2-914f-1a86daab0212@151.101.3.8:80/?path=%2F&security=none&encryption=none&host=befreewithus.net&type=ws#
 vless://49137ced-5a05-4cdb-a44a-3f3a19fe421d@167.82.81.226:80/?security=none&type=ws&host=amir0903.ir&path=%2F%3Fed%3D2048#
-vless://d60fc3c5-9f07-4cdb-b81f-70af27936bdc@45.192.223.247:8880/?encryption=none&security=none&sni=ex.sue.x10.mx&type=ws&host=ex.sue.x10.mx&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🇭🇰 HK-45.192.223.247%3A8880
-vless://60865e84-af76-4132-b488-78c9c584d0d1@172.67.66.177:80/?security=none&type=ws&host=www.speedtest.net.www.varzesh3.com.ftp.debian.org.daneshforoush.ir&path=%2FnekooOo%3Fed%3D1024#
-vless://6202b230-417c-4d8e-b624-0f71afa9c75d@45.12.30.30:8880/?security=none&type=ws&path=/&host=vms.lifetime28.workers.dev#
-vless://d028eaf5-c5ef-49a0-85c6-4f4816af8053@104.27.68.164:2086/?security=none&type=ws&path=/eyJqdW5rIjoiZUJZR2pXVFByVyIsInByb3RvY29sIjoidmwiLCJtb2RlIjoicHJveHlpcCIsInBhbmVsSVBzIjpbIjEwOS4xMjAuMTU4LjE0OSJdfQ%3D%3D%26ed%3D2560%26host%3Dmisty-bread-fd96.salehinezhadali.workers.dev%26packetEncoding%3Dxudp%26encryption%3Dnone%23
-vless://26fb53e4-fd49-4b34-b605-b6cc1b1a06a8@104.17.181.19:8880/?security=none&type=ws&path=/pyip=ProxyIP.SG.CMLiussss.net&host=royal-shape-3771.93-728.workers.dev&packetEncoding=xudp#
-vless://213839be-1717-4302-b374-47f6ec0811ef@172.67.190.118:80/?encryption=none&security=none&sni=zeus-panel-o5wimz.zeus-qbrvf4.workers.dev&fp=ios&type=ws&host=zeus-panel-o5wimz.zeus-qbrvf4.workers.dev&path=%2FIn_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh#%5BOpenRay%5D 🇨🇦 CA-21940
-vless://cabbfe13-038b-4dbb-9c45-5079c829abfa@speedtest.net:80/?path=/&security=none&encryption=none&host=max-gb1.global.ssl.fastly.net&type=ws#EPODONIOS
-vless://b907aea0-cf1a-489f-aef7-b55a1ac04f34@104.17.93.85:8080/?encryption=none&host=join-to.vmessorg.Community.&path=%2FTelegram%3A%40vmessorg-Telegram%3A%40vmessorg-Telegram%3A%40vmessorg%3Fed%3D8080&security=&type=ws#
-vless://d7a8ae86-9904-4f71-8fe4-d754ded610d7@104.21.11.152:8080/?security=none&type=ws&path=/eyJqdW5rIjoiOHNqQ3Bqc2dTZlppTEl1IiwicHJvdG9jb2wiOiJ2bCIsIm1vZGUiOiJwcmVmaXgiLCJwYW5lbElQcyI6WyJbMmEwMjo4OTg6MTQ2OjY0OjpdIl19%26ed%3D2560%26host%3Dserver6.diwir81236.workers.dev%26packetEncoding%3Dxudp%26encryption%3Dnone%23
-vless://54b3cbba-e6ac-485a-9481-976a0873eab9@172.67.190.221:2082/?encryption=none&security=none&type=ws&host=bLaCk-trutH-63Bc.DoviF72324.WoRKeRs.dev&path=%2F%3Fed%3D2560#🇳🇦 Namibia - NA 🌍 VL-WS-NONE 4⃣
-vless://3b92398b-a7a1-4b3f-b64b-96100db74037@151.101.3.8:80/?path=%2F&security=none&encryption=none&host=befreewithus.net&type=ws#
-vless://0058c215-ab1e-400c-a403-b5b2fda7e846@151.101.96.151:80/?encryption=none&security=none&sni=max-gb1.global.ssl.fastly.net&type=ws&host=max-gb1.global.ssl.fastly.net&path=%2F#4Kian-5624
-vless://d86ca3ed-1c63-42b0-bfac-4385e1aeaceb@151.101.3.8:80/?path=/download&security=none&encryption=none&host=haledada.com&type=ws#
-vless://501b31d2-677b-47a6-9e67-eeb7fb54b9e9@sarkhoni.rooham.top:8080/?security=none&encryption=none&headerType=none&type=tcp#EPODONIOS
-vless://07f78397-7217-4ff0-90b1-7544c723b211@172.67.160.192:8880/?path=%2F%3Fed%3D80&security=none&encryption=none&host=alManjadId1.po0iU.ir.&type=httpupgrade#
-vless://78e44a74-6f33-4289-81d2-df98075bd959@172.66.40.99:80/?path=%2FJoin-ZEDMODEON-ZEDMODEON-ZEDMODEON-bia-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON&security=none&encryption=none&host=c.zedmodeon.ip-ddns.com&type=ws#
-vless://cbcf5e0a-5a6c-4e59-c5e8-d46d11a07c90@104.21.112.1:8080/?security=&type=ws&path=/@unlimiteddev----@unlimiteddev-----@unlimiteddev----@unlimiteddev----@unlimiteddev----@unlimiteddev----@unlimiteddev----@unlimiteddev----@unlimitedev----@unlimitedev----@unlimiteddev----@unlimiteddev?ed%3D2480&host=join-to-unlimiteddev.sabadyt.ir&encryption=none#
-vless://34858db0-821f-4a01-bfc4-5533ab078590@151.101.3.8:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://7f9f019f-0471-4f8f-bffb-13bb7dfce2c3@speedtest.net:80/?type=ws&host=befreewithus.net&path=/&security=none#
-vless://e509a9c8-7884-4473-b54d-bb60e1f8de75@172.67.132.41:2052/?security=&type=ws&path=/?ed%3D2048&host=nl61.vlessx.us&encryption=none#4Kian-11635
-vless://58b63884-3527-449f-9ab3-e82480f63278@188.114.98.112:2095/?path=/ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY%3Fed%3D2560&security=#
-vless://155da7c1-4d5f-4479-a214-d2d1414d07f6@173.245.59.212:80/?security=none&type=httpupgrade&serviceName=-Telegram:@V2aryng_vpn-Telegram:@V2aryng_vpn-Telegram:@V2aryng_vpn-Telegram:@V2aryng_vpn-Telegram:@V2aryng_vpn&host=ak.www.speedtest.net.zula.ir.iranfastfod.iR.&path=%2Ftelegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry,telegram-AfV2ry%3Fed%3D80#
-vless://d0f70661-22ff-49bc-8c50-c71a3d8ef3fd@188.114.98.112:80/?path=/ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY----ELiV2-RAY%3Fed%3D2560&security=none&encryption=none&host=ELENA.ddNS-ip.net.&type=ws#
-vless://01a79e57-5051-4b64-9774-8841c25bcecf@172.66.40.99:8080/?type=ws&path=/@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420----@EXPRESSVPN_420&host=s6.inFo.laLezaRanegomaNandish.suB420-mohaMad.online.&security=none#
+vless://fab7bf9c-ddb9-4563-8a04-fb01ce6c0fbf@167.68.42.213:8880/?encryption=none&security=none&type=ws&host=jp.laoyoutiao.link&path=%2F#🔒 VL-WS-NA 🇺🇸 US-167.68.42.213%3A8880
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@185.170.166.30:8880/?security=none&type=ws&path=/&host=vms.lifetime04.workers.dev#
+vless://0132166f-e702-48ed-a9e7-b07af768faf8@77.105.163.251:8880/?security=&sni=Telegram-channel-WangCai2&allowInsecure=1&type=ws&path=/Telegram🇨🇳&host=cf.d3z.net&encryption=none#
+vless://d286d11e-d424-4577-b36e-524ab1f9afa4@141.101.114.74:80/?path=%2F%3Fed%3D2048&security=none&encryption=none&host=ay-team.aftermybid.workers.dev.&fp=randomized&type=ws&sni=ay-team.aftermybid.workers.dev#
+vless://01c2fb74-10b5-452d-b893-67cb528b6a8d@162.159.46.0:8880/?encryption=none&type=ws&host=lucky-field-0220.191-de2.workers.dev&path=%2Fpyip%3DProxyIP.SG.CMLiussss.net&security=none#
+vless://b1f58d90-e65f-4566-91f3-1b96e9a68612@speedtest.net:80/?path=/@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--@Digiv2ray--%3Fed%3D2048&security=none&encryption=none&host=JoiIInNn--DIgiv2Ray.Ir.&type=ws#👉🆔@v2ray_configs_pool
+vless://55445977-b31b-4142-83e0-e54b80c14059@104.16.1.106:2082/?path=/&security=none&encryption=none&host=mrdnzdtnbkwbdfsqoncu.yaSharTeam.com.&type=ws#
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@63.141.128.30:8880/?encryption=none&security=none&type=ws&host=vms.lifetime42.workers.dev&path=%2F#
+vless://fe7fa45f-4c54-4d93-bf00-609648d8b786@172.66.40.99:8080/?security=&type=ws&path=/@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy----@Shh_Proxy&host=inFo.laLezaRanegomaNandish.onlineshopbb.org.&encryption=none#
+vless://5d3a7e3d-6f9f-4b8d-bb4c-5120925c3c16@172.66.40.99:80/?path=%2FJoin-ZEDMODEON-ZEDMODEON-ZEDMODEON-bia-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON&security=&encryption=none&host=g.zedmodeon.ip-ddns.com&type=ws#
+vless://2ff7eec6-da48-46ab-b770-5c83400a528c@104.17.170.132:8880/?security=none&type=ws&path=/pyip=ProxyIP.KR.CMLiussss.net&host=icy-glade-ad0f.412.workers.dev&packetEncoding=xudp#
+vless://559539cc-68e8-413d-bcf8-621ac2f12cc7@104.17.125.185:2052/?encryption=none&security=none&sni=007.hebav63406.workers.dev&fp=randomized&type=ws&host=007.hebav63406.workers.dev&path=%2F%3Fed%3D2048#007-clone17
+vless://e9979910-79d1-4621-a93c-b2a579c44ba7@104.16.69.162:8880/?path=&security=&encryption=none&host=vngsupply.ip-ddns.com&type=ws#
+vless://f0d584bc-342f-4443-ba24-79e4d0e504b1@104.19.209.229:8880/?path=%2FTelegram%40Linkvws%3Fed%3D2560&security=none&encryption=none&host=late-tooth.granzinhannah.workers.dev&type=ws#WiFi-%40V2ray_Alpha-11
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@192.200.160.50:8880/?encryption=none&security=none&type=ws&host=vms.lifetime43.workers.dev&path=%2F%3Fed%3D2560%26https%3A%2F%2Ft.me%2FWangCai2🇨🇳#美国%28yudou789.top 玉豆免费节点%29
+vless://c009b9eb-1cd9-4df8-92d2-4aafe17ac136@151.101.3.8:80/?path=/Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray-Telegram-ipV2Ray%3Fed%3D2048&security=none&encryption=none&host=barkatc2.ir&type=ws#
+vless://1737df47-a4b2-4096-9fc3-1d869aa50c08@104.21.64.1:8080/?security=none&encryption=none&type=ws&host=cxrolvpn.freev2-edb.workers.dev&path=/AKzyeMv5F4RdKNLT%26ed%3D2560
+vless://9617c7cd-133b-4ed0-be84-fc7493223f8c@172.64.145.113:8880/?security=none&type=ws&host=falcunargo.3157c93401.workers.dev&path=%2F%3Fed%3D2048#
+vless://c6c5ad2f-b4d5-450f-862f-341cebb7f9b5@172.67.152.71:8880/?encryption=none&host=empty-rain-1df4.332-633.workers.dev&path=%2Fpyip%3DProxyIP.KR.CMLiussss.net&security=none&type=ws#
+vless://fab7bf9c-ddb9-4563-8a04-fb01ce6c0fbf@190.93.247.63:8880/?encryption=none&security=none&sni=jp.laoyoutiao.link&type=ws&host=jp.laoyoutiao.link&path=%2FTelegram🇨🇳#🔒 VL-WS-NA 🏴‍☠️ NA-190.93.247.63%3A8880
+vless://53fa8faf-ba4b-4322-9c69-a3e5b1555049@104.17.147.22:80/?path=%2FTelegram%40V2ray_Alpha%2F%3Fed%3D2560&security=&encryption=none&host=redfree8mahsang6.redfree8.ir&type=ws#
+vless://1a0cefad-99be-486a-a062-2ceee14849fa@104.17.121.70:80/?encryption=none&security=none&type=ws&host=zeus-panel-n4i8us.zeus-ri73nu.workers.dev&path=/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh#https:%2F%2Ft.me%2FForceRunVPN-🇺🇸-Reston-499ms-Cloudflare Inc.
+vless://c18fd69e-92ba-446e-981b-213dbb551593@162.159.140.78:8880/?encryption=none&type=ws&host=billowing-wind-5b29.133-323.workers.dev&path=%2Fpyip%3DProxyIP.KR.CMLiussss.net&security=none#%5BOpenRay%5D 🇨🇦 CA-21879
+vless://64d6d0d4-3706-4837-b154-cda2816adcc5@104.20.43.81:80/?path=%2F&security=none&encryption=none&host=crazy-identity.oneeat.co&type=ws#
+vless://222b77d7-6480-4d9f-a9cb-ac9f1bc47783@172.66.40.99:80/?path=%2FJoin-ZEDMODEON-ZEDMODEON-ZEDMODEON-bia-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON-ZEDMODEON&security=&encryption=none&host=e.zedmodeon.ip-ddns.com&type=ws#
+vless://cee8c30c-fb13-4a89-abb4-5a32cf716c97@velorium.store:8080/?mode=auto&path=/api&security=none&encryption=none&extra={
+vless://89b3cbba-e6ac-485a-9481-976a0415eab9@45.131.209.44:80/?path=Telegram:@V2ray_Alpha/?ed=2560&security=none&encryption=none&host=uuhUHYygEsdFGH.UYHJHGvgFcjGUJhbUIlbVFDxDxM.xyz&type=ws#%5BOpenRay%5D 🇧🇿 BZ-2
+vless://f0d584bc-342f-4443-ba24-79e4d0e504b1@199.34.228.187:80/?security=none&type=ws&host=late-tooth.granzinhannah.workers.dev&path=%2FProxyIP%3DProxyIP.US.fxxk.dedyn.io#
+vless://6caab115-c88f-4e8b-bdab-d66865b681c8@172.67.196.16:8080/?security=none&type=ws&path=%2F&host=zeus-panel-6bt45h.ftgwyie7w8321.workers.dev&sni=zeus-panel-6bt45h.ftgwyie7w8321.workers.dev#
+vless://73ae7d45-1046-4cc5-9741-199375b620f1@104.16.106.213:8880/?&security=false&fp=chrome&type=ws&headerType=none&host=round-resonance-a84c.13-531.workers.dev&path=%2Fpyip%3DProxyIP.SG.CMLiussss.net#%5BOpenRay%5D 🇨🇦 CA-19747
+vless://d6ab62fc-7ec8-4bb3-a9af-269289c0f11f@172.66.40.99:8080/?encryption=none&security=none&type=ws&host=www.speedtest.net.tax.gov.ir.aparat.com.a.3.jEy.dPdNs.org.&path=/Telegram@vpnjeyTelegram@vpnjeyTelegram@vpnjey#
+vless://94916e61-b3bf-4b46-ae11-c987d2f186dc@104.21.59.18:80/?security=none&type=ws&host=join-midas-x-x---join-midas-x-x--join-midas-x-x--join-midas-x-x.join-midas-x-x-a14.workers.dev&path=%2F%3Fed%3D2048#
+vless://270ee1c7-96df-473a-a50f-1a4cf5641bdc@172.67.190.227:80/?path=%2FIn_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh&security=none&encryption=none&host=zeus-panel-0vxens.basfryfayrbasfryfayr.workers.dev&type=ws#Join+Telegram:@Farah_VPN
+vless://6194f73e-67de-445a-b83c-c963e42d5592@speedtest.net:80/?path=%2F&security=none&encryption=none&host=pinghub.global.ssl.fastly.net&type=ws#
+vless://dfa2c9c6-2580-4f30-a1ba-8128df1f0073@172.67.204.84:2052/?security=&type=ws&path=@iCloudYshop+@iCloudYshop+@iCloudYshop+@iCloudYshop+@iCloudYshop+@iCloudYshop+@iCloudYshop+@iCloudYshop&host=nl44.vlessx.us&encryption=none#4Jadi-10672
+vless://90b3cbba-e6ac-485a-9481-976a0415eab9@104.21.92.188:80/?security=none&type=ws&host=wAnDERiNg-fIREflY-5eb4.YibAVe7525.woRkerS.deV&path=%2Faldttk7KT8DEcEQe%3Fed%3D2560#
+vless://fab7bf9c-ddb9-4563-8a04-fb01ce6c0fbf@45.192.224.213:8880/?encryption=none&security=none&type=ws&host=jp.laoyoutiao.link&path=%2F#🔒 VL-WS-NA 🇭🇰 HK-45.192.224.213%3A8880
+vless://aa7ddd23-7b01-48ba-9bf3-ad951342cea2@185.146.173.58:8080/?encryption=none&host=lc6.lebasnoo.ir.&path=%2Fservernett&security=none&type=ws#
+vless://2036e2c3-18a5-4eed-9db4-f91a7f02c7d5@104.21.96.1:80/?security=&type=ws&path=/193.123.81.105=443&host=zoomgov.vipren.biz.id&encryption=none#
+vless://6202b230-417c-4d8e-b624-0f71afa9c75d@45.131.4.30:8880/?security=none&type=ws&path=/&host=vms.lifetime59.workers.dev&encryption=none#
+vless://d342d11e-d424-4583-b36e-524ab1f0afa4@172.67.73.163:80/?security=&type=ws&path=/%26ed%3D2560%26host%3Da.xn--i-sx6a60i.us.kg.%26encryption%3Dnone%23
+vless://2036e2c3-18a5-4eed-9db4-f91a7f02c7d5@45.131.7.0:80/?path=%2F193.123.81.105%3D443&security=none&encryption=none&host=zoomgov.vipren.biz.id&type=ws#
